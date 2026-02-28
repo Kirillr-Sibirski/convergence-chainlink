@@ -6,6 +6,7 @@ import {
 	encodeCallMsg,
 	getNetwork,
 	hexToBase64,
+	keccak256,
 	LAST_FINALIZED_BLOCK_NUMBER,
 	median,
 	Runner,
@@ -14,6 +15,8 @@ import {
 } from '@chainlink/cre-sdk'
 import { type Address, decodeFunctionResult, encodeFunctionData, zeroAddress } from 'viem'
 import { z } from 'zod'
+import { AletheiaOracleABI } from './contracts/abi'
+import { evaluateBTCPriceAbove } from './sources/price-feeds'
 
 // Configuration schema
 const configSchema = z.object({
@@ -58,11 +61,41 @@ const fetchPendingMarkets = (runtime: Runtime<Config>): Market[] => {
 
 	const evmClient = new cre.capabilities.EVMClient(network.chainSelector.selector)
 
-	// TODO: Encode call to getPendingMarkets() on AletheiaOracle.sol
-	// For now, return empty array - will implement after smart contract is ready
 	runtime.log('Checking for pending markets...')
 
-	return []
+	// Encode call to getPendingMarkets()
+	const callData = encodeFunctionData({
+		abi: AletheiaOracleABI,
+		functionName: 'getPendingMarkets',
+	})
+
+	// Call contract via EVMClient
+	const contractCall = evmClient
+		.callContract(runtime, {
+			call: encodeCallMsg({
+				from: zeroAddress,
+				to: runtime.config.oracleAddress as Address,
+				data: callData,
+			}),
+			blockNumber: LAST_FINALIZED_BLOCK_NUMBER,
+		})
+		.result()
+
+	// Decode result
+	const markets = decodeFunctionResult({
+		abi: AletheiaOracleABI,
+		functionName: 'getPendingMarkets',
+		data: bytesToHex(contractCall.data),
+	})
+
+	runtime.log(`Found ${markets.length} pending market(s)`)
+
+	return markets.map((m) => ({
+		id: m.id,
+		question: m.question,
+		deadline: m.deadline,
+		resolved: m.resolved,
+	}))
 }
 
 /**
@@ -142,27 +175,34 @@ const fetchMultiSourceData = (
 	runtime: Runtime<Config>,
 	sources: string[],
 	question: string,
+	category: string,
 ): ResolutionResult => {
 	runtime.log(`Fetching from ${sources.length} sources...`)
 
-	const httpClient = new cre.capabilities.HTTPClient()
+	// For price category, use the price-feeds implementation
+	if (category === 'price') {
+		// Extract threshold from question (e.g., "Will BTC close above $60,000...")
+		const match = question.match(/\$?([\d,]+)/)
+		const threshold = match ? parseFloat(match[1].replace(/,/g, '')) : 60000
 
-	// TODO: Implement actual multi-source fetching with consensus
-	// For now, return mock result
-	const mockResult: ResolutionResult = {
-		outcome: false,
-		confidence: 85,
-		sources: sources.slice(0, 5),
-		evidence: [
-			'Source 1: Confirmed FALSE',
-			'Source 2: Confirmed FALSE',
-			'Source 3: Confirmed FALSE',
-			'Source 4: Confirmed FALSE',
-			'Source 5: Confirmed FALSE',
-		],
+		const result = evaluateBTCPriceAbove(runtime, threshold)
+
+		return {
+			outcome: result.outcome,
+			confidence: result.confidence,
+			sources: result.evidence.map((e) => e.split(':')[0]),
+			evidence: result.evidence,
+		}
 	}
 
-	return mockResult
+	// For other categories, return mock data (not implemented for demo)
+	runtime.log('Warning: Only price oracle implemented for demo')
+	return {
+		outcome: false,
+		confidence: 0,
+		sources: [],
+		evidence: ['Not implemented'],
+	}
 }
 
 /**
@@ -206,11 +246,52 @@ const writeResolution = (
 		`Writing resolution for market ${marketId}: outcome=${result.outcome}, confidence=${result.confidence}`,
 	)
 
-	// TODO: Encode call to resolveMarket(marketId, outcome, confidence, proofHash)
-	// For now, log the action
-	runtime.log(`Resolution would be written on-chain for market ${marketId}`)
+	// Generate proof hash from evidence
+	const proofString = JSON.stringify({
+		outcome: result.outcome,
+		confidence: result.confidence,
+		sources: result.sources,
+		evidence: result.evidence,
+		timestamp: Date.now(),
+	})
+	const proofHash = keccak256(Buffer.from(proofString, 'utf-8'))
 
-	return 'tx-hash-placeholder'
+	// Encode call to resolveMarket(marketId, outcome, confidence, proofHash)
+	const callData = encodeFunctionData({
+		abi: AletheiaOracleABI,
+		functionName: 'resolveMarket',
+		args: [marketId, result.outcome, result.confidence, proofHash],
+	})
+
+	// Generate DON report
+	const reportResponse = runtime
+		.report({
+			encodedPayload: hexToBase64(callData),
+			encoderName: 'evm',
+			signingAlgo: 'ecdsa',
+			hashingAlgo: 'keccak256',
+		})
+		.result()
+
+	// Write to contract
+	const resp = evmClient
+		.writeReport(runtime, {
+			receiver: runtime.config.oracleAddress,
+			report: reportResponse,
+			gasConfig: {
+				gasLimit: runtime.config.gasLimit,
+			},
+		})
+		.result()
+
+	if (resp.txStatus !== TxStatus.SUCCESS) {
+		throw new Error(`Failed to write report: ${resp.errorMessage || resp.txStatus}`)
+	}
+
+	const txHash = bytesToHex(resp.txHash || new Uint8Array(32))
+	runtime.log(`✅ Write report transaction succeeded at txHash: ${txHash}`)
+
+	return txHash
 }
 
 /**
@@ -245,7 +326,7 @@ const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): string =
 			runtime.log(`Strategy: ${strategy.category}, sources: ${strategy.sources.length}`)
 
 			// 4. Fetch from multiple sources with consensus
-			const result = fetchMultiSourceData(runtime, strategy.sources, market.question)
+			const result = fetchMultiSourceData(runtime, strategy.sources, market.question, strategy.category)
 
 			// 5. Validate result (4/5 consensus)
 			if (!validateResult(runtime, result)) {

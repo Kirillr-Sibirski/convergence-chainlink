@@ -1,0 +1,148 @@
+// AletheiaOracle.sol ABI
+export const AletheiaOracleABI = [
+	{
+		type: 'constructor',
+		inputs: [],
+		stateMutability: 'nonpayable',
+	},
+	{
+		type: 'function',
+		name: 'createMarket',
+		inputs: [
+			{ name: 'question', type: 'string', internalType: 'string' },
+			{ name: 'deadline', type: 'uint256', internalType: 'uint256' },
+		],
+		outputs: [{ name: 'marketId', type: 'uint256', internalType: 'uint256' }],
+		stateMutability: 'nonpayable',
+	},
+	{
+		type: 'function',
+		name: 'getPendingMarkets',
+		inputs: [],
+		outputs: [
+			{
+				name: 'pendingMarkets',
+				type: 'tuple[]',
+				internalType: 'struct AletheiaOracle.Market[]',
+				components: [
+					{ name: 'id', type: 'uint256', internalType: 'uint256' },
+					{ name: 'question', type: 'string', internalType: 'string' },
+					{ name: 'deadline', type: 'uint256', internalType: 'uint256' },
+					{ name: 'resolved', type: 'bool', internalType: 'bool' },
+					{ name: 'outcome', type: 'bool', internalType: 'bool' },
+					{ name: 'confidence', type: 'uint8', internalType: 'uint8' },
+					{ name: 'proofHash', type: 'bytes32', internalType: 'bytes32' },
+					{ name: 'createdAt', type: 'uint256', internalType: 'uint256' },
+				],
+			},
+		],
+		stateMutability: 'view',
+	},
+	{
+		type: 'function',
+		name: 'resolveMarket',
+		inputs: [
+			{ name: 'marketId', type: 'uint256', internalType: 'uint256' },
+			{ name: 'outcome', type: 'bool', internalType: 'bool' },
+			{ name: 'confidence', type: 'uint8', internalType: 'uint8' },
+			{ name: 'proofHash', type: 'bytes32', internalType: 'bytes32' },
+		],
+		outputs: [],
+		stateMutability: 'nonpayable',
+	},
+	{
+		type: 'function',
+		name: 'getResolution',
+		inputs: [{ name: 'marketId', type: 'uint256', internalType: 'uint256' }],
+		outputs: [
+			{ name: 'resolved', type: 'bool', internalType: 'bool' },
+			{ name: 'outcome', type: 'bool', internalType: 'bool' },
+			{ name: 'confidence', type: 'uint8', internalType: 'uint8' },
+			{ name: 'proofHash', type: 'bytes32', internalType: 'bytes32' },
+		],
+		stateMutability: 'view',
+	},
+	{
+		type: 'function',
+		name: 'getMarket',
+		inputs: [{ name: 'marketId', type: 'uint256', internalType: 'uint256' }],
+		outputs: [
+			{
+				name: 'market',
+				type: 'tuple',
+				internalType: 'struct AletheiaOracle.Market',
+				components: [
+					{ name: 'id', type: 'uint256', internalType: 'uint256' },
+					{ name: 'question', type: 'string', internalType: 'string' },
+					{ name: 'deadline', type: 'uint256', internalType: 'uint256' },
+					{ name: 'resolved', type: 'bool', internalType: 'bool' },
+					{ name: 'outcome', type: 'bool', internalType: 'bool' },
+					{ name: 'confidence', type: 'uint8', internalType: 'uint8' },
+					{ name: 'proofHash', type: 'bytes32', internalType: 'bytes32' },
+					{ name: 'createdAt', type: 'uint256', internalType: 'uint256' },
+				],
+			},
+		],
+		stateMutability: 'view',
+	},
+	{
+		type: 'function',
+		name: 'getMarketCount',
+		inputs: [],
+		outputs: [{ name: 'count', type: 'uint256', internalType: 'uint256' }],
+		stateMutability: 'view',
+	},
+	{
+		type: 'function',
+		name: 'setWorkflowAddress',
+		inputs: [{ name: '_creWorkflowAddress', type: 'address', internalType: 'address' }],
+		outputs: [],
+		stateMutability: 'nonpayable',
+	},
+	{
+		type: 'function',
+		name: 'creWorkflowAddress',
+		inputs: [],
+		outputs: [{ name: '', type: 'address', internalType: 'address' }],
+		stateMutability: 'view',
+	},
+	{
+		type: 'function',
+		name: 'owner',
+		inputs: [],
+		outputs: [{ name: '', type: 'address', internalType: 'address' }],
+		stateMutability: 'view',
+	},
+	{
+		type: 'event',
+		name: 'MarketCreated',
+		inputs: [
+			{ name: 'marketId', type: 'uint256', indexed: true, internalType: 'uint256' },
+			{ name: 'question', type: 'string', indexed: false, internalType: 'string' },
+			{ name: 'deadline', type: 'uint256', indexed: false, internalType: 'uint256' },
+			{ name: 'createdAt', type: 'uint256', indexed: false, internalType: 'uint256' },
+		],
+		anonymous: false,
+	},
+	{
+		type: 'event',
+		name: 'MarketResolved',
+		inputs: [
+			{ name: 'marketId', type: 'uint256', indexed: true, internalType: 'uint256' },
+			{ name: 'outcome', type: 'bool', indexed: false, internalType: 'bool' },
+			{ name: 'confidence', type: 'uint8', indexed: false, internalType: 'uint8' },
+			{ name: 'proofHash', type: 'bytes32', indexed: false, internalType: 'bytes32' },
+			{ name: 'resolvedAt', type: 'uint256', indexed: false, internalType: 'uint256' },
+		],
+		anonymous: false,
+	},
+	{
+		type: 'event',
+		name: 'WorkflowAddressUpdated',
+		inputs: [
+			{ name: 'oldAddress', type: 'address', indexed: true, internalType: 'address' },
+			{ name: 'newAddress', type: 'address', indexed: true, internalType: 'address' },
+		],
+		anonymous: false,
+	},
+] as const

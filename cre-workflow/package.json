@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "simulate": "cre workflow simulate . --non-interactive --trigger-index 0 -T staging-settings",
-    "build": "tsc --noEmit"
+    "build": "tsc --noEmit",
+    "install-deps": "npm install"
   },
   "dependencies": {
     "@chainlink/cre-sdk": "latest",
