@@ -1,10 +1,10 @@
-# VeriChain: Autonomous Multi-Source Prediction Market Oracle
+# Aletheia: Autonomous Multi-Source Prediction Market Oracle
 
 **The only oracle that shows its work**
 
-## 🎯 What is VeriChain?
+## 🎯 What is Aletheia?
 
-VeriChain is an **autonomous oracle** for prediction markets powered by Chainlink Runtime Environment (CRE). Unlike single-source oracles (UMA's human voting, single AI models), VeriChain:
+Aletheia is an **autonomous oracle** for prediction markets powered by Chainlink Runtime Environment (CRE). Unlike single-source oracles (UMA's human voting, single AI models), Aletheia:
 
 ✅ **Multi-Source Verification** - Fetches from 5+ independent data sources
 ✅ **Byzantine Fault Tolerant Consensus** - 7 DON nodes must agree on result
@@ -22,7 +22,7 @@ VeriChain is an **autonomous oracle** for prediction markets powered by Chainlin
 - Human voting oracles are slow and vulnerable to collusion
 
 ### **Solution:**
-VeriChain doesn't ask AI for answers. **It asks AI how to find the truth, then proves it.**
+Aletheia doesn't ask AI for answers. **It asks AI how to find the truth, then proves it.**
 
 **How it works:**
 1. AI Agent determines **what sources to check** and **how to validate**
@@ -50,7 +50,7 @@ VeriChain doesn't ask AI for answers. **It asks AI how to find the truth, then p
 └─────────────────────────────────────────┘
                   ↓
 ┌─────────────────────────────────────────┐
-│     VeriChainOracle.sol (On-Chain)      │
+│     AletheiaOracle.sol (On-Chain)      │
 │   - Stores market questions + deadlines │
 │   - Receives resolutions from CRE       │
 │   - Provides verified results           │
@@ -70,7 +70,7 @@ VeriChain doesn't ask AI for answers. **It asks AI how to find the truth, then p
 
 **Key Difference from Bootcamp/Other Oracles:**
 - **Bootcamp**: Ask Gemini AI → Get answer → Done (black box)
-- **VeriChain**: AI plans verification → Fetch 5 sources → Validate → Prove
+- **Aletheia**: AI plans verification → Fetch 5 sources → Validate → Prove
 
 ---
 
@@ -80,7 +80,7 @@ VeriChain doesn't ask AI for answers. **It asks AI how to find the truth, then p
 ```
 Question: "Will BTC close above $60,000 on March 1, 2026?"
 
-VeriChain:
+Aletheia:
 → Fetches from: CoinGecko, Binance, Coinbase, Kraken, Gemini
 → Gets prices: $58,342, $58,335, $58,352, $58,330, $58,344
 → Consensus median: $58,342
@@ -92,7 +92,7 @@ VeriChain:
 ```
 Question: "Will Trump tweet about immigration by March 1?"
 
-VeriChain:
+Aletheia:
 → Fetches from: Twitter API, Archive.org, Nitter, Truth Social, News API
 → Validates: 4/5 sources confirm tweet
 → Result: TRUE
@@ -103,7 +103,7 @@ VeriChain:
 ```
 Question: "Will Uniswap V4 deploy on Base AND announce on blog by March 5?"
 
-VeriChain:
+Aletheia:
 → On-chain: BaseScan contract verification
 → Off-chain: Uniswap blog RSS, Twitter, GitHub releases
 → Validates: BOTH conditions met
@@ -146,7 +146,7 @@ That's it! Fully autonomous oracle.
 
 ## 🆚 Comparison
 
-| Feature | UMA Oracle | Single AI (Gemini) | VeriChain |
+| Feature | UMA Oracle | Single AI (Gemini) | Aletheia |
 |---------|-----------|-------------------|-----------|
 | **Resolution Method** | Human voting | AI black box | Multi-source + AI orchestrator |
 | **Resolution Time** | 2 hours + disputes | Instant | 2-5 minutes |
@@ -175,7 +175,7 @@ That's it! Fully autonomous oracle.
 ```
 convergence-chainlink/
 ├── contracts/                 # Smart contracts
-│   ├── VeriChainOracle.sol   # Core oracle contract
+│   ├── AletheiaOracle.sol   # Core oracle contract
 │   └── DemoPredictionMarket.sol  # Example integration
 ├── cre-workflow/              # CRE workflow
 │   ├── main.ts               # Main resolution logic
