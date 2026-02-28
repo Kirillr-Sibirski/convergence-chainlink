@@ -183,15 +183,29 @@ Aletheia is an oracle that automatically resolves prediction market questions by
 
 ---
 
-## Future: Multi-Agent Verification
+## Universal Question Resolver
 
-**The vision:** Handle ANY question by spawning specialized agents.
+**Aletheia can answer ANY verifiable question** - not just prices!
 
-**Current implementation (v1):**
-- Handles **PRICE** questions (BTC, ETH, stocks, etc.)
-- AI selects 5 API sources → CRE fetches → consensus
+**Supported Categories (v1 - implemented):**
 
-**Future implementation (v2 - Multi-Agent):**
+| Category | Example Question | Sources | Status |
+|----------|------------------|---------|---------|
+| **PRICE** | "Will BTC > $60k?" | 5 crypto exchanges | ✅ Live |
+| **WEATHER** | "Will it rain in Tokyo?" | 5 weather APIs | ✅ Live |
+| **SOCIAL** | "Did Elon tweet about Dogecoin?" | Twitter, Archive.org, Nitter, News, Scraper | ✅ Live |
+| **NEWS** | "Will SpaceX launch Starship?" | Reuters, AP, Bloomberg, NewsAPI, Google | ✅ Live |
+| **ONCHAIN** | "Was Uniswap V4 deployed?" | 5 blockchain providers | ✅ Live |
+| **GENERAL** | "Who won the 2024 election?" | 5 search engines | ✅ Live |
+
+**How it works:**
+1. AI analyzes question → determines category automatically
+2. AI selects 5 independent sources for that category
+3. CRE fetches from all 5 in parallel (DON consensus)
+4. CRE validates (4/5 must agree, Byzantine Fault Tolerant)
+5. CRE writes resolution on-chain with proof
+
+**Future (v2 - Multi-Agent):**
 
 For complex questions that can't be answered by simple APIs, spawn 5 independent agents:
 
