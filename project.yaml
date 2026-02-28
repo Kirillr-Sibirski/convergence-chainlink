@@ -1,0 +1,21 @@
+creVersion: 1.0.0
+name: aletheia-oracle
+description: Multi-source prediction market oracle with autonomous CRON resolution
+language: typescript
+entrypoint: cre-workflow/main.ts
+
+networks:
+  - ethereum-testnet-sepolia
+
+capabilities:
+  - http
+  - evm
+  - consensus
+
+triggers:
+  - type: cron
+    schedule: "*/5 * * * *"
+    description: "Check for pending markets every 5 minutes"
+
+config:
+  file: cre-workflow/config.json
