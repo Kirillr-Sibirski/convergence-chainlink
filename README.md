@@ -12,15 +12,23 @@ Built with [Chainlink Runtime Environment (CRE)](https://docs.chain.link/cre) fo
 
 Aletheia is an oracle that automatically resolves prediction market questions by fetching data from multiple independent sources and reaching consensus.
 
+**We don't blindly trust AI.** Instead, AI determines *which sources* to check, then CRE verifies the answer through multi-source consensus.
+
 **Simple example:**
 
 1. Someone creates a market: *"Will Bitcoin close above $60,000 on March 1st?"*
 2. After March 1st passes, Aletheia automatically:
-   - Fetches BTC price from 5 exchanges (CoinGecko, Binance, Coinbase, Kraken, CoinCap)
-   - Calculates median: $95,234
-   - All sources agree within 0.01% → Confidence: 95%
-   - Writes result on-chain: `TRUE (95% confidence)`
+   - **AI analyzes question** → determines this is a "price" question → selects 5 crypto exchanges as sources
+   - **CRE fetches** from those 5 sources (CoinGecko, Binance, Coinbase, Kraken, CoinCap)
+   - **CRE calculates consensus**: median = $95,234, all sources agree within 0.01%
+   - **CRE validates**: 4/5 sources agree → Confidence: 95%
+   - **CRE writes on-chain**: `TRUE (95% confidence)` with cryptographic proof
 3. Prediction market uses this to pay out winners
+
+**The question can be ANYTHING verifiable on the internet:**
+- *"Will it rain in Tokyo on March 5th?"* → Check 5 weather APIs
+- *"Did Elon Musk tweet about Dogecoin today?"* → Check Twitter API, Archive.org, Nitter, news APIs
+- *"How many times will Trump say 'peace' during the UN speech?"* → Spawn 5 agents to watch video, count independently, consensus on count
 
 **No human intervention needed.** Runs every 5 minutes via CRON trigger.
 
@@ -46,6 +54,21 @@ Aletheia is an oracle that automatically resolves prediction market questions by
 
 ## How it works
 
+### The Role of AI vs CRE
+
+**AI's job:** Determine *how* to verify the question (not provide the answer)
+- Analyzes the question: "Will BTC > $60k?"
+- Determines strategy: This is a **price** question
+- Selects sources: CoinGecko, Binance, Coinbase, Kraken, CoinCap
+- **AI never provides the answer directly**
+
+**CRE's job:** Actually fetch data, reach consensus, write on-chain
+- **CRON trigger**: Runs every 5 minutes autonomously
+- **HTTP capability**: Fetches from all 5 sources in parallel
+- **Consensus**: 7 Chainlink DON nodes independently calculate median
+- **Validation**: Ensures 4/5 sources agree (Byzantine Fault Tolerant)
+- **EVM capability**: Writes resolution on-chain with cryptographic proof
+
 ### Architecture
 
 ```
@@ -68,15 +91,35 @@ Aletheia is an oracle that automatically resolves prediction market questions by
 │ (Off-Chain)         │  Runs in secure DON nodes
 └─────────────────────┘
     │
-    ├─ 1. AI analyzes question → determines strategy (price/social/onchain)
-    ├─ 2. HTTP fetches from 5+ sources (e.g., CoinGecko, Binance, Coinbase...)
-    ├─ 3. Calculate consensus: median, spread, confidence
-    ├─ 4. Generate proof hash (keccak256 of evidence JSON)
-    └─ 5. Write on-chain: resolveMarket(id, outcome, confidence, proof)
+    ├─ 1. AI analyzes question → determines strategy (price/social/onchain/multi-agent)
+    │      "Will BTC > $60k?" → PRICE strategy → 5 exchange APIs
+    │      "How many times Trump says 'peace'?" → MULTI-AGENT → spawn 5 video analyzers
+    │
+    ├─ 2. CRE HTTP capability fetches from selected sources in parallel
+    │      Uses ConsensusAggregationByFields - all 7 DON nodes fetch independently
+    │
+    ├─ 3. CRE calculates consensus: median, spread, confidence
+    │      Byzantine Fault Tolerant: 4/5 sources must agree
+    │
+    ├─ 4. CRE generates proof hash (keccak256 of evidence JSON)
+    │      Includes: outcome, sources, raw data, timestamps
+    │
+    └─ 5. CRE writes on-chain: resolveMarket(id, outcome, confidence, proof)
            │
-           ├─ Creates DON report (signed by 7 nodes)
-           └─ Submits transaction to AletheiaOracle.sol
+           ├─ runtime.report() - Creates DON report (signed by 7 nodes)
+           └─ evmClient.writeReport() - Submits transaction to AletheiaOracle.sol
 ```
+
+### CRE Capabilities Used
+
+| Capability | Usage in Aletheia | Code Location |
+|------------|-------------------|---------------|
+| **CronCapability** | Triggers workflow every 5 minutes | `main.ts:348` - `cronTrigger.trigger()` |
+| **HTTPClient** | Fetches from multiple APIs in parallel | `price-feeds.ts:148` - `httpClient.sendRequest()` |
+| **EVMClient** | Reads pending markets from contract | `main.ts:59` - `evmClient.callContract()` |
+| **EVMClient** | Writes resolutions on-chain | `main.ts:277` - `evmClient.writeReport()` |
+| **ConsensusAggregationByFields** | DON consensus on fetched data | `price-feeds.ts` - median calculation |
+| **runtime.report()** | Generates cryptographic DON report | `main.ts:267` - Creates signed report |
 
 ### Data Flow
 
@@ -88,28 +131,32 @@ Aletheia is an oracle that automatically resolves prediction market questions by
    → Found market #1 past deadline (not resolved)
    ```
 
-2. **AI Question Parser**
+2. **AI Question Parser** (Determines verification strategy, not the answer)
    ```
    Question: "Will BTC close above $60,000?"
-   → Pattern: contains "BTC", "$", price threshold
-   → Strategy: PRICE oracle
-   → Sources: 5 crypto exchanges
+   → AI Pattern matching: contains "BTC", "$", price threshold
+   → AI Decision: Use PRICE strategy
+   → AI Selects sources: 5 crypto exchanges (CoinGecko, Binance, Coinbase, Kraken, CoinCap)
+   → AI does NOT provide price or answer
    ```
 
-3. **Multi-Source HTTP Fetch**
+3. **CRE Multi-Source HTTP Fetch** (7 DON nodes fetch independently)
    ```
-   → CoinGecko API: $95,234.56
-   → Binance API:   $95,231.12
-   → Coinbase API:  $95,240.23
-   → Kraken API:    $95,228.45
-   → CoinCap API:   $95,235.67
+   → CRE HTTPClient fetches from all 5 sources in parallel:
+      CoinGecko API: $95,234.56
+      Binance API:   $95,231.12
+      Coinbase API:  $95,240.23
+      Kraken API:    $95,228.45
+      CoinCap API:   $95,235.67
+   → All 7 DON nodes perform same fetches independently
    ```
 
-4. **Consensus Calculation**
+4. **CRE Consensus Calculation** (Byzantine Fault Tolerant)
    ```
-   → Median: $95,234.56
-   → Spread: (max - min) / median = 0.01%
-   → Confidence: 95% (all sources agree within 1%)
+   → CRE calculates median across DON nodes: $95,234.56
+   → CRE calculates spread: (max - min) / median = 0.01%
+   → CRE determines confidence: 95% (all sources agree within 1%)
+   → Consensus reached: 7/7 DON nodes agree on median
    ```
 
 5. **Validation**
@@ -133,6 +180,77 @@ Aletheia is an oracle that automatically resolves prediction market questions by
    → Returns: (resolved=true, outcome=TRUE, confidence=95%)
    → Pays out winners automatically
    ```
+
+---
+
+## Future: Multi-Agent Verification
+
+**The vision:** Handle ANY question by spawning specialized agents.
+
+**Current implementation (v1):**
+- Handles **PRICE** questions (BTC, ETH, stocks, etc.)
+- AI selects 5 API sources → CRE fetches → consensus
+
+**Future implementation (v2 - Multi-Agent):**
+
+For complex questions that can't be answered by simple APIs, spawn 5 independent agents:
+
+**Example 1: Video Analysis**
+```
+Question: "How many times will Trump say 'peace' during the UN speech?"
+
+AI Strategy: MULTI-AGENT (video analysis required)
+→ Spawn 5 independent agents:
+   Agent 1: Downloads video → transcribes → counts "peace" → 47
+   Agent 2: Downloads video → transcribes → counts "peace" → 48
+   Agent 3: Downloads video → transcribes → counts "peace" → 47
+   Agent 4: Downloads video → transcribes → counts "peace" → 47
+   Agent 5: Downloads video → transcribes → counts "peace" → 46
+
+→ CRE Consensus: median = 47, confidence = 85% (4/5 agree on 47±1)
+→ Result: 47 times
+```
+
+**Example 2: Social Sentiment**
+```
+Question: "Will public sentiment on Twitter about $DOGE be positive on March 5th?"
+
+AI Strategy: MULTI-AGENT (sentiment analysis)
+→ Spawn 5 agents with different approaches:
+   Agent 1: Scrapes Twitter → analyzes 10,000 tweets → 62% positive
+   Agent 2: Uses Twitter API → sentiment ML model → 65% positive
+   Agent 3: Checks trending topics + replies → 60% positive
+   Agent 4: Analyzes influencer tweets → weighted sentiment → 63% positive
+   Agent 5: Historical correlation model → 61% positive
+
+→ CRE Consensus: median = 62%, all within 5% → confidence = 90%
+→ Result: TRUE (>50% positive), 90% confidence
+```
+
+**Example 3: Complex Research**
+```
+Question: "Will SpaceX successfully launch Starship before March 31st?"
+
+AI Strategy: MULTI-AGENT (multi-source verification)
+→ Spawn 5 agents checking different sources:
+   Agent 1: Monitors SpaceX Twitter → official announcement → YES
+   Agent 2: Scrapes SpaceX website → launch schedule → YES
+   Agent 3: Checks FAA filings → launch permit approved → YES
+   Agent 4: News aggregator (Reuters, Bloomberg, etc.) → 3 sources confirm → YES
+   Agent 5: Video analysis of launch pad cams → rocket on pad → YES
+
+→ CRE Consensus: 5/5 agents confirm → confidence = 95%
+→ Result: TRUE, 95% confidence
+```
+
+**Why this is powerful:**
+- ✅ Can answer questions that have no single API
+- ✅ Byzantine Fault Tolerant: agents work independently
+- ✅ Transparent: shows how each agent verified
+- ✅ Flexible: AI chooses agent strategies based on question type
+
+**Implementation:**
+Each agent would be a separate CRE workflow spawned by the main workflow. Current v1 focuses on price oracles as proof-of-concept, but the architecture supports multi-agent expansion.
 
 ---
 
