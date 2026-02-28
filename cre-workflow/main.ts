@@ -17,6 +17,7 @@ import { type Address, decodeFunctionResult, encodeFunctionData, zeroAddress } f
 import { z } from 'zod'
 import { AletheiaOracleABI } from './contracts/abi'
 import { evaluateBTCPriceAbove } from './sources/price-feeds'
+import { resolveUniversalQuestion } from './sources/universal-resolver'
 
 // Configuration schema
 const configSchema = z.object({
@@ -170,6 +171,7 @@ const determineVerificationStrategy = (runtime: Runtime<Config>, question: strin
 /**
  * Fetch data from multiple sources with consensus
  * Uses CRE's HTTP capability with DON consensus
+ * NOW SUPPORTS: price, weather, social, news, onchain, general questions
  */
 const fetchMultiSourceData = (
 	runtime: Runtime<Config>,
@@ -178,30 +180,16 @@ const fetchMultiSourceData = (
 	category: string,
 ): ResolutionResult => {
 	runtime.log(`Fetching from ${sources.length} sources...`)
+	runtime.log(`Question type: ${category}`)
 
-	// For price category, use the price-feeds implementation
-	if (category === 'price') {
-		// Extract threshold from question (e.g., "Will BTC close above $60,000...")
-		const match = question.match(/\$?([\d,]+)/)
-		const threshold = match ? parseFloat(match[1].replace(/,/g, '')) : 60000
+	// Use universal resolver for ANY question type
+	const result = resolveUniversalQuestion(runtime, question)
 
-		const result = evaluateBTCPriceAbove(runtime, threshold)
-
-		return {
-			outcome: result.outcome,
-			confidence: result.confidence,
-			sources: result.evidence.map((e) => e.split(':')[0]),
-			evidence: result.evidence,
-		}
-	}
-
-	// For other categories, return mock data (not implemented for demo)
-	runtime.log('Warning: Only price oracle implemented for demo')
 	return {
-		outcome: false,
-		confidence: 0,
-		sources: [],
-		evidence: ['Not implemented'],
+		outcome: result.outcome,
+		confidence: result.confidence,
+		sources: result.sources,
+		evidence: result.evidence,
 	}
 }
 
