@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Playfair_Display, DM_Sans } from "next/font/google";
 import "./globals.css";
+import { ThirdwebProvider } from "thirdweb/react";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -15,8 +16,8 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "AEEIA - AI-Powered Prediction Markets",
-  description: "Zero hardcoded sources. Universal verification. Powered by Chainlink CRE.",
+  title: "AEEIA - AI-Fetched Sources, CRE-Verified Truth",
+  description: "Prediction markets resolved by processing real evidence, not AI hallucinations. Powered by Chainlink Runtime Environment.",
 };
 
 export default function RootLayout({
@@ -27,7 +28,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${playfair.variable} ${dmSans.variable} antialiased`}>
-        {children}
+        <ThirdwebProvider>
+          {children}
+        </ThirdwebProvider>
       </body>
     </html>
   );

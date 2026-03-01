@@ -9,11 +9,13 @@ import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { Separator } from "@/components/ui/separator";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useMarkets } from "@/hooks/useMarkets";
-import { placeBet } from "@/lib/web3";
+import { placeBet } from "@/lib/web3-thirdweb";
+import { useActiveAccount } from "thirdweb/react";
 
 // MarketCard connected to smart contracts
 export function MarketCard() {
   const { markets, isLoading, error } = useMarkets();
+  const account = useActiveAccount();
   const [side, setSide] = useState<"yes" | "no">("yes");
   const [amount, setAmount] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -26,9 +28,14 @@ export function MarketCard() {
 
     if (!market) return;
 
+    if (!account) {
+      alert("Please connect your wallet first");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const hash = await placeBet(market.id, side === "yes", amount);
+      const hash = await placeBet(account, market.id, side === "yes", amount);
       alert(`✅ Bet placed successfully!\n\nTransaction: ${hash}\n\nYour ${amount} ETH bet on ${side.toUpperCase()} has been submitted to the blockchain.`);
       setAmount("");
     } catch (error: any) {

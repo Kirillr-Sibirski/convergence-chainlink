@@ -57,21 +57,21 @@ export function CreateMarketModal({ onClose, onCreate }: CreateMarketModalProps)
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="question">Question</Label>
+            <Label htmlFor="question">Question (include deadline)</Label>
             <Input
               id="question"
-              placeholder="Will ETH reach $5000 by end of 2026?"
+              placeholder="Will ETH reach $5000 by tomorrow at midnight?"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
               maxLength={200}
             />
             <p className="text-xs text-muted-foreground">
-              Ask a clear YES/NO question that can be verified
+              Include the deadline in your question. Example: "Will BTC hit $100k by next week?"
             </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="hours">Duration (hours)</Label>
+            <Label htmlFor="hours">Trading window (hours)</Label>
             <Input
               id="hours"
               type="number"
@@ -80,7 +80,7 @@ export function CreateMarketModal({ onClose, onCreate }: CreateMarketModalProps)
               onChange={(e) => setHours(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              Market will close in {hours} hours
+              How long users can place bets before oracle resolution begins
             </p>
           </div>
 
@@ -110,12 +110,12 @@ export function CreateMarketModal({ onClose, onCreate }: CreateMarketModalProps)
           </div>
 
           <div className="text-xs text-muted-foreground border-t pt-4">
-            <p className="font-medium mb-1">Oracle-based resolution:</p>
+            <p className="font-medium mb-1">How AEEIA resolves markets:</p>
             <ul className="list-disc list-inside space-y-1">
-              <li>Market created on-chain and registered with AEEIA oracle</li>
-              <li>Users bet YES or NO by staking ETH</li>
-              <li>After deadline, oracle autonomously resolves using AI reasoning</li>
-              <li>Winners claim proportional payouts from losing side</li>
+              <li>Oracle fetches real sources (news, APIs, data feeds)</li>
+              <li>CRE cryptographically verifies all accessed sources</li>
+              <li>AI processes evidence to reach YES/NO conclusion</li>
+              <li>Resolution based on verified facts, not AI opinions</li>
             </ul>
           </div>
         </CardContent>

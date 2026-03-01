@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { fetchMarkets } from "@/lib/web3";
+import { fetchMarkets } from "@/lib/web3-thirdweb";
 
 export interface Market {
   id: number;

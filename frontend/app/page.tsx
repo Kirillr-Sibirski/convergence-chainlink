@@ -10,13 +10,18 @@ import { GradientText, SparkleText } from "@/components/ui/text-shimmer";
 import { CreateMarketModal } from "@/components/trading/CreateMarketModal";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { createMarket } from "@/lib/web3";
+import { createMarket } from "@/lib/web3-thirdweb";
+import { useActiveAccount } from "thirdweb/react";
 
 export default function Home() {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const account = useActiveAccount();
 
   const handleCreateMarket = async (question: string, deadline: number) => {
-    await createMarket(question, deadline);
+    if (!account) {
+      throw new Error("Please connect your wallet first");
+    }
+    await createMarket(account, question, deadline);
     // The market card will automatically refresh and show the new market
   };
 
@@ -28,10 +33,11 @@ export default function Home() {
       <main className="relative z-10 flex flex-col items-center justify-center px-4 pt-12 pb-32 gap-8 min-h-[calc(100vh-65px)]">
         <div className="text-center space-y-3">
           <h1 className="text-4xl font-bold tracking-tight text-gray-900">
-            Autonomous Oracle Resolution
+            AI-Fetched Sources, CRE-Verified Truth
           </h1>
           <p className="text-gray-500 max-w-md mx-auto">
-            Prediction markets settled by AI reasoning.
+            Prediction markets resolved by processing real evidence, not AI hallucinations.
+            Powered by Chainlink Runtime Environment.
           </p>
         </div>
 

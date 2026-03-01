@@ -17,17 +17,18 @@ export function InfoSection() {
       <div className="grid md:grid-cols-2 gap-12 items-start">
         <div className="space-y-6">
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
-            Oracle-First
+            AI-Fetched Sources.
             <br />
-            Market Resolution.
+            CRE-Verified Truth.
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            AEEIA is an autonomous oracle that resolves prediction markets through
-            AI reasoning. No manual data feeds. No trusted intermediaries.
+            AEEIA doesn't blindly trust AI answers. Instead, it fetches real sources,
+            cross-verifies information, and uses AI to process evidence — all verified
+            through Chainlink Runtime Environment.
           </p>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Powered by Chainlink Runtime Environment, the oracle dynamically sources
-            information, cross-verifies facts, and generates cryptographic proofs.
+            Markets resolve based on cryptographic proofs of source verification,
+            not just AI opinions. Questions embed deadlines: "Will ETH reach $5k by tomorrow?"
           </p>
           <div className="flex flex-wrap gap-3">
             <Button variant="outline" asChild>
@@ -68,24 +69,24 @@ export function InfoSection() {
         </h3>
         <div className="grid md:grid-cols-3 gap-6">
           <SpotlightCard className="p-6 space-y-3">
-            <h4 className="font-semibold text-lg">Zero Hardcoded Sources</h4>
+            <h4 className="font-semibold text-lg">AI Fetches Real Sources</h4>
             <p className="text-sm text-muted-foreground">
-              AI dynamically discovers and verifies sources for each query.
-              No manual API configuration required.
+              Instead of trusting AI opinions, the oracle fetches actual data sources,
+              news articles, and APIs to gather evidence.
             </p>
           </SpotlightCard>
           <SpotlightCard className="p-6 space-y-3">
-            <h4 className="font-semibold text-lg">Multi-Source Verification</h4>
+            <h4 className="font-semibold text-lg">CRE Verifies Everything</h4>
             <p className="text-sm text-muted-foreground">
-              Cross-references multiple independent sources to ensure accuracy
-              and generate confidence scores.
+              Chainlink Runtime Environment cryptographically proves which sources were
+              accessed and validates the integrity of fetched data.
             </p>
           </SpotlightCard>
           <SpotlightCard className="p-6 space-y-3">
-            <h4 className="font-semibold text-lg">Transparent Proofs</h4>
+            <h4 className="font-semibold text-lg">AI Processes Evidence</h4>
             <p className="text-sm text-muted-foreground">
-              Every resolution includes cryptographic proof of sources used,
-              making verification fully auditable.
+              AI analyzes verified sources to reach conclusions with confidence scores,
+              not arbitrary answers. Evidence-based, not hallucination-based.
             </p>
           </SpotlightCard>
         </div>
