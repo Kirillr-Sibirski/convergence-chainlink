@@ -6,14 +6,13 @@ import {
 	encodeCallMsg,
 	getNetwork,
 	hexToBase64,
-	keccak256,
 	LAST_FINALIZED_BLOCK_NUMBER,
 	median,
 	Runner,
 	type Runtime,
 	TxStatus,
 } from '@chainlink/cre-sdk'
-import { type Address, decodeFunctionResult, encodeFunctionData, zeroAddress } from 'viem'
+import { type Address, decodeFunctionResult, encodeFunctionData, zeroAddress, keccak256, toBytes, encodeAbiParameters, parseAbiParameters } from 'viem'
 import { z } from 'zod'
 import { AletheiaOracleABI } from './contracts/abi'
 import { evaluateBTCPriceAbove } from './sources/price-feeds'
@@ -245,19 +244,19 @@ const writeResolution = (
 		evidence: result.evidence,
 		timestamp: Date.now(),
 	})
-	const proofHash = keccak256(Buffer.from(proofString, 'utf-8'))
+	const proofHash = keccak256(toBytes(proofString))
 
-	// Encode call to resolveMarket(marketId, outcome, confidence, proofHash)
-	const callData = encodeFunctionData({
-		abi: AletheiaOracleABI,
-		functionName: 'resolveMarket',
-		args: [marketId, result.outcome, result.confidence, proofHash],
-	})
+	// ABI-encode report data for onReport() -> _processReport()
+	// This encodes the parameters that will be passed to _processReport(bytes report)
+	const reportData = encodeAbiParameters(
+		parseAbiParameters('uint256 marketId, bool outcome, uint8 confidence, bytes32 proofHash'),
+		[marketId, result.outcome, result.confidence, proofHash]
+	)
 
-	// Generate DON report
+	// Generate DON report with cryptographic signature
 	const reportResponse = runtime
 		.report({
-			encodedPayload: hexToBase64(callData),
+			encodedPayload: hexToBase64(reportData),
 			encoderName: 'evm',
 			signingAlgo: 'ecdsa',
 			hashingAlgo: 'keccak256',
