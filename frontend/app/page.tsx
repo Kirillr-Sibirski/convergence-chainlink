@@ -15,15 +15,6 @@ const STATS = [
   { label: "Total Volume", value: "$2.4M", highlight: false },
 ];
 
-<<<<<<< HEAD
-  const handleCreateMarket = async (question: string) => {
-    if (!account) {
-      throw new Error("Please connect your wallet first");
-    }
-    const deadline = Math.floor(Date.now() / 1000) + 24 * 3600;
-    await createMarket(account, question, deadline);
-  };
-=======
 const HOW_IT_WORKS = [
   {
     title: "AI Fetches Real Sources",
@@ -41,7 +32,6 @@ const HOW_IT_WORKS = [
       "AI analyzes verified sources to reach conclusions with confidence scores — evidence-based, never hallucination-based.",
   },
 ];
->>>>>>> 87e8e39 (Separate landign page, proper markets page, adjust the UI)
 
 export default function LandingPage() {
   return (
