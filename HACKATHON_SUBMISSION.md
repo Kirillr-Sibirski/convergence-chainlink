@@ -251,11 +251,13 @@ Simulation completed successfully
 - Gas used: 287,432
 ```
 
-**Transaction Hash:** `0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef`
+**Live Test Market Transaction Hash:** `0x159c71b9b8c26d5afbe329c279c9192e3dd1409e0d534b181e8378c5d70e689a`
 
-**Screenshot**: See `SIMULATION_EVIDENCE.md` for detailed multi-AI responses, consensus calculation, and expected on-chain state changes.
+**Etherscan Verification:** [View on Sepolia](https://sepolia.etherscan.io/tx/0x159c71b9b8c26d5afbe329c279c9192e3dd1409e0d534b181e8378c5d70e689a)
 
-> Note: Transaction hash shown is from simulation. Actual testnet deployment will produce real Sepolia transaction hash visible on Etherscan.
+**Screenshot**: See `TESTING_SUMMARY.md` for full test results including market creation, contract verification, and frontend integration tests.
+
+> Note: Simulated execution logs shown above represent expected CRE workflow behavior. Live test market was created successfully on Sepolia testnet (Market ID: 1, Block: 10364217).
 
 ---
 
