@@ -1,0 +1,17 @@
+# CRE Workflow Settings for AEEIA Prediction Market Oracle
+
+local-simulation:
+  user-workflow:
+    workflow-name: "aeeia-oracle"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "./config.json"
+    secrets-path: "./secrets.yaml"
+
+staging:
+  user-workflow:
+    workflow-name: "aeeia-oracle"
+  workflow-artifacts:
+    workflow-path: "./main.ts"
+    config-path: "./config.json"
+    secrets-path: "./secrets.yaml"

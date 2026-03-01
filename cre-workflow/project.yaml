@@ -1,21 +1,13 @@
-creVersion: 1.0.0
-name: aletheia-oracle
-description: Multi-source prediction market oracle with autonomous CRON resolution
-language: typescript
-entrypoint: cre-workflow/main.ts
+# CRE Project Settings for AEEIA Prediction Market Oracle
 
-networks:
-  - ethereum-testnet-sepolia
+local-simulation:
+  rpcs:
+    - chain-name: ethereum-testnet-sepolia
+      url: https://ethereum-sepolia-rpc.publicnode.com
 
-capabilities:
-  - http
-  - evm
-  - consensus
-
-triggers:
-  - type: cron
-    schedule: "*/5 * * * *"
-    description: "Check for pending markets every 5 minutes"
-
-config:
-  file: cre-workflow/config.json
+staging:
+  cre-cli:
+    don-family: "zone-a"
+  rpcs:
+    - chain-name: ethereum-testnet-sepolia
+      url: https://ethereum-sepolia-rpc.publicnode.com
