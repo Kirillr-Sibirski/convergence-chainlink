@@ -259,6 +259,36 @@ Simulation completed successfully
 
 ---
 
+## Sepolia Testnet Deployment
+
+**All contracts have been deployed to Sepolia testnet:**
+
+| Contract | Address | Etherscan |
+|----------|---------|-----------|
+| EOTFactory | `0x7e3419E3b14436336F41daFc7Fe35A822cdc78AF` | [View on Etherscan](https://sepolia.etherscan.io/address/0x7e3419E3b14436336F41daFc7Fe35A822cdc78AF) |
+| AletheiaOracle | `0xe7A47740Ff60146f9E3C443bf84Bd5b6d03530a4` | [View on Etherscan](https://sepolia.etherscan.io/address/0xe7A47740Ff60146f9E3C443bf84Bd5b6d03530a4) |
+| AletheiaMarket | `0xf2DA89D632f9E28aF45f4F584Fb9b59F3041a10E` | [View on Etherscan](https://sepolia.etherscan.io/address/0xf2DA89D632f9E28aF45f4F584Fb9b59F3041a10E) |
+
+**Deployment Details:**
+- Network: Ethereum Sepolia Testnet
+- Deployer Address: `0x2000f57be293734aeD2Ca9d629080A21E782FCAb`
+- Total Gas Used: ~8.5M gas
+- Deployment Date: March 1, 2026
+
+**Contract Verification:**
+- All contracts compiled with Solidity 0.8.20
+- OpenZeppelin contracts v5.x used
+- IReceiver interface implemented correctly
+- Forwarder validation active
+
+**CRE Workflow Configuration:**
+- Updated `config.json` with oracle address: `0xe7A47740Ff60146f9E3C443bf84Bd5b6d03530a4`
+- CRON schedule: `*/5 * * * *` (every 5 minutes)
+- Chain selector: `ethereum-testnet-sepolia`
+- Gas limit: 500,000
+
+---
+
 ## CRE Experience Feedback
 
 **What Worked Well:**
