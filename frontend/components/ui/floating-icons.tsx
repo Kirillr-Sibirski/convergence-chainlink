@@ -139,7 +139,7 @@ export function FloatingIcons() {
             }}
           >
             <Image
-              src="/sui-logo.svg"
+              src="/chainlink-symbol-white.svg"
               alt=""
               width={icon.size}
               height={icon.size}
