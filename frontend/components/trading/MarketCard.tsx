@@ -7,72 +7,43 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { Separator } from "@/components/ui/separator";
-import { useMarkets } from "@/hooks/use-markets";
-import { placeBet } from "@/lib/web3";
 import { Loader2 } from "lucide-react";
 
+// Simplified MarketCard adapted from TradeCard
+// TODO: Connect to smart contracts for real data
 export function MarketCard() {
-  const { markets, isLoading: marketsLoading } = useMarkets();
   const [side, setSide] = useState<"yes" | "no">("yes");
   const [amount, setAmount] = useState("");
-  const [isPlacingBet, setIsPlacingBet] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Get the first unresolved market for demo
-  const market = markets.find((m) => !m.resolved);
+  // Mock market data - will be replaced with real contract data
+  const mockMarket = {
+    question: "Will Bitcoin exceed $100,000 by March 31, 2026?",
+    deadline: "March 31, 2026",
+    yesPercent: 64,
+    noPercent: 36,
+    totalPool: "15.2 ETH",
+  };
 
   const handlePlaceBet = async () => {
-    if (!market || !amount || parseFloat(amount) <= 0) return;
+    if (!amount || parseFloat(amount) <= 0) return;
 
+    setIsSubmitting(true);
     try {
-      setIsPlacingBet(true);
-      setError(null);
-
-      const hash = await placeBet(market.id, side === "yes", amount);
-      console.log("Bet placed:", hash);
-
-      // Reset form
+      // TODO: Call smart contract placeBet function
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Mock delay
+      alert(`Bet placed: ${amount} ETH on ${side.toUpperCase()}`);
       setAmount("");
-      alert(`Bet placed successfully! Transaction: ${hash}`);
-    } catch (err: any) {
-      console.error("Failed to place bet:", err);
-      setError(err.message || "Failed to place bet");
+    } catch (error) {
+      console.error("Failed to place bet:", error);
     } finally {
-      setIsPlacingBet(false);
+      setIsSubmitting(false);
     }
   };
 
-  if (marketsLoading) {
-    return (
-      <div className="w-full max-w-md">
-        <SpotlightCard>
-          <div className="p-6 flex items-center justify-center">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-          </div>
-        </SpotlightCard>
-      </div>
-    );
-  }
-
-  if (!market) {
-    return (
-      <div className="w-full max-w-md">
-        <SpotlightCard>
-          <div className="p-6 space-y-3 text-center">
-            <h3 className="text-lg font-semibold">No Active Markets</h3>
-            <p className="text-sm text-muted-foreground">
-              Check back soon for new prediction markets.
-            </p>
-          </div>
-        </SpotlightCard>
-      </div>
-    );
-  }
-
-  // Calculate mock percentages (would come from stakes in real implementation)
-  const yesPercent = 64;
-  const noPercent = 36;
-  const poolSize = "15.2";
+  const potentialPayout = amount && parseFloat(amount) > 0
+    ? (parseFloat(amount) * (side === "yes" ? 1.56 : 2.78)).toFixed(3)
+    : "0.000";
 
   return (
     <div className="w-full max-w-md">
@@ -80,10 +51,9 @@ export function MarketCard() {
         <div className="p-6 space-y-5">
           {/* Market Question */}
           <div className="space-y-2">
-            <h3 className="text-lg font-semibold">{market.question}</h3>
+            <h3 className="text-lg font-semibold">{mockMarket.question}</h3>
             <p className="text-sm text-muted-foreground">
-              Deadline: {new Date(market.deadline * 1000).toLocaleDateString()} •
-              Pool: {poolSize} ETH
+              Deadline: {mockMarket.deadline} • Pool: {mockMarket.totalPool}
             </p>
           </div>
 
@@ -96,13 +66,13 @@ export function MarketCard() {
                 value="yes"
                 className="data-[state=active]:bg-green-600 data-[state=active]:text-white"
               >
-                YES ({yesPercent}%)
+                YES ({mockMarket.yesPercent}%)
               </TabsTrigger>
               <TabsTrigger
                 value="no"
                 className="data-[state=active]:bg-red-600 data-[state=active]:text-white"
               >
-                NO ({noPercent}%)
+                NO ({mockMarket.noPercent}%)
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -133,20 +103,9 @@ export function MarketCard() {
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Potential payout</span>
                 <span className="font-semibold text-primary">
-                  {(
-                    parseFloat(amount) *
-                    (side === "yes" ? 1.56 : 2.78)
-                  ).toFixed(3)}{" "}
-                  ETH
+                  {potentialPayout} ETH
                 </span>
               </div>
-            </div>
-          )}
-
-          {/* Error Message */}
-          {error && (
-            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
-              <p className="text-sm text-destructive">{error}</p>
             </div>
           )}
 
@@ -154,10 +113,10 @@ export function MarketCard() {
           <Button
             className="w-full"
             size="lg"
-            disabled={!amount || parseFloat(amount) <= 0 || isPlacingBet}
+            disabled={!amount || parseFloat(amount) <= 0 || isSubmitting}
             onClick={handlePlaceBet}
           >
-            {isPlacingBet ? (
+            {isSubmitting ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Placing Bet...
@@ -167,7 +126,7 @@ export function MarketCard() {
             )}
           </Button>
 
-          {/* Info Text */}
+          {/* Info */}
           <p className="text-xs text-muted-foreground text-center">
             Connect wallet to place bets. Market resolves automatically via{" "}
             <span className="text-primary font-medium">Chainlink CRE</span>.

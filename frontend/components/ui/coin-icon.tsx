@@ -4,7 +4,7 @@ import coins from "@/config/coins.json";
 import Image from "next/image";
 
 const coinImages: Record<string, string> = Object.fromEntries(
-  Object.entries(coins.coins).map(([symbol, coin]: [string, any]) => [symbol, coin.asset_image])
+  Object.entries(coins.coins).map(([symbol, coin]) => [symbol, coin.asset_image])
 );
 
 export function getCoinImageUrl(symbol: string): string | undefined {

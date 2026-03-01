@@ -23,7 +23,7 @@ export function TradeForm() {
         <CardTitle className="text-lg">Place Order</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Tabs value={side} onValueChange={(v: string) => setSide(v as "buy" | "sell")}>
+        <Tabs value={side} onValueChange={(v) => setSide(v as "buy" | "sell")}>
           <TabsList className="w-full">
             <TabsTrigger
               value="buy"
@@ -40,7 +40,7 @@ export function TradeForm() {
           </TabsList>
         </Tabs>
 
-        <Tabs value={orderType} onValueChange={(v: string) => setOrderType(v as "limit" | "market")}>
+        <Tabs value={orderType} onValueChange={(v) => setOrderType(v as "limit" | "market")}>
           <TabsList className="w-full">
             <TabsTrigger value="limit" className="flex-1">
               Limit

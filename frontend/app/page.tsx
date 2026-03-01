@@ -1,5 +1,5 @@
 import { SimpleHeader } from "@/components/layout/SimpleHeader";
-import { MarketCard } from "@/components/markets/MarketCard";
+import { MarketCard } from "@/components/trading/MarketCard";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { InfoSection } from "@/components/sections/InfoSection";
 import { FloatingIcons } from "@/components/ui/floating-icons";

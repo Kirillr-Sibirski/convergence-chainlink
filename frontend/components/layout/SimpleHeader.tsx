@@ -38,7 +38,7 @@ export function SimpleHeader() {
           >
             <Link href="/dashboard" className="gap-1.5">
               <LayoutDashboard className="w-4 h-4" />
-              Activity
+              My Bets
             </Link>
           </Button>
         </nav>
