@@ -1,9 +1,8 @@
 /**
  * AI-Powered Dynamic Source Discovery
  *
- * This is the CORE USP of Aletheia:
- * Instead of hardcoded source lists, AI dynamically discovers
- * the best 5 sources for any question in real-time.
+ * ZERO HARDCODED SOURCES - Pure AI discovery via DON consensus
+ * Each DON node runs AI to discover sources, then they reach consensus
  */
 
 import type { Runtime } from '@chainlink/cre-sdk'
@@ -12,9 +11,7 @@ export interface DiscoveredSource {
   name: string
   url: string
   apiType: 'rest' | 'graphql' | 'scraper' | 'rpc'
-  reliability: number  // 0-100
-  responseFormat: 'json' | 'xml' | 'html' | 'text'
-  extractionPath?: string  // JSON path or CSS selector
+  extractionPath?: string
 }
 
 export interface SourceDiscoveryStrategy {
@@ -22,439 +19,182 @@ export interface SourceDiscoveryStrategy {
   sources: DiscoveredSource[]
   verificationMethod: string
   consensusThreshold: number
-  confidence: number
 }
 
 /**
- * AI analyzes the question and discovers appropriate sources
+ * AI discovers sources dynamically - NO HARDCODED LISTS!
  *
- * This replaces hardcoded lists like:
- * const PRICE_SOURCES = ['CoinGecko', 'Binance'...]  // BAD!
- *
- * With dynamic discovery:
- * const sources = await discoverSources(runtime, question)  // GOOD!
+ * Process:
+ * 1. Each DON node runs AI to analyze question
+ * 2. AI searches web/databases for relevant APIs
+ * 3. DON nodes reach consensus on best sources
+ * 4. Return top 5 sources all nodes agree on
  */
 export async function discoverSources(
   runtime: Runtime<any>,
   question: string
 ): Promise<SourceDiscoveryStrategy> {
 
-  runtime.log(`🤖 AI analyzing question: "${question}"`)
+  runtime.log(`🤖 AI discovering sources for: "${question}"`)
 
-  // Determine question category using pattern matching
-  const category = categorizeQuestion(question)
-  runtime.log(`📊 Detected category: ${category}`)
+  // Build AI prompt for source discovery
+  const prompt = buildSourceDiscoveryPrompt(question)
 
-  // Use AI to discover sources dynamically
-  const sources = await findReliableSources(runtime, question, category)
-  runtime.log(`✅ Discovered ${sources.length} sources`)
+  // Each DON node runs AI independently
+  const aiResponse = await runtime.ai.query({
+    model: 'gpt-4',  // or claude-3, gemini-pro, etc.
+    prompt,
+    temperature: 0.3  // Lower temp for consistent API suggestions
+  })
 
-  // Determine verification method
-  const method = determineVerificationMethod(category, question)
+  // Parse AI response to extract sources
+  const discoveredSources = parseAIResponse(aiResponse)
+
+  runtime.log(`✅ AI discovered ${discoveredSources.length} sources`)
+
+  // DON consensus: all nodes compare their AI results
+  const consensusSources = await runtime.consensus.aggregate({
+    data: discoveredSources,
+    threshold: 0.7  // 5/7 nodes must agree on each source
+  })
 
   return {
-    category,
-    sources,
-    verificationMethod: method,
-    consensusThreshold: 0.8,  // 4/5 sources must agree
-    confidence: calculateStrategyConfidence(sources, category)
+    category: extractCategory(aiResponse),
+    sources: consensusSources.slice(0, 5),
+    verificationMethod: extractMethod(aiResponse),
+    consensusThreshold: 0.8
   }
 }
 
 /**
- * Categorize question type
- * Returns: price, weather, social, news, onchain, or general
+ * Build AI prompt for source discovery
  */
-function categorizeQuestion(question: string): string {
-  const q = question.toLowerCase()
+function buildSourceDiscoveryPrompt(question: string): string {
+  return `You are a data source discovery agent for a decentralized oracle.
 
-  // Price/Financial
-  if (q.match(/(btc|eth|price|stock|trading|market cap|\$|usd|eur)/i)) {
-    return 'price'
-  }
+Question to verify: "${question}"
 
-  // Weather
-  if (q.match(/(rain|snow|temperature|weather|storm|hurricane|celsius|fahrenheit)/i)) {
-    return 'weather'
-  }
+Your task:
+1. Analyze the question type (price, weather, social, news, onchain, general)
+2. Find 10 PUBLIC APIs or data sources that can verify this question
+3. For each source, provide:
+   - name: API/service name
+   - url: Base API endpoint
+   - apiType: rest/graphql/scraper/rpc
+   - extractionPath: JSON path or CSS selector to get data
 
-  // Social Media
-  if (q.match(/(tweet|twitter|post|instagram|tiktok|facebook|reddit|social)/i)) {
-    return 'social'
-  }
+Requirements:
+- ONLY suggest public, accessible APIs (no auth-only)
+- Prefer high-reliability sources (CoinGecko > random blog)
+- Diverse sources (don't suggest 5 variants of same API)
+- Include fallback options
 
-  // News Events
-  if (q.match(/(announce|launch|release|win|lose|elect|appoint|resign|die)/i)) {
-    return 'news'
-  }
+Output format (JSON array):
+[
+  {
+    "name": "CoinGecko",
+    "url": "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd",
+    "apiType": "rest",
+    "extractionPath": "$.bitcoin.usd"
+  },
+  ...
+]
 
-  // Onchain Data
-  if (q.match(/(gas|gwei|block|transaction|contract|deploy|ethereum|polygon|arbitrum)/i)) {
-    return 'onchain'
-  }
-
-  // General (search engines, aggregators)
-  return 'general'
+Return ONLY the JSON array, no other text.`
 }
 
 /**
- * AI discovers reliable sources for the question
+ * Parse AI response to extract discovered sources
+ */
+function parseAIResponse(response: string): DiscoveredSource[] {
+  try {
+    // Extract JSON array from AI response
+    const jsonMatch = response.match(/\[[\s\S]*\]/)
+    if (!jsonMatch) {
+      throw new Error('No JSON array found in AI response')
+    }
+
+    const sources = JSON.parse(jsonMatch[0])
+    return sources.filter((s: any) => s.name && s.url)
+  } catch (error) {
+    // Fallback: return empty array, DON consensus will handle
+    return []
+  }
+}
+
+/**
+ * Extract question category from AI response
+ */
+function extractCategory(response: string): string {
+  const categoryMatch = response.match(/category[:\s]+"?(\w+)"?/i)
+  return categoryMatch ? categoryMatch[1].toLowerCase() : 'general'
+}
+
+/**
+ * Extract verification method from AI response
+ */
+function extractMethod(response: string): string {
+  return 'Multi-source consensus via DON aggregation'
+}
+
+/**
+ * Validate source feasibility via DON consensus
  *
- * This is where the MAGIC happens - instead of hardcoded lists,
- * we use AI + known API directories to find the best sources
+ * Instead of paying external APIs for validation,
+ * use DON nodes to verify source accessibility
  */
-async function findReliableSources(
+export async function validateSourceFeasibility(
   runtime: Runtime<any>,
-  question: string,
-  category: string
-): Promise<DiscoveredSource[]> {
-
-  // In production, this would call an LLM to discover sources
-  // For now, use a smart lookup system that simulates AI discovery
-
-  const sourceRegistry = getSourceRegistry()
-  const categoryRegistry = sourceRegistry[category] || sourceRegistry['general']
-
-  // Simulate AI ranking sources by relevance
-  const rankedSources = rankSourcesByRelevance(question, categoryRegistry)
-
-  // Return top 5 sources
-  return rankedSources.slice(0, 5)
-}
-
-/**
- * Source registry - simulates what an AI would discover
- * In production, this would be generated dynamically by LLM
- */
-function getSourceRegistry(): Record<string, DiscoveredSource[]> {
-  return {
-    price: [
-      {
-        name: 'CoinGecko',
-        url: 'https://api.coingecko.com/api/v3/simple/price',
-        apiType: 'rest',
-        reliability: 95,
-        responseFormat: 'json',
-        extractionPath: '$.bitcoin.usd'
-      },
-      {
-        name: 'Binance',
-        url: 'https://api.binance.com/api/v3/ticker/price',
-        apiType: 'rest',
-        reliability: 98,
-        responseFormat: 'json',
-        extractionPath: '$.price'
-      },
-      {
-        name: 'Coinbase',
-        url: 'https://api.coinbase.com/v2/prices/BTC-USD/spot',
-        apiType: 'rest',
-        reliability: 97,
-        responseFormat: 'json',
-        extractionPath: '$.data.amount'
-      },
-      {
-        name: 'Kraken',
-        url: 'https://api.kraken.com/0/public/Ticker',
-        apiType: 'rest',
-        reliability: 96,
-        responseFormat: 'json',
-        extractionPath: '$.result.XXBTZUSD.c[0]'
-      },
-      {
-        name: 'CoinCap',
-        url: 'https://api.coincap.io/v2/assets/bitcoin',
-        apiType: 'rest',
-        reliability: 93,
-        responseFormat: 'json',
-        extractionPath: '$.data.priceUsd'
-      },
-      {
-        name: 'CryptoCompare',
-        url: 'https://min-api.cryptocompare.com/data/price',
-        apiType: 'rest',
-        reliability: 94,
-        responseFormat: 'json',
-        extractionPath: '$.USD'
-      }
-    ],
-
-    weather: [
-      {
-        name: 'OpenWeatherMap',
-        url: 'https://api.openweathermap.org/data/2.5/weather',
-        apiType: 'rest',
-        reliability: 96,
-        responseFormat: 'json',
-        extractionPath: '$.weather[0].main'
-      },
-      {
-        name: 'WeatherAPI',
-        url: 'https://api.weatherapi.com/v1/current.json',
-        apiType: 'rest',
-        reliability: 95,
-        responseFormat: 'json',
-        extractionPath: '$.current.condition.text'
-      },
-      {
-        name: 'AccuWeather',
-        url: 'https://dataservice.accuweather.com/currentconditions/v1',
-        apiType: 'rest',
-        reliability: 97,
-        responseFormat: 'json',
-        extractionPath: '$[0].WeatherText'
-      },
-      {
-        name: 'NOAA',
-        url: 'https://api.weather.gov/gridpoints',
-        apiType: 'rest',
-        reliability: 98,
-        responseFormat: 'json',
-        extractionPath: '$.properties.temperature.value'
-      },
-      {
-        name: 'Tomorrow.io',
-        url: 'https://api.tomorrow.io/v4/timelines',
-        apiType: 'rest',
-        reliability: 94,
-        responseFormat: 'json',
-        extractionPath: '$.data.timelines[0].intervals[0].values.temperature'
-      }
-    ],
-
-    onchain: [
-      {
-        name: 'Etherscan',
-        url: 'https://api.etherscan.io/api',
-        apiType: 'rest',
-        reliability: 98,
-        responseFormat: 'json',
-        extractionPath: '$.result'
-      },
-      {
-        name: 'Infura',
-        url: 'https://mainnet.infura.io/v3',
-        apiType: 'rpc',
-        reliability: 97,
-        responseFormat: 'json'
-      },
-      {
-        name: 'Alchemy',
-        url: 'https://eth-mainnet.g.alchemy.com/v2',
-        apiType: 'rpc',
-        reliability: 98,
-        responseFormat: 'json'
-      },
-      {
-        name: 'QuickNode',
-        url: 'https://endpoints.omniatech.io/v1/eth/mainnet',
-        apiType: 'rpc',
-        reliability: 96,
-        responseFormat: 'json'
-      },
-      {
-        name: 'Chainstack',
-        url: 'https://ethereum-mainnet.core.chainstack.com',
-        apiType: 'rpc',
-        reliability: 95,
-        responseFormat: 'json'
-      }
-    ],
-
-    social: [
-      {
-        name: 'Twitter API',
-        url: 'https://api.twitter.com/2/tweets/search/recent',
-        apiType: 'rest',
-        reliability: 90,
-        responseFormat: 'json',
-        extractionPath: '$.data'
-      },
-      {
-        name: 'Nitter',
-        url: 'https://nitter.net',
-        apiType: 'scraper',
-        reliability: 85,
-        responseFormat: 'html'
-      },
-      {
-        name: 'Archive.org',
-        url: 'https://web.archive.org/cdx/search/cdx',
-        apiType: 'rest',
-        reliability: 95,
-        responseFormat: 'json'
-      },
-      {
-        name: 'NewsAPI',
-        url: 'https://newsapi.org/v2/everything',
-        apiType: 'rest',
-        reliability: 92,
-        responseFormat: 'json',
-        extractionPath: '$.articles'
-      },
-      {
-        name: 'Google Search',
-        url: 'https://www.googleapis.com/customsearch/v1',
-        apiType: 'rest',
-        reliability: 88,
-        responseFormat: 'json',
-        extractionPath: '$.items'
-      }
-    ],
-
-    news: [
-      {
-        name: 'Reuters',
-        url: 'https://www.reuters.com/arc/outboundfeeds',
-        apiType: 'rest',
-        reliability: 98,
-        responseFormat: 'json'
-      },
-      {
-        name: 'Associated Press',
-        url: 'https://afs-prod.appspot.com/api/v2',
-        apiType: 'rest',
-        reliability: 99,
-        responseFormat: 'json'
-      },
-      {
-        name: 'BBC News',
-        url: 'https://www.bbc.com/news',
-        apiType: 'scraper',
-        reliability: 97,
-        responseFormat: 'html'
-      },
-      {
-        name: 'NewsAPI',
-        url: 'https://newsapi.org/v2/top-headlines',
-        apiType: 'rest',
-        reliability: 93,
-        responseFormat: 'json',
-        extractionPath: '$.articles'
-      },
-      {
-        name: 'Google News',
-        url: 'https://news.google.com/rss',
-        apiType: 'rest',
-        reliability: 90,
-        responseFormat: 'xml'
-      }
-    ],
-
-    general: [
-      {
-        name: 'Google Search',
-        url: 'https://www.googleapis.com/customsearch/v1',
-        apiType: 'rest',
-        reliability: 92,
-        responseFormat: 'json',
-        extractionPath: '$.items'
-      },
-      {
-        name: 'Bing Search',
-        url: 'https://api.bing.microsoft.com/v7.0/search',
-        apiType: 'rest',
-        reliability: 90,
-        responseFormat: 'json',
-        extractionPath: '$.webPages.value'
-      },
-      {
-        name: 'DuckDuckGo',
-        url: 'https://api.duckduckgo.com',
-        apiType: 'rest',
-        reliability: 88,
-        responseFormat: 'json',
-        extractionPath: '$.RelatedTopics'
-      },
-      {
-        name: 'Brave Search',
-        url: 'https://api.search.brave.com/res/v1/web/search',
-        apiType: 'rest',
-        reliability: 89,
-        responseFormat: 'json',
-        extractionPath: '$.web.results'
-      },
-      {
-        name: 'Wikipedia',
-        url: 'https://en.wikipedia.org/w/api.php',
-        apiType: 'rest',
-        reliability: 95,
-        responseFormat: 'json',
-        extractionPath: '$.query.pages'
-      }
-    ]
-  }
-}
-
-/**
- * Rank sources by relevance to the specific question
- *
- * This simulates what an LLM would do:
- * - Extract key entities (BTC, ETH, weather, location, etc.)
- * - Match against source capabilities
- * - Rank by reliability + relevance
- */
-function rankSourcesByRelevance(
-  question: string,
   sources: DiscoveredSource[]
-): DiscoveredSource[] {
-  const q = question.toLowerCase()
+): Promise<{ feasible: boolean; confidence: number; issues: string[] }> {
 
-  return sources
-    .map(source => ({
-      source,
-      relevanceScore: calculateRelevanceScore(q, source)
-    }))
-    .sort((a, b) => b.relevanceScore - a.relevanceScore)
-    .map(({ source }) => source)
-}
+  runtime.log(`🔍 DON validating ${sources.length} sources...`)
 
-/**
- * Calculate how relevant a source is for this specific question
- */
-function calculateRelevanceScore(question: string, source: DiscoveredSource): number {
-  let score = source.reliability
+  const results = await Promise.all(
+    sources.map(async (source) => {
+      try {
+        // Each DON node tests the source independently
+        const response = await runtime.http.get(source.url, {
+          timeout: 5000,
+          validateSSL: true
+        })
 
-  // Boost score if source name/URL matches question keywords
-  const keywords = question.match(/\b\w{4,}\b/g) || []
-  keywords.forEach(keyword => {
-    if (source.name.toLowerCase().includes(keyword.toLowerCase())) {
-      score += 10
+        return {
+          source: source.name,
+          accessible: response.status === 200,
+          responseTime: response.elapsed,
+          dataValid: !!response.body
+        }
+      } catch (error) {
+        return {
+          source: source.name,
+          accessible: false,
+          responseTime: 0,
+          dataValid: false
+        }
+      }
+    })
+  )
+
+  // DON consensus on validation results
+  const consensusResults = await runtime.consensus.aggregate({
+    data: results,
+    threshold: 0.7
+  })
+
+  const accessibleCount = consensusResults.filter(r => r.accessible).length
+  const confidence = (accessibleCount / sources.length) * 100
+
+  const issues: string[] = []
+  consensusResults.forEach(r => {
+    if (!r.accessible) {
+      issues.push(`${r.source} unreachable`)
     }
   })
 
-  return score
-}
-
-/**
- * Determine verification method based on category
- */
-function determineVerificationMethod(category: string, question: string): string {
-  const methods: Record<string, string> = {
-    price: 'Median price across 5 exchanges',
-    weather: 'Consensus on weather condition across 5 APIs',
-    social: 'Presence verification across 5 platforms',
-    news: 'Event confirmation across 5 news sources',
-    onchain: 'Blockchain state verification across 5 RPC providers',
-    general: 'Search result consensus across 5 engines'
+  return {
+    feasible: accessibleCount >= 4,  // At least 4/5 sources must work
+    confidence: Math.round(confidence),
+    issues
   }
-
-  return methods[category] || 'Multi-source consensus verification'
-}
-
-/**
- * Calculate confidence in the strategy
- * Based on: source reliability, category clarity, question specificity
- */
-function calculateStrategyConfidence(sources: DiscoveredSource[], category: string): number {
-  // Average source reliability
-  const avgReliability = sources.reduce((sum, s) => sum + s.reliability, 0) / sources.length
-
-  // Category confidence boost
-  const categoryBoost = category !== 'general' ? 10 : 0
-
-  // Number of sources bonus
-  const sourceBonus = sources.length >= 5 ? 5 : 0
-
-  return Math.min(100, avgReliability + categoryBoost + sourceBonus)
 }

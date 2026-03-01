@@ -6,20 +6,66 @@ import QuestionValidator from '../components/QuestionValidator'
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'create' | 'markets'>('markets')
 
+  useEffect(() => {
+    // Initialize liquid glass after component mounts
+    const initGlass = () => {
+      if (typeof window !== 'undefined' && (window as any).liquidGL) {
+        try {
+          // Apply glass effect to market cards
+          (window as any).liquidGL({
+            target: ".glass-card",
+            snapshot: "body",
+            resolution: 2.0,
+            refraction: 0.015,
+            bevelDepth: 0.1,
+            bevelWidth: 0.2,
+            frost: 2,
+            shadow: true,
+            specular: true,
+            reveal: "fade",
+            magnify: 1.02
+          })
+
+          // Apply to header
+          (window as any).liquidGL({
+            target: ".glass-header",
+            snapshot: "body",
+            resolution: 1.5,
+            refraction: 0.01,
+            bevelDepth: 0.05,
+            bevelWidth: 0.15,
+            frost: 1,
+            shadow: false,
+            specular: true,
+            reveal: "slide",
+            magnify: 1
+          })
+        } catch (err) {
+          console.error('Liquid glass init failed:', err)
+        }
+      }
+    }
+
+    // Wait for liquidGL to load
+    setTimeout(initGlass, 1000)
+  }, [])
+
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       {/* Header */}
-      <header className="border-b border-black">
+      <header className="glass-header border-b border-white/20 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <img src="/logo.png" alt="Aletheia" className="h-12 w-12" />
+              <img src="/logo.png" alt="Aletheia" className="h-14 w-14 drop-shadow-lg" />
               <div>
-                <h1 className="text-3xl font-bold tracking-tight">ALETHEIA</h1>
+                <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                  ALETHEIA
+                </h1>
                 <p className="text-sm text-gray-600 mt-1">Truth Oracle · Powered by Chainlink CRE</p>
               </div>
             </div>
-            <button className="px-6 py-2 bg-black text-white text-sm font-medium hover:bg-gray-800 transition-colors">
+            <button className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-medium rounded-lg hover:shadow-lg transition-all duration-300 hover:scale-105">
               Connect Wallet
             </button>
           </div>
@@ -91,7 +137,7 @@ function MarketsView() {
       {markets.map((market) => (
         <div
           key={market.id}
-          className="border border-gray-200 hover:border-black transition-colors cursor-pointer"
+          className="glass-card border border-white/40 hover:border-indigo-300 transition-all duration-300 cursor-pointer rounded-xl overflow-hidden backdrop-blur-sm bg-white/60 shadow-lg hover:shadow-xl"
         >
           <div className="p-6">
             <div className="flex items-start justify-between gap-4">
