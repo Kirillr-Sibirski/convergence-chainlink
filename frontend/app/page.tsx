@@ -21,7 +21,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-background relative">
+    <div className="min-h-screen relative bg-gradient-to-br from-gray-900 via-gray-950 to-black">
       <FloatingIcons />
       <SimpleHeader />
 

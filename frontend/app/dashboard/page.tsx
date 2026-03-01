@@ -9,7 +9,7 @@ import Link from "next/link";
 
 export default function DashboardPage() {
   return (
-    <div className="min-h-screen bg-background relative">
+    <div className="min-h-screen relative bg-gradient-to-br from-gray-900 via-gray-950 to-black">
       <FloatingIcons />
       <SimpleHeader />
 

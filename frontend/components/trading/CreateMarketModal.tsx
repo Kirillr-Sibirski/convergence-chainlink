@@ -48,7 +48,7 @@ export function CreateMarketModal({ onClose, onCreate }: CreateMarketModalProps)
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-lg">
+      <Card className="w-full max-w-lg bg-white dark:bg-gray-900 border-2">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle>Create New Market</CardTitle>
           <Button variant="ghost" size="icon" onClick={onClose}>
@@ -93,14 +93,14 @@ export function CreateMarketModal({ onClose, onCreate }: CreateMarketModalProps)
           <div className="flex gap-3 pt-2">
             <Button
               variant="outline"
-              className="flex-1"
+              className="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
               onClick={onClose}
               disabled={isCreating}
             >
               Cancel
             </Button>
             <Button
-              className="flex-1"
+              className="flex-1 bg-primary hover:bg-primary/90 text-white font-semibold"
               onClick={handleCreate}
               disabled={isCreating}
             >
