@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "./ReceiverTemplate.sol";
+
 /**
  * @title AletheiaOracle
  * @notice Multi-source prediction market oracle powered by Chainlink CRE
- * @dev Autonomous CRON-based resolution with transparent proofs
+ * @dev Implements IReceiver interface to accept resolution data from CRE workflows
+ * @dev Autonomous resolution with transparent proofs via ReceiverTemplate
  */
-contract AletheiaOracle {
+contract AletheiaOracle is ReceiverTemplate {
     struct Market {
         uint256 id;
         string question;
@@ -21,8 +24,6 @@ contract AletheiaOracle {
     // State
     mapping(uint256 => Market) public markets;
     uint256 public marketCount;
-    address public creWorkflowAddress;
-    address public owner;
 
     // Events
     event MarketCreated(
@@ -40,32 +41,13 @@ contract AletheiaOracle {
         uint256 resolvedAt
     );
 
-    event WorkflowAddressUpdated(address indexed oldAddress, address indexed newAddress);
-
-    // Modifiers
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Only owner");
-        _;
-    }
-
-    modifier onlyCRE() {
-        require(msg.sender == creWorkflowAddress, "Only CRE workflow");
-        _;
-    }
-
-    constructor() {
-        owner = msg.sender;
-        marketCount = 0;
-    }
-
     /**
-     * @notice Set the authorized CRE workflow address
-     * @param _creWorkflowAddress Address of the CRE workflow that can resolve markets
+     * @notice Constructor sets up the oracle with CRE forwarder authorization
+     * @param forwarderAddress The address of the Chainlink Forwarder contract that will call onReport()
+     * @dev The forwarder address is required for security - only it can send resolution data
      */
-    function setWorkflowAddress(address _creWorkflowAddress) external onlyOwner {
-        address oldAddress = creWorkflowAddress;
-        creWorkflowAddress = _creWorkflowAddress;
-        emit WorkflowAddressUpdated(oldAddress, _creWorkflowAddress);
+    constructor(address forwarderAddress) ReceiverTemplate(forwarderAddress) {
+        marketCount = 0;
     }
 
     /**
@@ -101,7 +83,7 @@ contract AletheiaOracle {
 
     /**
      * @notice Get all pending markets (past deadline, not yet resolved)
-     * @dev Called by CRE workflow CRON trigger
+     * @dev Called by CRE workflow to find markets ready for resolution
      * @return pendingMarkets Array of markets ready for resolution
      */
     function getPendingMarkets() external view returns (Market[] memory pendingMarkets) {
@@ -125,19 +107,14 @@ contract AletheiaOracle {
     }
 
     /**
-     * @notice Resolve a market with multi-source consensus result
-     * @dev Only callable by authorized CRE workflow
-     * @param marketId The ID of the market to resolve
-     * @param outcome The resolved outcome (TRUE/FALSE)
-     * @param confidence Confidence score (0-100)
-     * @param proofHash IPFS hash or keccak256 of evidence JSON
+     * @notice Internal function to process resolution reports from CRE workflow
+     * @dev Implements ReceiverTemplate._processReport() - called by onReport() after security checks
+     * @param report ABI-encoded resolution data: (marketId, outcome, confidence, proofHash)
      */
-    function resolveMarket(
-        uint256 marketId,
-        bool outcome,
-        uint8 confidence,
-        bytes32 proofHash
-    ) external onlyCRE {
+    function _processReport(bytes calldata report) internal override {
+        (uint256 marketId, bool outcome, uint8 confidence, bytes32 proofHash) =
+            abi.decode(report, (uint256, bool, uint8, bytes32));
+
         require(marketId > 0 && marketId <= marketCount, "Invalid market ID");
         require(!markets[marketId].resolved, "Market already resolved");
         require(block.timestamp >= markets[marketId].deadline, "Deadline not passed");
