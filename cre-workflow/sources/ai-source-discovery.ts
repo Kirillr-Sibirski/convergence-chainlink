@@ -76,18 +76,24 @@ Question to verify: "${question}"
 
 Your task:
 1. Analyze the question type (price, weather, social, news, onchain, general)
-2. Find 10 PUBLIC APIs or data sources that can verify this question
-3. For each source, provide:
-   - name: API/service name
-   - url: Base API endpoint
+2. Find 10 PUBLIC data sources that can verify this question
+3. Sources can be:
+   - APIs (rest/graphql/rpc) with direct data access
+   - News articles/websites that need AI processing
+   - Social media posts that need scraping
+   - Any public URL with verifiable information
+4. For each source, provide:
+   - name: Source name (e.g., "New York Times", "Reuters API", "Twitter")
+   - url: Direct URL to data
    - apiType: rest/graphql/scraper/rpc
-   - extractionPath: JSON path or CSS selector to get data
+   - extractionPath: JSON path, CSS selector, or "AI_EXTRACT" for complex sources
 
 Requirements:
-- ONLY suggest public, accessible APIs (no auth-only)
-- Prefer high-reliability sources (CoinGecko > random blog)
-- Diverse sources (don't suggest 5 variants of same API)
-- Include fallback options
+- ONLY suggest public, accessible sources (no auth-required)
+- Prefer high-reliability (NYT, Reuters > random blog)
+- Diverse sources (5 different organizations)
+- Use "AI_EXTRACT" for sources that need AI processing (articles, social posts)
+- Include both APIs and human-readable sources
 
 Output format (JSON array):
 [
@@ -135,6 +141,100 @@ function extractCategory(response: string): string {
  */
 function extractMethod(response: string): string {
   return 'Multi-source consensus via DON aggregation'
+}
+
+/**
+ * Process source data using AI
+ *
+ * For sources marked "AI_EXTRACT", use AI to process the content
+ * Examples:
+ * - News article: "Did SpaceX launch?" → AI reads article → extracts yes/no
+ * - Social post: "Did Elon tweet about DOGE?" → AI reads tweets → confirms
+ * - Complex data: AI interprets human-readable content
+ */
+export async function processSourceWithAI(
+  runtime: Runtime<any>,
+  source: DiscoveredSource,
+  question: string,
+  rawContent: string
+): Promise<any> {
+
+  runtime.log(`🤖 AI processing source: ${source.name}`)
+
+  const prompt = `You are a data extraction agent for a decentralized oracle.
+
+Question to verify: "${question}"
+
+Source: ${source.name}
+Content:
+${rawContent.slice(0, 5000)}  // First 5000 chars
+
+Your task:
+1. Read and understand the content
+2. Extract ONLY the specific data that answers the question
+3. Return the answer in a structured format
+
+For yes/no questions: {"answer": true/false, "confidence": 0-100}
+For numeric questions: {"value": number, "unit": "string", "confidence": 0-100}
+For factual questions: {"fact": "string", "confidence": 0-100}
+
+Be precise. Only extract facts directly stated in the content.
+If the answer is not in the content, return {"answer": null, "confidence": 0}
+
+Return ONLY valid JSON, no other text.`
+
+  const aiResponse = await runtime.ai.query({
+    model: 'gpt-4',
+    prompt,
+    temperature: 0.1  // Very low for factual extraction
+  })
+
+  try {
+    const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) throw new Error('No JSON in AI response')
+    return JSON.parse(jsonMatch[0])
+  } catch (error) {
+    return { answer: null, confidence: 0, error: 'AI extraction failed' }
+  }
+}
+
+/**
+ * Fetch and process source data
+ *
+ * Handles both:
+ * - APIs: Direct JSON extraction
+ * - Non-APIs: Fetch HTML → AI processing
+ */
+export async function fetchAndProcessSource(
+  runtime: Runtime<any>,
+  source: DiscoveredSource,
+  question: string
+): Promise<any> {
+
+  // Fetch the source
+  const response = await runtime.http.get(source.url, {
+    timeout: 10000,
+    headers: { 'User-Agent': 'Mozilla/5.0 (Aletheia Oracle)' }
+  })
+
+  if (!response.body) {
+    throw new Error(`No content from ${source.name}`)
+  }
+
+  // If extraction path is "AI_EXTRACT", use AI to process
+  if (source.extractionPath === 'AI_EXTRACT') {
+    return await processSourceWithAI(runtime, source, question, response.body)
+  }
+
+  // Otherwise, use JSON path extraction (for APIs)
+  try {
+    const data = JSON.parse(response.body)
+    // Extract using path (simplified - would use jsonpath library in production)
+    return data
+  } catch {
+    // If not JSON, fall back to AI processing
+    return await processSourceWithAI(runtime, source, question, response.body)
+  }
 }
 
 /**

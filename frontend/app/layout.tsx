@@ -20,7 +20,7 @@ export default function RootLayout({
         <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
         <script src="/liquidGL.js" defer></script>
       </head>
-      <body className="bg-gradient-to-br from-gray-50 via-white to-gray-100 text-black antialiased">{children}</body>
+      <body className="bg-white text-black antialiased">{children}</body>
     </html>
   )
 }

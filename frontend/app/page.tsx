@@ -51,21 +51,18 @@ export default function Home() {
   }, [])
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <main className="min-h-screen bg-white">
       {/* Header */}
-      <header className="glass-header border-b border-white/20 backdrop-blur-sm">
+      <header className="glass-header border-b-2 border-black">
         <div className="max-w-6xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <img src="/logo.png" alt="Aletheia" className="h-14 w-14 drop-shadow-lg" />
-              <div>
-                <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                  ALETHEIA
-                </h1>
-                <p className="text-sm text-gray-600 mt-1">Truth Oracle · Powered by Chainlink CRE</p>
-              </div>
+            <div>
+              <h1 className="text-4xl font-bold tracking-tight border-b-4 border-black inline-block pb-1">
+                ALETHEIA
+              </h1>
+              <p className="text-sm text-gray-600 mt-2">Truth Oracle · Powered by Chainlink CRE</p>
             </div>
-            <button className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-medium rounded-lg hover:shadow-lg transition-all duration-300 hover:scale-105">
+            <button className="px-6 py-2.5 bg-black text-white text-sm font-medium hover:bg-gray-800 transition-colors">
               Connect Wallet
             </button>
           </div>
@@ -137,7 +134,7 @@ function MarketsView() {
       {markets.map((market) => (
         <div
           key={market.id}
-          className="glass-card border border-white/40 hover:border-indigo-300 transition-all duration-300 cursor-pointer rounded-xl overflow-hidden backdrop-blur-sm bg-white/60 shadow-lg hover:shadow-xl"
+          className="glass-card border-2 border-gray-200 hover:border-black transition-colors cursor-pointer"
         >
           <div className="p-6">
             <div className="flex items-start justify-between gap-4">
