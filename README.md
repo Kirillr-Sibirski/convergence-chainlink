@@ -1,40 +1,63 @@
 <div align="center">
-  <img src="Aletheia.png" alt="Aletheia Logo" width="200"/>
+  <img src="Aletheia.png" alt="AEEIA Logo" width="200"/>
 
-  # Aletheia
+  # AEEIA (Aletheia)
 
-  **Autonomous multi-source oracle for prediction markets**
+  **AI-Powered Prediction Market Oracle - ZERO Hardcoded Sources**
 
-  [![Demo](https://img.shields.io/badge/Live%20Demo-aletheia--gilt.vercel.app-blue)](https://aletheia-gilt.vercel.app)
   [![Contract](https://img.shields.io/badge/Sepolia-0xb136...315e-green)](https://sepolia.etherscan.io/address/0xb13623f2AfB38b849d3a111ebdF08e135Ae8315e)
+  [![GitHub](https://img.shields.io/badge/GitHub-convergence--chainlink-blue)](https://github.com/Kirillr-Sibirski/convergence-chainlink)
 </div>
 
 Built with [Chainlink Runtime Environment (CRE)](https://docs.chain.link/cre) for Chainlink Convergence Hackathon 2026.
 
 ---
 
-## What It Does
+## 🚀 What Makes AEEIA Unique
 
-Aletheia resolves prediction market questions by:
-1. AI determines verification strategy (selects sources dynamically)
-2. CRE fetches from multiple sources in parallel
-3. CRE calculates Byzantine consensus (4/5 sources must agree)
-4. CRE writes resolution on-chain with cryptographic proof
+**Traditional Oracles:** Use hardcoded API lists (e.g., always fetch from CoinGecko, Binance, Kraken).
 
-**Example:** "Will BTC close above $60,000 on March 1st?"
-- AI strategy: PRICE → selects 5 exchanges
-- CRE fetches: [CoinGecko: $95,234, Binance: $95,231, Coinbase: $95,240, Kraken: $95,228, CoinCap: $95,236]
-- CRE consensus: median = $95,234, confidence = 95%
-- CRE result: TRUE (all prices > $60k)
+**AEEIA:** Uses AI to **discover AND process** data sources dynamically for **ANY question**.
+
+### Example: Bitcoin Price Question
+```
+Question: "Will Bitcoin exceed $100,000 by March 31, 2026?"
+
+Traditional Oracle:
+✗ Hardcoded: [CoinGecko API, Binance API, Kraken API]
+
+AEEIA:
+✓ AI discovers: [CoinGecko API, Binance API, CoinCap API, Coinbase API, Kraken API]
+✓ Each DON node runs AI independently
+✓ DON reaches consensus on which sources to use (5/7 nodes must agree)
+✓ Fetches data from all 5 sources
+✓ Applies Byzantine Fault Tolerant consensus (4/5 sources must agree)
+✓ Returns: TRUE with 95% confidence
+```
+
+### Example: News Question
+```
+Question: "Did SpaceX launch Starship before March 15, 2026?"
+
+Traditional Oracle:
+✗ Cannot handle (no hardcoded news APIs)
+
+AEEIA:
+✓ AI discovers: [Reuters article, AP News article, SpaceX Twitter, NASA feed, Space.com]
+✓ AI processes each source (reads articles, extracts facts)
+✓ Returns: "extractionPath": "AI_EXTRACT" for complex sources
+✓ DON consensus on AI-extracted facts
+✓ Returns: TRUE with 88% confidence
+```
 
 ---
 
-## Architecture
+## 🏗️ Architecture
 
 ```
 ┌─────────────────┐
 │  Smart Contract │  AletheiaOracle.sol
-│   (On-Chain)    │
+│   (Sepolia)     │  0xb136...315e
 └────────┬────────┘
          │
          ├─ createMarket(question, deadline)
@@ -42,219 +65,220 @@ Aletheia resolves prediction market questions by:
          │
 ┌────────▼────────┐
 │  CRE Workflow   │  main.ts (TypeScript)
-│  (Off-Chain)    │
+│  (DON Nodes)    │
 └─────────────────┘
     │
     ├─ CRON: Every 5 minutes
-    ├─ HTTP: Fetch from multiple sources
+    ├─ HTTP: Fetch from AI-discovered sources
+    ├─ AI: Discover + process sources
     ├─ Consensus: Byzantine 4/5 threshold
     └─ EVM: Write resolution on-chain
 ```
 
----
+### Core Innovation: `ai-source-discovery.ts`
 
-## CRE Capabilities Used
-
-| Capability | Usage | Code |
-|------------|-------|------|
-| **CronCapability** | Triggers workflow every 5 minutes | `cre-workflow/project.yaml:16` |
-| **HTTPClient** | Fetches from 5+ sources in parallel | `cre-workflow/sources/price-feeds.ts:148` |
-| **EVMClient (read)** | Reads pending markets from contract | `cre-workflow/main.ts:59` |
-| **EVMClient (write)** | Writes resolutions on-chain | `cre-workflow/main.ts:277` |
-| **ConsensusAggregation** | Byzantine consensus (7 DON nodes) | `cre-workflow/main.ts:237` |
-| **runtime.report()** | Generates DON-signed report | `cre-workflow/main.ts:267` |
-
----
-
-## Data Flow
-
-**1. CRON Trigger**
+**1. AI Discovers Sources**
 ```typescript
-// Every 5 minutes (cre-workflow/project.yaml)
-triggers:
-  - type: cron
-    schedule: "*/5 * * * *"
+// Each DON node runs AI to discover sources
+const aiResponse = await runtime.ai.query({
+  model: 'gpt-4',
+  prompt: `Find 10 PUBLIC data sources for: "${question}"`
+})
+
+// DON nodes reach consensus on discovered sources
+const consensusSources = await runtime.consensus.aggregate({
+  data: discoveredSources,
+  threshold: 0.7  // 5/7 nodes must agree
+})
 ```
 
-**2. Read Pending Markets**
+**2. AI Processes Sources**
 ```typescript
-// main.ts:59
-const pending = await oracle.getPendingMarkets()
-// Returns markets past deadline, not yet resolved
+// For non-API sources (articles, social posts), use AI to extract facts
+if (source.extractionPath === 'AI_EXTRACT') {
+  const aiResponse = await runtime.ai.query({
+    model: 'gpt-4',
+    prompt: `Extract the answer from this content: ${rawContent}`
+  })
+  return JSON.parse(aiResponse)  // {"answer": true, "confidence": 92}
+}
 ```
 
-**3. AI Strategy Selection** (Dynamic source discovery)
+**3. DON Validates Sources**
 ```typescript
-// AI analyzes question → selects sources (NOT hardcoded!)
-const strategy = await analyzeQuestion(question)
-// Question: "Will BTC > $60k?"
-// AI Output: { category: "price", sources: [...5 exchanges] }
-```
-
-**4. CRE Multi-Source Fetch**
-```typescript
-// sources/price-feeds.ts:148
+// Instead of paying external APIs for validation,
+// DON nodes validate sources themselves
 const results = await Promise.all(
-  sources.map(source => httpClient.get(source.url))
+  sources.map(source => runtime.http.get(source.url))
 )
-// All 7 DON nodes fetch independently
-```
 
-**5. Byzantine Consensus**
-```typescript
-// main.ts:237
-const median = calculateMedian(results)
-const confidence = results.filter(r =>
-  Math.abs(r - median) / median < 0.01
-).length / results.length * 100
-// Requires 4/5 sources agree within 1%
-```
-
-**6. Write On-Chain**
-```typescript
-// main.ts:277
-await oracle.resolveMarket(
-  marketId,
-  outcome,      // true/false
-  confidence,   // 0-100%
-  proofHash     // keccak256(evidence)
-)
+// DON consensus on validation
+const feasible = accessibleCount >= 4  // At least 4/5 sources must work
 ```
 
 ---
 
-## Universal Question Types
-
-Aletheia handles any verifiable question by dynamically selecting sources:
-
-| Type | Example | AI-Selected Sources |
-|------|---------|---------------------|
-| **PRICE** | "Will BTC > $60k?" | 5 crypto exchanges |
-| **WEATHER** | "Will it rain in Tokyo?" | 5 weather APIs |
-| **SOCIAL** | "Did Elon tweet about DOGE?" | Twitter, Archive.org, scrapers, news |
-| **NEWS** | "Will SpaceX launch Starship?" | Reuters, AP, BBC, NYT, WSJ |
-| **ONCHAIN** | "Will ETH gas > 100 gwei?" | 5 RPC providers |
-| **GENERAL** | "Who won the election?" | 5 search engines |
-
-**Key:** AI selects sources dynamically per question (not hardcoded lists)
-
----
-
-## Project Structure
+## 📂 Repository Structure
 
 ```
 convergence-chainlink/
 ├── contracts/
-│   ├── AletheiaOracle.sol           # Oracle contract
-│   └── DemoPredictionMarket.sol     # Example integration
-│
+│   └── AletheiaOracle.sol          # Deployed smart contract
 ├── cre-workflow/
-│   ├── main.ts                      # CRON workflow
+│   ├── main.ts                     # CRE entry point
 │   ├── sources/
-│   │   ├── price-feeds.ts           # Multi-source price fetching
-│   │   └── universal-resolver.ts    # Question type detection
-│   ├── project.yaml                 # CRE config (CRON trigger)
-│   ├── config.json                  # Runtime config
-│   └── package.json
-│
-├── frontend/                         # Next.js demo
-│   └── app/page.tsx
-│
-└── scripts/
-    └── deploy.js                     # Deployment scripts
+│   │   └── ai-source-discovery.ts  # THE CORE USP
+│   └── project.yaml                # CRE configuration
+├── frontend/
+│   ├── app/
+│   │   └── page.tsx                # Next.js frontend
+│   ├── components/
+│   │   ├── ui/                     # EinUI glass components
+│   │   └── CreateMarketModal.tsx
+│   └── lib/
+│       └── contract.ts             # Contract ABI + address
+├── README.md
+├── TECHNICAL_OVERVIEW.md
+├── DEPLOYMENT_INFO.md
+└── SUBMISSION_CHECKLIST.md
 ```
 
 ---
 
-## Quick Start
+## 🛠️ How It Works
 
-### 1. Install
+### 1. User Creates Market
+```typescript
+// Frontend (Next.js + thirdweb)
+const tx = await contract.createMarket(
+  "Will Bitcoin exceed $100,000 by March 31, 2026?",
+  new Date("2026-03-31").getTime() / 1000
+)
+```
+
+### 2. CRE CRON Checks for Pending Markets
+```typescript
+// cre-workflow/main.ts (runs every 5 minutes)
+const pendingMarkets = await contract.getPendingMarkets()
+
+for (const market of pendingMarkets) {
+  if (market.deadline <= currentTime) {
+    await resolveMarket(market)
+  }
+}
+```
+
+### 3. AI Discovers Sources
+```typescript
+// cre-workflow/sources/ai-source-discovery.ts
+const strategy = await discoverSources(runtime, market.question)
+
+// Returns:
+{
+  category: "PRICE",
+  sources: [
+    { name: "CoinGecko", url: "...", apiType: "rest" },
+    { name: "Binance", url: "...", apiType: "rest" },
+    { name: "Coinbase", url: "...", apiType: "rest" },
+    { name: "Kraken", url: "...", apiType: "rest" },
+    { name: "CoinCap", url: "...", apiType: "rest" }
+  ],
+  consensusThreshold: 0.8
+}
+```
+
+### 4. CRE Fetches + Aggregates
+```typescript
+const results = await Promise.all(
+  strategy.sources.map(source => fetchAndProcessSource(runtime, source, question))
+)
+
+// Byzantine Fault Tolerant Consensus
+const finalOutcome = results.filter(r => r.answer === true).length >= 4
+const confidence = Math.round((agreementCount / totalSources) * 100)
+```
+
+### 5. CRE Resolves On-Chain
+```typescript
+await contract.resolveMarket(
+  marketId,
+  finalOutcome,      // true/false
+  confidence,        // 0-100
+  proofHash          // IPFS hash of evidence
+)
+```
+
+---
+
+## 🚀 Deployment
+
+### Smart Contract (✅ Deployed)
+- **Network:** Sepolia Testnet
+- **Address:** `0xb13623f2AfB38b849d3a111ebdF08e135Ae8315e`
+- **Deployer:** `0x2000f57be293734aeD2Ca9d629080A21E782FCAb`
+- **View:** https://sepolia.etherscan.io/address/0xb13623f2AfB38b849d3a111ebdF08e135Ae8315e
+
+### Frontend (Ready to Deploy)
 ```bash
-git clone https://github.com/Kirillr-Sibirski/convergence-chainlink.git
-cd convergence-chainlink/cre-workflow
+cd frontend
 npm install
+npm run build
+vercel --prod
 ```
 
-### 2. Test Locally
+### CRE Workflow (Ready for DON)
 ```bash
-npm test
-# Runs universal-resolver tests
-```
-
-### 3. Simulate CRE Workflow
-```bash
-cre workflow simulate . --non-interactive
-# Simulates CRON trigger without deployment
-```
-
-### 4. Deploy to Sepolia
-```bash
-# Deploy contract
-forge create contracts/AletheiaOracle.sol --rpc-url $RPC --private-key $PK
-
-# Set CRE workflow address
-cast send $ORACLE "setWorkflowAddress(address)" $CRE_ADDRESS
-
-# Deploy CRE workflow to DON
-cre deploy --network sepolia
+cd cre-workflow
+npm install
+cre workflow deploy . --network sepolia
 ```
 
 ---
 
-## Usage Example
+## 🎯 USP Summary
 
-```solidity
-// 1. Create market
-oracle.createMarket(
-    "Will BTC close above $60,000 on March 1, 2026?",
-    1709251199  // deadline timestamp
-);
+| Feature | Traditional Oracles | AEEIA |
+|---------|-------------------|-------|
+| **Source Selection** | Hardcoded list | AI discovers dynamically |
+| **Source Processing** | APIs only | APIs + Articles + Social (AI) |
+| **Question Types** | Limited (price, weather) | Universal (ANY question) |
+| **Validation Cost** | External API fees | Free (DON validates) |
+| **Transparency** | Opaque | Full proof on-chain |
+| **Adaptability** | Manual updates | Fully autonomous |
 
-// 2. Wait for CRON (auto-resolves after deadline)
-
-// 3. Read result
-(bool resolved, bool outcome, uint8 confidence, bytes32 proof) =
-    oracle.getResolution(marketId);
-
-// resolved = true
-// outcome = true (BTC > $60k)
-// confidence = 95
-// proof = 0xabc123... (keccak256 of evidence)
-```
+**AEEIA can answer questions that traditional oracles cannot**, because it discovers and processes sources on-demand using AI + DON consensus.
 
 ---
 
-## Technical Details
+## 📖 Documentation
 
-**Smart Contract:** `AletheiaOracle.sol`
-- Deployed: Sepolia `0xb13623f2AfB38b849d3a111ebdF08e135Ae8315e`
-- Functions: `createMarket()`, `resolveMarket()`, `getResolution()`
-- Access Control: `onlyCRE` modifier for resolutions
-
-**CRE Workflow:** `main.ts`
-- Language: TypeScript
-- Runtime: WASM (Chainlink DON)
-- Trigger: CRON every 5 minutes
-- Consensus: 7 DON nodes (Byzantine 4/5 source threshold)
-
-**Frontend:** Next.js 14
-- Live: https://aletheia-gilt.vercel.app
-- Features: Browse markets, create markets, view resolutions
+- **[TECHNICAL_OVERVIEW.md](TECHNICAL_OVERVIEW.md)** - Deep dive into architecture
+- **[DEPLOYMENT_INFO.md](DEPLOYMENT_INFO.md)** - Deployment guides
+- **[SUBMISSION_CHECKLIST.md](SUBMISSION_CHECKLIST.md)** - Hackathon submission checklist
 
 ---
 
-## Documentation
+## 🏆 Built For
 
-- **Technical Overview:** [TECHNICAL_OVERVIEW.md](./TECHNICAL_OVERVIEW.md)
-- **Hackathon Strategy:** [HACKATHON_STRATEGY.md](./HACKATHON_STRATEGY.md)
-- **Deployment Info:** [DEPLOYMENT_INFO.md](./DEPLOYMENT_INFO.md)
+**Chainlink Convergence Hackathon 2026 - Agents Track**
+
+**Key Technologies:**
+- Chainlink Runtime Environment (CRE)
+- Solidity ^0.8.20
+- Next.js 14
+- TypeScript
+- Thirdweb
+- EinUI
+
+**Unique Value Proposition:**
+"AEEIA is the first prediction market oracle that uses AI to dynamically discover AND process data sources, with ZERO hardcoded APIs. Our CRE workflow can verify any question by intelligently finding and analyzing public data sources using DON consensus."
 
 ---
 
-## License
+## 📜 License
 
 MIT
 
 ---
 
-**Built for Chainlink Convergence Hackathon 2026**
+**Built by Hermesis** | [GitHub](https://github.com/Kirillr-Sibirski/convergence-chainlink)
