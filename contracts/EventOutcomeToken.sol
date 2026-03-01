@@ -110,8 +110,4 @@ contract EventOutcomeToken is ERC20, Ownable {
         emit TokensRedeemed(msg.sender, balance, payout);
     }
 
-    /**
-     * @notice Allow market contract to receive ETH for redemptions
-     */
-    receive() external payable {}
 }
