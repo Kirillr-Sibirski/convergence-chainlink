@@ -11,26 +11,17 @@ interface GlassCardProps extends React.HTMLAttributes<HTMLDivElement> {
 const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
   ({ className, glowEffect = false, children, ...props }, ref) => {
     return (
-      <div className="relative">
-        {glowEffect && (
-          <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-gray-400/20 via-gray-500/20 to-gray-600/20 blur-xl opacity-50" />
+      <div
+        ref={ref}
+        className={cn(
+          "relative rounded-2xl border border-gray-200/50",
+          "bg-white/60 backdrop-blur-xl",
+          "shadow-[0_8px_32px_rgba(0,0,0,0.08)]",
+          className,
         )}
-        <div
-          ref={ref}
-          className={cn(
-            "relative rounded-2xl border border-gray-200/50",
-            "bg-white/60 backdrop-blur-xl",
-            "shadow-[0_8px_32px_rgba(0,0,0,0.08)]",
-            "before:absolute before:inset-0 before:rounded-2xl",
-            "before:bg-gradient-to-b before:from-white/40 before:to-transparent before:pointer-events-none",
-            "after:absolute after:inset-px after:rounded-[calc(1rem-1px)]",
-            "after:shadow-[inset_0_1px_1px_rgba(255,255,255,0.2)] after:pointer-events-none",
-            className,
-          )}
-          {...props}
-        >
-          <div className="relative z-10">{children}</div>
-        </div>
+        {...props}
+      >
+        {children}
       </div>
     )
   },
