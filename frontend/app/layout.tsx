@@ -1,25 +1,27 @@
-import './globals.css'
-import type { Metadata } from 'next'
-import { Providers } from './providers'
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
 
 export const metadata: Metadata = {
-  title: 'AEEIA | Truth Oracle',
-  description: 'Multi-source prediction market oracle powered by Chainlink CRE',
-  icons: {
-    icon: '/logo.png',
-  },
-}
+  title: "AEEIA - AI-Powered Prediction Markets",
+  description: "Zero hardcoded sources. Universal verification. Powered by Chainlink CRE.",
+};
 
 export default function RootLayout({
   children,
-}: {
-  children: React.ReactNode
-}) {
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
-    <html lang="en">
-      <body className="bg-white text-black antialiased">
-        <Providers>{children}</Providers>
+    <html lang="en" className="dark">
+      <body className={`${inter.variable} antialiased`}>
+        {children}
       </body>
     </html>
-  )
+  );
 }
