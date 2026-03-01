@@ -11,9 +11,12 @@ export default function Home() {
       <header className="border-b border-black">
         <div className="max-w-6xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">ALETHEIA</h1>
-              <p className="text-sm text-gray-600 mt-1">Truth Oracle · Powered by Chainlink CRE</p>
+            <div className="flex items-center gap-4">
+              <img src="/logo.png" alt="Aletheia" className="h-12 w-12" />
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">ALETHEIA</h1>
+                <p className="text-sm text-gray-600 mt-1">Truth Oracle · Powered by Chainlink CRE</p>
+              </div>
             </div>
             <button className="px-6 py-2 bg-black text-white text-sm font-medium hover:bg-gray-800 transition-colors">
               Connect Wallet

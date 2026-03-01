@@ -1,8 +1,15 @@
-# Aletheia
+<div align="center">
+  <img src="Aletheia.png" alt="Aletheia Logo" width="200"/>
 
-> *Greek for "truth"*
+  # Aletheia
 
-**Autonomous multi-source oracle for prediction markets**
+  > *Greek for "truth"*
+
+  **Autonomous multi-source oracle for prediction markets**
+
+  [![Demo](https://img.shields.io/badge/Live%20Demo-aletheia--gilt.vercel.app-blue)](https://aletheia-gilt.vercel.app)
+  [![Contract](https://img.shields.io/badge/Sepolia-0xb136...315e-green)](https://sepolia.etherscan.io/address/0xb13623f2AfB38b849d3a111ebdF08e135Ae8315e)
+</div>
 
 Built with [Chainlink Runtime Environment (CRE)](https://docs.chain.link/cre) for the Chainlink Convergence Hackathon 2026.
 
