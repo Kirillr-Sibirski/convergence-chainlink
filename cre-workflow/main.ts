@@ -18,7 +18,7 @@ import { z } from 'zod'
 import { AletheiaOracleABI } from './contracts/abi'
 import { evaluateBTCPriceAbove } from './sources/price-feeds'
 import { resolveUniversalQuestion } from './sources/universal-resolver'
-import { resolveWithMultiAI } from './sources/multi-ai-consensus'
+import { resolveWithMultiAI } from './sources/multi-ai-openrouter'
 
 // Configuration schema
 const configSchema = z.object({
