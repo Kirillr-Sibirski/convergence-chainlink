@@ -18,17 +18,17 @@ export function InfoSection() {
       <div className="grid md:grid-cols-2 gap-12 items-start">
         <div className="space-y-6">
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
-            AI-Powered
+            Oracle-First
             <br />
-            Oracle Truth.
+            Market Resolution.
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            AEEIA (Aletheia) brings autonomous prediction market resolution with
-            zero hardcoded sources. Markets resolve automatically via Chainlink CRE.
+            AEEIA is an autonomous oracle that resolves prediction markets through
+            AI reasoning. No manual data feeds. No trusted intermediaries.
           </p>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Built on Chainlink Runtime Environment with dynamic source discovery,
-            multi-source verification, and transparent proof generation.
+            Powered by Chainlink Runtime Environment, the oracle dynamically sources
+            information, cross-verifies facts, and generates cryptographic proofs.
           </p>
           <div className="flex flex-wrap gap-3">
             <Button variant="outline" className="group" asChild>

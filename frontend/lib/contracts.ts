@@ -3,9 +3,8 @@
 export const CONTRACTS = {
   // Sepolia testnet
   ORACLE_ADDRESS: "0xb13623f2AfB38b849d3a111ebdF08e135Ae8315e" as const,
-  // Deploy with: DEPLOYER_PRIVATE_KEY=0x... ./contracts/deploy-prediction-market.sh
-  // Then update this address
-  PREDICTION_MARKET_ADDRESS: "0x0000000000000000000000000000000000000000" as const,
+  // Deployed DemoPredictionMarket contract
+  PREDICTION_MARKET_ADDRESS: "0x1318f4f86b878fa5263c2fbe48eb2405ea637fd4" as const,
   CHAIN_ID: 11155111, // Sepolia
 } as const;
 

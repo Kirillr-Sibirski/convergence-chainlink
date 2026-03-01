@@ -9,16 +9,16 @@ import Link from "next/link";
 
 export default function DashboardPage() {
   return (
-    <div className="min-h-screen relative bg-gradient-to-br from-gray-900 via-gray-950 to-black">
+    <div className="min-h-screen relative bg-background">
       <FloatingIcons />
       <SimpleHeader />
 
       <main className="relative z-10 px-4 py-12">
         <div className="container mx-auto max-w-4xl space-y-6">
           <div>
-            <h1 className="text-3xl font-bold mb-2">My Bets</h1>
+            <h1 className="text-3xl font-bold mb-2">My Positions</h1>
             <p className="text-muted-foreground">
-              View and manage your prediction market positions
+              Track your bets and oracle-resolved market outcomes
             </p>
           </div>
 
@@ -28,10 +28,10 @@ export default function DashboardPage() {
                 <TrendingUp className="w-8 h-8 text-primary" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-lg font-semibold">No Active Bets</h3>
+                <h3 className="text-lg font-semibold">No Active Positions</h3>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  You haven't placed any bets yet. Connect your wallet and visit
-                  the Markets page to get started.
+                  You haven't staked on any markets yet. Connect your wallet and
+                  browse oracle-resolved prediction markets to begin.
                 </p>
               </div>
               <Button asChild className="mt-4">
@@ -45,10 +45,10 @@ export default function DashboardPage() {
           <div className="text-xs text-muted-foreground p-4 rounded-md border">
             <p className="font-medium mb-2">Coming Soon:</p>
             <ul className="list-disc list-inside space-y-1">
-              <li>View all your active positions</li>
-              <li>Track potential winnings in real-time</li>
-              <li>Claim winnings from settled markets</li>
-              <li>View bet history and performance</li>
+              <li>View all active stakes across markets</li>
+              <li>Track oracle resolution status and confidence scores</li>
+              <li>Claim payouts from oracle-settled markets</li>
+              <li>View complete position history and performance analytics</li>
             </ul>
           </div>
         </div>

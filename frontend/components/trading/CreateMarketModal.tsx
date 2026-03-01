@@ -109,12 +109,12 @@ export function CreateMarketModal({ onClose, onCreate }: CreateMarketModalProps)
           </div>
 
           <div className="text-xs text-muted-foreground border-t pt-4">
-            <p className="font-medium mb-1">How it works:</p>
+            <p className="font-medium mb-1">Oracle-based resolution:</p>
             <ul className="list-disc list-inside space-y-1">
-              <li>Market created on-chain via smart contract</li>
-              <li>Users can bet YES or NO with ETH</li>
-              <li>After deadline, Chainlink CRE resolves the outcome</li>
-              <li>Winners claim proportional share of losing side's stakes</li>
+              <li>Market created on-chain and registered with AEEIA oracle</li>
+              <li>Users bet YES or NO by staking ETH</li>
+              <li>After deadline, oracle autonomously resolves using AI reasoning</li>
+              <li>Winners claim proportional payouts from losing side</li>
             </ul>
           </div>
         </CardContent>

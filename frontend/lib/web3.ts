@@ -96,9 +96,6 @@ export async function placeBet(marketId: number, predictYes: boolean, amountEth:
     throw new Error("No wallet connected");
   }
 
-  if (CONTRACTS.PREDICTION_MARKET_ADDRESS === "0x0000000000000000000000000000000000000000") {
-    throw new Error("PredictionMarket contract not deployed yet. Please deploy it first.");
-  }
 
   const [address] = await walletClient.getAddresses();
 
@@ -118,10 +115,6 @@ export async function placeBet(marketId: number, predictYes: boolean, amountEth:
 // Get market data from PredictionMarket contract
 export async function fetchPredictionMarket(marketId: number) {
   const client = getPublicClient();
-
-  if (CONTRACTS.PREDICTION_MARKET_ADDRESS === "0x0000000000000000000000000000000000000000") {
-    return null;
-  }
 
   try {
     const market = (await client.readContract({
@@ -151,11 +144,7 @@ export async function fetchPredictionMarket(marketId: number) {
 export async function getUserStakes(marketId: number, userAddress: string) {
   const client = getPublicClient();
 
-  if (CONTRACTS.PREDICTION_MARKET_ADDRESS === "0x0000000000000000000000000000000000000000") {
-    return { yesStake: BigInt(0), noStake: BigInt(0) };
-  }
-
-  try {
+  try{
     const stakes = (await client.readContract({
       address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
       abi: PREDICTION_MARKET_ABI,

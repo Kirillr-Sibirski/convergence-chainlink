@@ -36,7 +36,16 @@
     "autoprefixer": "10.4.0",
     "postcss": "8.4.0",
     "sharp": "^0.34.5",
+    "solc": "^0.8.34",
     "tailwindcss": "3.4.0",
     "typescript": "5.3.3"
-  }
+  },
+  "description": "",
+  "main": "next.config.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }
