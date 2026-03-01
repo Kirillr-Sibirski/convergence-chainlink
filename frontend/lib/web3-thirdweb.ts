@@ -26,49 +26,53 @@ export function getPredictionMarketContract() {
 }
 
 // Fetch all markets from the Oracle contract
-// export async function fetchMarkets() {
-//   try {
-//     const oracleContract = getOracleContract();
-
-//     const marketCount = await readContract({
-//       contract: oracleContract,
-//       method: "marketCount",
-//       params: [],
-//     });
-
-//     const count = Number(marketCount);
-//     if (count === 0) return [];
-
-//     const markets = await Promise.all(
-//       Array.from({ length: count }, async (_, i) => {
-//         const marketId = i + 1;
-//         const market = await readContract({
-//           contract: oracleContract,
-//           method: "markets",
-//           params: [BigInt(marketId)],
-//         });
-
-//         return {
-//           id: Number(market[0]),
-//           question: market[1] as string,
-//           deadline: Number(market[2]),
-//           resolved: market[3] as boolean,
-//           outcome: market[4] as boolean,
-//           confidence: Number(market[5]),
-//           proofHash: market[6] as string,
-//           createdAt: Number(market[7]),
-//         };
-//       })
-//     );
-
-//     return markets;
-//   } catch (error) {
-//     console.error("Failed to fetch markets:", error);
-//     return [];
-//   }
-// }
-
 export async function fetchMarkets() {
+  try {
+    const oracleContract = getOracleContract();
+
+    const marketCount = await readContract({
+      contract: oracleContract,
+      method: "marketCount",
+      params: [],
+    });
+
+    const count = Number(marketCount);
+    if (count === 0) return [];
+
+    const markets = await Promise.all(
+      Array.from({ length: count }, async (_, i) => {
+        const marketId = i + 1;
+        const market = await readContract({
+          contract: oracleContract,
+          method: "markets",
+          params: [BigInt(marketId)],
+        });
+
+        return {
+          id: Number(market[0]),
+          question: market[1] as string,
+          deadline: Number(market[2]),
+          resolved: market[3] as boolean,
+          outcome: market[4] as boolean,
+          confidence: Number(market[5]),
+          proofHash: market[6] as string,
+          createdAt: Number(market[7]),
+          category: "Crypto", // Default category
+          volumeUsdc: 0, // Will be calculated from prediction market contract
+          yesPercent: 50, // Default 50%
+        };
+      })
+    );
+
+    return markets;
+  } catch (error) {
+    console.error("Failed to fetch markets:", error);
+    return [];
+  }
+}
+
+// Mock data for fallback during development
+export async function fetchMarketsMock() {
   return [
     {
       id: 1,
