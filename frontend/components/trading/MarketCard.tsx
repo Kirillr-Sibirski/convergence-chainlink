@@ -9,6 +9,7 @@ import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { Separator } from "@/components/ui/separator";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useMarkets } from "@/hooks/useMarkets";
+import { placeBet } from "@/lib/web3";
 
 // MarketCard connected to smart contracts
 export function MarketCard() {
@@ -18,17 +19,22 @@ export function MarketCard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handlePlaceBet = async () => {
-    if (!amount || parseFloat(amount) <= 0) return;
+    if (!amount || parseFloat(amount) <= 0) {
+      alert("Please enter a valid amount");
+      return;
+    }
+
+    if (!market) return;
 
     setIsSubmitting(true);
     try {
-      // TODO: Implement actual bet placement when PredictionMarket contract is deployed
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      alert(`Bet placed: ${amount} ETH on ${side.toUpperCase()}\n\nNote: PredictionMarket contract not yet deployed. This is a mock transaction.`);
+      const hash = await placeBet(market.id, side === "yes", amount);
+      alert(`✅ Bet placed successfully!\n\nTransaction: ${hash}\n\nYour ${amount} ETH bet on ${side.toUpperCase()} has been submitted to the blockchain.`);
       setAmount("");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to place bet:", error);
-      alert("Failed to place bet. See console for details.");
+      const message = error.message || "Failed to place bet";
+      alert(`❌ Failed to place bet\n\n${message}`);
     } finally {
       setIsSubmitting(false);
     }

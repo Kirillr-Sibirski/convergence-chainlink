@@ -1,31 +1,55 @@
 "use client";
 
 import { SimpleHeader } from "@/components/layout/SimpleHeader";
+import { FloatingIcons } from "@/components/ui/floating-icons";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
+import { Button } from "@/components/ui/button";
+import { TrendingUp } from "lucide-react";
+import Link from "next/link";
 
 export default function DashboardPage() {
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="min-h-screen bg-background relative">
+      <FloatingIcons />
       <SimpleHeader />
-      <main className="flex-1 bg-gradient-radial from-primary/5 via-background to-background">
-        <div className="container mx-auto px-6 py-12">
-          <div className="max-w-4xl mx-auto space-y-6">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">My Bets</h1>
-              <p className="text-muted-foreground">
-                View and manage your prediction market positions
-              </p>
-            </div>
 
-            <SpotlightCard className="p-8">
-              <div className="text-center space-y-3">
+      <main className="relative z-10 px-4 py-12">
+        <div className="container mx-auto max-w-4xl space-y-6">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">My Bets</h1>
+            <p className="text-muted-foreground">
+              View and manage your prediction market positions
+            </p>
+          </div>
+
+          <SpotlightCard className="p-8">
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
+                <TrendingUp className="w-8 h-8 text-primary" />
+              </div>
+              <div className="space-y-2">
                 <h3 className="text-lg font-semibold">No Active Bets</h3>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto">
                   You haven't placed any bets yet. Connect your wallet and visit
                   the Markets page to get started.
                 </p>
               </div>
-            </SpotlightCard>
+              <Button asChild className="mt-4">
+                <Link href="/">
+                  Browse Markets
+                </Link>
+              </Button>
+            </div>
+          </SpotlightCard>
+
+          <div className="text-xs text-muted-foreground p-4 rounded-md border">
+            <p className="font-medium mb-2">Coming Soon:</p>
+            <ul className="list-disc list-inside space-y-1">
+              <li>View all your active positions</li>
+              <li>Track potential winnings in real-time</li>
+              <li>Claim winnings from settled markets</li>
+              <li>View bet history and performance</li>
+            </ul>
           </div>
         </div>
       </main>
