@@ -10,23 +10,38 @@ import Link from "next/link";
 const MOCK_POSITIONS = [
   {
     id: 1,
+<<<<<<< HEAD
     question: "Will AI surpass human intelligence by 2030?",
     side: "NO" as const,
     stakeEth: "0.2",
     deadline: 1893456000, // 2030
+=======
+    question: "Will AI surpass human-level reasoning on all benchmarks by 2027?",
+    side: "NO" as const,
+    betUsdc: "120",
+    deadline: 1830384000, // Dec 31, 2027
+>>>>>>> 87e8e39 (Separate landign page, proper markets page, adjust the UI)
   },
   {
     id: 2,
     question: "Will ETH reach $10,000 by end of Q3 2026?",
     side: "YES" as const,
+<<<<<<< HEAD
     stakeEth: "0.5",
+=======
+    betUsdc: "300",
+>>>>>>> 87e8e39 (Separate landign page, proper markets page, adjust the UI)
     deadline: 1759276800, // Sep 30 2026
   },
   {
     id: 3,
     question: "Will Bitcoin ETF inflows exceed $5B in March 2026?",
     side: "YES" as const,
+<<<<<<< HEAD
     stakeEth: "0.15",
+=======
+    betUsdc: "75",
+>>>>>>> 87e8e39 (Separate landign page, proper markets page, adjust the UI)
     deadline: 1743379200, // Mar 31 2026
   },
 ];
@@ -42,7 +57,11 @@ export default function DashboardPage() {
       <main className="relative z-10 px-4 py-12">
         <div className="container mx-auto max-w-4xl space-y-6">
           <div>
+<<<<<<< HEAD
             <h1 className="text-3xl font-bold mb-1 text-gray-900">My Positions</h1>
+=======
+            <h1 className="text-3xl font-bold mb-1 text-gray-900">My Bets</h1>
+>>>>>>> 87e8e39 (Separate landign page, proper markets page, adjust the UI)
             <p className="text-gray-500 text-sm">
               Active bets on oracle-resolved prediction markets
             </p>
@@ -55,14 +74,24 @@ export default function DashboardPage() {
                   <TrendingUp className="w-8 h-8 text-primary" />
                 </div>
                 <div className="space-y-2">
+<<<<<<< HEAD
                   <h3 className="text-lg font-semibold">No Active Positions</h3>
                   <p className="text-sm text-muted-foreground max-w-md mx-auto">
                     You haven't staked on any markets yet. Connect your wallet and
+=======
+                  <h3 className="text-lg font-semibold">No Active Bets</h3>
+                  <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                    You haven't bet on any markets yet. Connect your wallet and
+>>>>>>> 87e8e39 (Separate landign page, proper markets page, adjust the UI)
                     browse oracle-resolved prediction markets to begin.
                   </p>
                 </div>
                 <Button asChild className="mt-4">
+<<<<<<< HEAD
                   <Link href="/">Browse Markets</Link>
+=======
+                  <Link href="/markets">Browse Markets</Link>
+>>>>>>> 87e8e39 (Separate landign page, proper markets page, adjust the UI)
                 </Button>
               </div>
             </SpotlightCard>
@@ -84,8 +113,13 @@ export default function DashboardPage() {
 
                       <div className="flex items-center gap-4 shrink-0">
                         <div className="text-right space-y-0.5">
+<<<<<<< HEAD
                           <p className="text-xs text-muted-foreground">Staked</p>
                           <p className="text-sm font-semibold tabular-nums">{position.stakeEth} ETH</p>
+=======
+                          <p className="text-xs text-muted-foreground">Bet</p>
+                          <p className="text-sm font-semibold tabular-nums">${position.betUsdc} USDC</p>
+>>>>>>> 87e8e39 (Separate landign page, proper markets page, adjust the UI)
                         </div>
                         <span
                           className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
@@ -103,8 +137,13 @@ export default function DashboardPage() {
               })}
 
               <p className="text-xs text-muted-foreground px-1">
+<<<<<<< HEAD
                 {activePositions.length} active position{activePositions.length !== 1 ? "s" : ""}.
                 Expired positions are hidden. Payouts claimed automatically on resolution.
+=======
+                {activePositions.length} active bet{activePositions.length !== 1 ? "s" : ""}.
+                Expired bets are hidden. Payouts claimed automatically on resolution.
+>>>>>>> 87e8e39 (Separate landign page, proper markets page, adjust the UI)
               </p>
             </div>
           )}

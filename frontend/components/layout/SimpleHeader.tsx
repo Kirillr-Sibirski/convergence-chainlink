@@ -27,11 +27,11 @@ export function SimpleHeader() {
         </Link>
         <nav className="flex items-center gap-1">
           <Button
-            variant={pathname === "/" ? "secondary" : "ghost"}
+            variant={pathname === "/markets" ? "secondary" : "ghost"}
             size="sm"
             asChild
           >
-            <Link href="/" className="flex flex-row items-center gap-1.5">
+            <Link href="/markets" className="flex flex-row items-center gap-1.5">
               <TrendingUp className="w-4 h-4" />
               Markets
             </Link>

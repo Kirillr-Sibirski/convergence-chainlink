@@ -69,37 +69,123 @@ export function getPredictionMarketContract() {
 // }
 
 export async function fetchMarkets() {
-  // Mock data with 3 data points
   return [
     {
       id: 1,
-      question: "Will Bitcoin reach $100,000 by end of 2024?",
-      deadline: 1735689600, // Example Unix timestamp for Dec 31, 2024
+      question: "Will Bitcoin reach $200,000 by end of 2025?",
+      deadline: 1767225600, // Dec 31, 2025
       resolved: false,
       outcome: false,
-      confidence: 60,
+      confidence: 62,
       proofHash: "0xabc123def456ghi789jkl012mno345pqr678stu901vwx234yza567bcd890efg",
-      createdAt: 1704067200, // Example Unix timestamp for Jan 1, 2024
+      createdAt: 1704067200,
+      category: "Crypto",
+      volumeUsdc: 48200,
+      yesPercent: 62,
     },
     {
       id: 2,
-      question: "Will AI surpass human intelligence by 2030?",
-      deadline: 1893456000, // Example Unix timestamp for Dec 31, 2030
+      question: "Will ETH reach $10,000 by end of Q3 2026?",
+      deadline: 1759276800, // Sep 30, 2026
       resolved: false,
       outcome: false,
-      confidence: 45,
+      confidence: 44,
       proofHash: "0xdef456ghi789jkl012mno345pqr678stu901vwx234yza567bcd890efgabc123",
-      createdAt: 1672531200, // Example Unix timestamp for Jan 1, 2023
+      createdAt: 1704067200,
+      category: "Crypto",
+      volumeUsdc: 31500,
+      yesPercent: 44,
     },
     {
       id: 3,
-      question: "Was the 2024 US election fair?",
-      deadline: 1730419200, // Example Unix timestamp for Nov 1, 2024
-      resolved: true,
-      outcome: true,
-      confidence: 85,
+      question: "Will AI surpass human-level reasoning on all benchmarks by 2027?",
+      deadline: 1830384000, // Dec 31, 2027
+      resolved: false,
+      outcome: false,
+      confidence: 55,
       proofHash: "0xghi789jkl012mno345pqr678stu901vwx234yza567bcd890efgabc123def456",
-      createdAt: 1701388800, // Example Unix timestamp for Dec 1, 2023
+      createdAt: 1704067200,
+      category: "AI & Tech",
+      volumeUsdc: 21800,
+      yesPercent: 55,
+    },
+    {
+      id: 4,
+      question: "Will Bitcoin ETF inflows exceed $5B in March 2026?",
+      deadline: 1743379200, // Mar 31, 2026
+      resolved: false,
+      outcome: false,
+      confidence: 71,
+      proofHash: "0xjkl012mno345pqr678stu901vwx234yza567bcd890efgabc123def456ghi789",
+      createdAt: 1704067200,
+      category: "Crypto",
+      volumeUsdc: 18400,
+      yesPercent: 71,
+    },
+    {
+      id: 5,
+      question: "Will GPT-5 be publicly released before June 2026?",
+      deadline: 1748736000, // Jun 1, 2026
+      resolved: false,
+      outcome: false,
+      confidence: 58,
+      proofHash: "0xmno345pqr678stu901vwx234yza567bcd890efgabc123def456ghi789jkl012",
+      createdAt: 1704067200,
+      category: "AI & Tech",
+      volumeUsdc: 15200,
+      yesPercent: 58,
+    },
+    {
+      id: 6,
+      question: "Will US CPI inflation drop below 2% before end of 2026?",
+      deadline: 1767225600, // Dec 31, 2026
+      resolved: false,
+      outcome: false,
+      confidence: 48,
+      proofHash: "0xpqr678stu901vwx234yza567bcd890efgabc123def456ghi789jkl012mno345",
+      createdAt: 1704067200,
+      category: "Politics",
+      volumeUsdc: 12600,
+      yesPercent: 48,
+    },
+    {
+      id: 7,
+      question: "Will SOL reach $500 before end of Q2 2026?",
+      deadline: 1751241600, // Jun 30, 2026
+      resolved: false,
+      outcome: false,
+      confidence: 57,
+      proofHash: "0xstu901vwx234yza567bcd890efgabc123def456ghi789jkl012mno345pqr678",
+      createdAt: 1704067200,
+      category: "Crypto",
+      volumeUsdc: 9400,
+      yesPercent: 57,
+    },
+    {
+      id: 8,
+      question: "Will SpaceX successfully land humans on Mars before 2031?",
+      deadline: 1924905600, // Dec 31, 2030
+      resolved: false,
+      outcome: false,
+      confidence: 31,
+      proofHash: "0xvwx234yza567bcd890efgabc123def456ghi789jkl012mno345pqr678stu901",
+      createdAt: 1704067200,
+      category: "Science",
+      volumeUsdc: 22100,
+      yesPercent: 31,
+    },
+    {
+      id: 9,
+      question: "Will the EU pass a comprehensive AI regulation act in 2026?",
+      deadline: 1767225600, // Dec 31, 2026
+      resolved: false,
+      outcome: false,
+      confidence: 66,
+      proofHash: "0xyza567bcd890efgabc123def456ghi789jkl012mno345pqr678stu901vwx234",
+      createdAt: 1704067200,
+      category: "Politics",
+      volumeUsdc: 8700,
+      yesPercent: 66,
     },
   ];
 }

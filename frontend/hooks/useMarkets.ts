@@ -12,6 +12,9 @@ export interface Market {
   confidence: number;
   proofHash: string;
   createdAt: number;
+  category: string;
+  volumeUsdc: number;
+  yesPercent: number;
 }
 
 export function useMarkets() {
