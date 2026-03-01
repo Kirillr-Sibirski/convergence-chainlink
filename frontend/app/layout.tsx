@@ -16,10 +16,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
-        <script src="/liquidGL.js" defer></script>
-      </head>
       <body className="bg-white text-black antialiased">{children}</body>
     </html>
   )
