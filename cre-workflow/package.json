@@ -5,6 +5,7 @@
   "main": "main.ts",
   "type": "module",
   "scripts": {
+    "test": "node --loader ts-node/esm tests/universal-resolver.test.ts",
     "simulate": "cre workflow simulate . --non-interactive --trigger-index 0 -T staging-settings",
     "build": "tsc --noEmit",
     "install-deps": "npm install"

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import QuestionValidator from '../components/QuestionValidator'
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'create' | 'markets'>('markets')
@@ -182,21 +183,8 @@ function CreateMarketView() {
           </p>
         </div>
 
-        {/* Category Detection */}
-        {question && (
-          <div className="border border-gray-200 p-4 bg-gray-50">
-            <p className="text-xs font-medium text-gray-700 mb-2">AI ANALYSIS:</p>
-            <p className="text-sm">
-              Category: <span className="font-medium">PRICE</span>
-            </p>
-            <p className="text-sm mt-1">
-              Sources: CoinGecko, Binance, Coinbase, Kraken, CoinCap (5 sources)
-            </p>
-            <p className="text-sm mt-1 text-gray-600">
-              Verification: Fetch BTC price from 5 exchanges, calculate median consensus
-            </p>
-          </div>
-        )}
+        {/* AI Question Validator */}
+        {question && <QuestionValidator question={question} />}
 
         {/* Deadline */}
         <div>
