@@ -105,7 +105,7 @@ export function FloatingIcons() {
         />
       ))}
 
-      {/* Sui logo icons with depth-based rendering */}
+      {/* Chainlink logo icons with depth-based rendering */}
       {icons.map((icon, i) => {
         const blurAmount = Math.max(0, (1 - icon.z) * 3);
         const iconOpacity = 0.04 + icon.z * 0.1;
@@ -139,7 +139,7 @@ export function FloatingIcons() {
             }}
           >
             <Image
-              src="/sui-logo.svg"
+              src="/chainlink-logo.svg"
               alt=""
               width={icon.size}
               height={icon.size}

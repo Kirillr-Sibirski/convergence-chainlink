@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 
 const stats = [
-  { label: "DeepBook TVL", value: "$50M+", highlight: false },
-  { label: "Sui TPS", value: "297K", highlight: false },
-  { label: "Time to Finality", value: "390ms", highlight: true },
-  { label: "Max Leverage", value: "5x", highlight: false },
+  { label: "Total Markets", value: "12+", highlight: false },
+  { label: "Avg Confidence", value: "94%", highlight: true },
+  { label: "Resolution Time", value: "<1min", highlight: false },
+  { label: "Total Volume", value: "$2.4M", highlight: false },
 ];
 
 export function InfoSection() {
@@ -18,23 +18,22 @@ export function InfoSection() {
       <div className="grid md:grid-cols-2 gap-12 items-start">
         <div className="space-y-6">
           <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
-            Margin trading,
+            AI-Powered
             <br />
-            simplified.
+            Oracle Truth.
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Ōshio brings leveraged trading to Sui with the simplest interface
-            possible. No complex order books, no overwhelming charts—just pick
-            your direction and go.
+            AEEIA (Aletheia) brings autonomous prediction market resolution with
+            zero hardcoded sources. Markets resolve automatically via Chainlink CRE.
           </p>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Built on DeepBook V3, Sui&apos;s native order book, with sub-second
-            finality and minimal fees.
+            Built on Chainlink Runtime Environment with dynamic source discovery,
+            multi-source verification, and transparent proof generation.
           </p>
           <div className="flex flex-wrap gap-3">
             <Button variant="outline" className="group" asChild>
-              <a href="https://deepbook.tech/margin" target="_blank" rel="noopener noreferrer">
-                Learn more about DeepBook Margin
+              <a href="https://chain.link/cre" target="_blank" rel="noopener noreferrer">
+                Learn more about Chainlink CRE
                 <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" />
               </a>
             </Button>
@@ -67,35 +66,35 @@ export function InfoSection() {
 
       <div className="mt-24 space-y-12">
         <h3 className="text-3xl font-bold tracking-tight text-center">
-          Why Sui?
+          Why Chainlink CRE?
         </h3>
         <div className="grid md:grid-cols-3 gap-6">
           <SpotlightCard className="p-6 space-y-3">
-            <h4 className="font-semibold text-lg">Parallel Execution</h4>
+            <h4 className="font-semibold text-lg">Zero Hardcoded Sources</h4>
             <p className="text-sm text-muted-foreground">
-              Sui processes transactions in parallel, enabling unprecedented
-              throughput without compromising security.
+              AI dynamically discovers and verifies sources for each query.
+              No manual API configuration required.
             </p>
           </SpotlightCard>
           <SpotlightCard className="p-6 space-y-3">
-            <h4 className="font-semibold text-lg">Sub-Second Finality</h4>
+            <h4 className="font-semibold text-lg">Multi-Source Verification</h4>
             <p className="text-sm text-muted-foreground">
-              Transactions finalize in under 400ms. Your trades execute
-              instantly with immediate confirmation.
+              Cross-references multiple independent sources to ensure accuracy
+              and generate confidence scores.
             </p>
           </SpotlightCard>
           <SpotlightCard className="p-6 space-y-3">
-            <h4 className="font-semibold text-lg">DeepBook V3</h4>
+            <h4 className="font-semibold text-lg">Transparent Proofs</h4>
             <p className="text-sm text-muted-foreground">
-              Native on-chain order book built by Mysten Labs. Deep liquidity,
-              minimal slippage, and trustless execution.
+              Every resolution includes cryptographic proof of sources used,
+              making verification fully auditable.
             </p>
           </SpotlightCard>
         </div>
         <div className="flex justify-center pt-4">
           <Button variant="outline" className="group" asChild>
-            <a href="https://www.sui.io/" target="_blank" rel="noopener noreferrer">
-              Learn more about Sui
+            <a href="https://chain.link/" target="_blank" rel="noopener noreferrer">
+              Learn more about Chainlink
               <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" />
             </a>
           </Button>
