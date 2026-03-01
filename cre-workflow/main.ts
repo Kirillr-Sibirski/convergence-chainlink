@@ -18,6 +18,7 @@ import { z } from 'zod'
 import { AletheiaOracleABI } from './contracts/abi'
 import { evaluateBTCPriceAbove } from './sources/price-feeds'
 import { resolveUniversalQuestion } from './sources/universal-resolver'
+import { resolveWithMultiAI } from './sources/multi-ai-consensus'
 
 // Configuration schema
 const configSchema = z.object({
@@ -169,9 +170,9 @@ const determineVerificationStrategy = (runtime: Runtime<Config>, question: strin
 }
 
 /**
- * Fetch data from multiple sources with consensus
- * Uses CRE's HTTP capability with DON consensus
- * NOW SUPPORTS: price, weather, social, news, onchain, general questions
+ * Fetch data from multiple sources with MULTI-AI CONSENSUS
+ * Queries Claude, GPT, Grok, and Gemini AI models
+ * Uses weighted voting based on confidence scores
  */
 const fetchMultiSourceData = (
 	runtime: Runtime<Config>,
@@ -179,11 +180,13 @@ const fetchMultiSourceData = (
 	question: string,
 	category: string,
 ): ResolutionResult => {
-	runtime.log(`Fetching from ${sources.length} sources...`)
+	runtime.log(`Multi-AI consensus resolution starting...`)
 	runtime.log(`Question type: ${category}`)
 
-	// Use universal resolver for ANY question type
-	const result = resolveUniversalQuestion(runtime, question)
+	// Use multi-AI consensus for ALL questions
+	const result = resolveWithMultiAI(runtime, question)
+
+	runtime.log(`Agreement level: ${result.agreementLevel}% (${result.aiResponses.length} AI models)`)
 
 	return {
 		outcome: result.outcome,
