@@ -16,12 +16,12 @@ export default function Home() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const account = useActiveAccount();
 
-  const handleCreateMarket = async (question: string, deadline: bigint) => {
+  const handleCreateMarket = async (question: string) => {
     if (!account) {
       throw new Error("Please connect your wallet first");
     }
+    const deadline = Math.floor(Date.now() / 1000) + 24 * 3600;
     await createMarket(account, question, deadline);
-    // The market card will automatically refresh and show the new market
   };
 
   return (
