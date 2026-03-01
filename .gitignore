@@ -11,6 +11,10 @@ build/
 *.js
 *.d.ts
 !contracts/**/*.js
+!frontend/**/*.js
+!frontend/**/*.ts
+!frontend/**/*.tsx
+!frontend/**/*.css
 
 # Environment
 .env
