@@ -16,8 +16,8 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "AEEIA - AI-Fetched Sources, CRE-Verified Truth",
-  description: "Prediction markets resolved by processing real evidence, not AI hallucinations. Powered by Chainlink Runtime Environment.",
+  title: "AEEIA - Tokenized Outcomes & AI-Fetched Sources",
+  description: "Tokenized outcomes on prediction markets resolved by processing outcomes with AI. Powered by Chainlink Runtime Environment.",
 };
 
 export default function RootLayout({

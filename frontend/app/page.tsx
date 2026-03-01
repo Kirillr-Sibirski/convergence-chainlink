@@ -12,22 +12,23 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { createMarket } from "@/lib/web3-thirdweb";
 import { useActiveAccount } from "thirdweb/react";
+import { BackgroundBeams } from "@/components/ui/background-beams";
 
 export default function Home() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const account = useActiveAccount();
 
-  const handleCreateMarket = async (question: string, deadline: number) => {
+  const handleCreateMarket = async (question: string) => {
     if (!account) {
       throw new Error("Please connect your wallet first");
     }
-    await createMarket(account, question, deadline);
+    await createMarket(account, question);
     // The market card will automatically refresh and show the new market
   };
 
   return (
     <div className="min-h-screen relative">
-      <FloatingIcons />
+      {/* <FloatingIcons /> */}
       <SimpleHeader />
 
       <main className="relative z-10 flex flex-col items-center justify-center px-4 pt-12 pb-32 gap-8 min-h-[calc(100vh-65px)]">
@@ -68,6 +69,7 @@ export default function Home() {
           onCreate={handleCreateMarket}
         />
       )}
+      <BackgroundBeams />
     </div>
   );
 }

@@ -10,7 +10,7 @@ import Link from "next/link";
 export default function DashboardPage() {
   return (
     <div className="min-h-screen relative">
-      <FloatingIcons />
+      {/* <FloatingIcons /> */}
       <SimpleHeader />
 
       <main className="relative z-10 px-4 py-12">
@@ -41,16 +41,6 @@ export default function DashboardPage() {
               </Button>
             </div>
           </SpotlightCard>
-
-          <div className="text-xs text-muted-foreground p-4 rounded-md border">
-            <p className="font-medium mb-2">Coming Soon:</p>
-            <ul className="list-disc list-inside space-y-1">
-              <li>View all active stakes across markets</li>
-              <li>Track oracle resolution status and confidence scores</li>
-              <li>Claim payouts from oracle-settled markets</li>
-              <li>View complete position history and performance analytics</li>
-            </ul>
-          </div>
         </div>
       </main>
     </div>

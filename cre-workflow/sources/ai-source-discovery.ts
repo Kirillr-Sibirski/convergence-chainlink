@@ -1,7 +1,7 @@
 /**
  * AI-Powered Dynamic Source Discovery
  *
- * ZERO HARDCODED SOURCES - Pure AI discovery via DON consensus
+ * Pure AI discovery via DON consensus
  * Each DON node runs AI to discover sources, then they reach consensus
  */
 

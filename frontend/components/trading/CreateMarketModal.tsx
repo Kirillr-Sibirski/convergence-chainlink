@@ -9,7 +9,7 @@ import { X } from "lucide-react";
 
 interface CreateMarketModalProps {
   onClose: () => void;
-  onCreate: (question: string, deadline: number) => Promise<void>;
+  onCreate: (question: string) => Promise<void>;
 }
 
 export function CreateMarketModal({ onClose, onCreate }: CreateMarketModalProps) {
@@ -24,19 +24,11 @@ export function CreateMarketModal({ onClose, onCreate }: CreateMarketModalProps)
       return;
     }
 
-    const hoursNum = parseInt(hours);
-    if (isNaN(hoursNum) || hoursNum < 1) {
-      setError("Please enter valid hours (minimum 1)");
-      return;
-    }
-
-    const deadline = Math.floor(Date.now() / 1000) + (hoursNum * 3600);
-
     setIsCreating(true);
     setError("");
 
     try {
-      await onCreate(question, deadline);
+      await onCreate(question);
       onClose();
     } catch (err) {
       console.error("Failed to create market:", err);
@@ -70,20 +62,6 @@ export function CreateMarketModal({ onClose, onCreate }: CreateMarketModalProps)
             </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="hours">Trading window (hours)</Label>
-            <Input
-              id="hours"
-              type="number"
-              min="1"
-              value={hours}
-              onChange={(e) => setHours(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              How long users can place bets before oracle resolution begins
-            </p>
-          </div>
-
           {error && (
             <div className="text-sm text-destructive bg-destructive/10 rounded-md p-3">
               {error}
@@ -107,16 +85,6 @@ export function CreateMarketModal({ onClose, onCreate }: CreateMarketModalProps)
             >
               {isCreating ? "Creating..." : "Create Market"}
             </Button>
-          </div>
-
-          <div className="text-xs text-muted-foreground border-t pt-4">
-            <p className="font-medium mb-1">How AEEIA resolves markets:</p>
-            <ul className="list-disc list-inside space-y-1">
-              <li>Oracle fetches real sources (news, APIs, data feeds)</li>
-              <li>CRE cryptographically verifies all accessed sources</li>
-              <li>AI processes evidence to reach YES/NO conclusion</li>
-              <li>Resolution based on verified facts, not AI opinions</li>
-            </ul>
           </div>
         </CardContent>
       </Card>
