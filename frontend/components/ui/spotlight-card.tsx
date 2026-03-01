@@ -40,7 +40,7 @@ export function SpotlightCard({ children, className }: SpotlightCardProps) {
         style={{
           opacity: "var(--spot-opacity)",
           background:
-            "radial-gradient(600px circle at var(--spot-x, 0px) var(--spot-y, 0px), rgba(255,255,255,.1), transparent 40%)",
+            "radial-gradient(600px circle at var(--spot-x, 0px) var(--spot-y, 0px), rgba(62,135,195,.06), transparent 40%)",
         }}
       />
       {children}

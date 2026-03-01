@@ -3,7 +3,6 @@
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { PulseDot } from "@/components/ui/pulse-dot";
 import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
 
 const stats = [
   { label: "Total Markets", value: "12+", highlight: false },
@@ -31,10 +30,9 @@ export function InfoSection() {
             information, cross-verifies facts, and generates cryptographic proofs.
           </p>
           <div className="flex flex-wrap gap-3">
-            <Button variant="outline" className="group" asChild>
+            <Button variant="outline" asChild>
               <a href="https://chain.link/cre" target="_blank" rel="noopener noreferrer">
                 Learn more about Chainlink CRE
-                <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" />
               </a>
             </Button>
           </div>
@@ -92,10 +90,9 @@ export function InfoSection() {
           </SpotlightCard>
         </div>
         <div className="flex justify-center pt-4">
-          <Button variant="outline" className="group" asChild>
+          <Button variant="outline" asChild>
             <a href="https://chain.link/" target="_blank" rel="noopener noreferrer">
               Learn more about Chainlink
-              <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" />
             </a>
           </Button>
         </div>

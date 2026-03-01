@@ -52,72 +52,6 @@ AEEIA:
 
 ---
 
-## 🏗️ Architecture
-
-```
-┌─────────────────┐
-│  Smart Contract │  AletheiaOracle.sol
-│   (Sepolia)     │  0xb136...315e
-└────────┬────────┘
-         │
-         ├─ createMarket(question, deadline)
-         └─ resolveMarket(id, outcome, confidence, proof)
-         │
-┌────────▼────────┐
-│  CRE Workflow   │  main.ts (TypeScript)
-│  (DON Nodes)    │
-└─────────────────┘
-    │
-    ├─ CRON: Every 5 minutes
-    ├─ HTTP: Fetch from AI-discovered sources
-    ├─ AI: Discover + process sources
-    ├─ Consensus: Byzantine 4/5 threshold
-    └─ EVM: Write resolution on-chain
-```
-
-### Core Innovation: `ai-source-discovery.ts`
-
-**1. AI Discovers Sources**
-```typescript
-// Each DON node runs AI to discover sources
-const aiResponse = await runtime.ai.query({
-  model: 'gpt-4',
-  prompt: `Find 10 PUBLIC data sources for: "${question}"`
-})
-
-// DON nodes reach consensus on discovered sources
-const consensusSources = await runtime.consensus.aggregate({
-  data: discoveredSources,
-  threshold: 0.7  // 5/7 nodes must agree
-})
-```
-
-**2. AI Processes Sources**
-```typescript
-// For non-API sources (articles, social posts), use AI to extract facts
-if (source.extractionPath === 'AI_EXTRACT') {
-  const aiResponse = await runtime.ai.query({
-    model: 'gpt-4',
-    prompt: `Extract the answer from this content: ${rawContent}`
-  })
-  return JSON.parse(aiResponse)  // {"answer": true, "confidence": 92}
-}
-```
-
-**3. DON Validates Sources**
-```typescript
-// Instead of paying external APIs for validation,
-// DON nodes validate sources themselves
-const results = await Promise.all(
-  sources.map(source => runtime.http.get(source.url))
-)
-
-// DON consensus on validation
-const feasible = accessibleCount >= 4  // At least 4/5 sources must work
-```
-
----
-
 ## 📂 Repository Structure
 
 ```
@@ -138,9 +72,6 @@ convergence-chainlink/
 │   └── lib/
 │       └── contract.ts             # Contract ABI + address
 ├── README.md
-├── TECHNICAL_OVERVIEW.md
-├── DEPLOYMENT_INFO.md
-└── SUBMISSION_CHECKLIST.md
 ```
 
 ---
@@ -232,47 +163,6 @@ cd cre-workflow
 npm install
 cre workflow deploy . --network sepolia
 ```
-
----
-
-## 🎯 USP Summary
-
-| Feature | Traditional Oracles | AEEIA |
-|---------|-------------------|-------|
-| **Source Selection** | Hardcoded list | AI discovers dynamically |
-| **Source Processing** | APIs only | APIs + Articles + Social (AI) |
-| **Question Types** | Limited (price, weather) | Universal (ANY question) |
-| **Validation Cost** | External API fees | Free (DON validates) |
-| **Transparency** | Opaque | Full proof on-chain |
-| **Adaptability** | Manual updates | Fully autonomous |
-
-**AEEIA can answer questions that traditional oracles cannot**, because it discovers and processes sources on-demand using AI + DON consensus.
-
----
-
-## 📖 Documentation
-
-- **[TECHNICAL_OVERVIEW.md](TECHNICAL_OVERVIEW.md)** - Deep dive into architecture
-- **[DEPLOYMENT_INFO.md](DEPLOYMENT_INFO.md)** - Deployment guides
-- **[SUBMISSION_CHECKLIST.md](SUBMISSION_CHECKLIST.md)** - Hackathon submission checklist
-
----
-
-## 🏆 Built For
-
-**Chainlink Convergence Hackathon 2026 - Agents Track**
-
-**Key Technologies:**
-- Chainlink Runtime Environment (CRE)
-- Solidity ^0.8.20
-- Next.js 14
-- TypeScript
-- Thirdweb
-- EinUI
-
-**Unique Value Proposition:**
-"AEEIA is the first prediction market oracle that uses AI to dynamically discover AND process data sources, with ZERO hardcoded APIs. Our CRE workflow can verify any question by intelligently finding and analyzing public data sources using DON consensus."
-
 ---
 
 ## 📜 License
@@ -281,4 +171,4 @@ MIT
 
 ---
 
-**Built by Hermesis** | [GitHub](https://github.com/Kirillr-Sibirski/convergence-chainlink)
+**Built by Hermesis AI Agent** | [GitHub](https://github.com/Kirillr-Sibirski/convergence-chainlink)

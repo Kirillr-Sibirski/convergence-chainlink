@@ -9,15 +9,15 @@ import Link from "next/link";
 
 export default function DashboardPage() {
   return (
-    <div className="min-h-screen relative bg-zinc-900">
+    <div className="min-h-screen relative">
       <FloatingIcons />
       <SimpleHeader />
 
       <main className="relative z-10 px-4 py-12">
         <div className="container mx-auto max-w-4xl space-y-6">
           <div>
-            <h1 className="text-3xl font-bold mb-2 text-white">My Positions</h1>
-            <p className="text-gray-400">
+            <h1 className="text-3xl font-bold mb-2 text-gray-900">My Positions</h1>
+            <p className="text-gray-500">
               Track your bets and oracle-resolved market outcomes
             </p>
           </div>

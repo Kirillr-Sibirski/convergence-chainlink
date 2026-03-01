@@ -60,23 +60,6 @@ export function FloatingIcons() {
         }}
       />
 
-      {/* Bottom shadow — grounds everything */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            "linear-gradient(to top, rgba(0,0,0,0.2) 0%, transparent 40%)",
-        }}
-      />
-
-      {/* Vignette for cinematic depth */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(ellipse 70% 70% at 50% 50%, transparent 40%, rgba(0,0,0,0.12) 100%)",
-        }}
-      />
 
       {/* Glow orbs — volumetric light effect */}
       {glowOrbs.map((orb, i) => (
@@ -108,8 +91,8 @@ export function FloatingIcons() {
       {/* Sui logo icons with depth-based rendering */}
       {icons.map((icon, i) => {
         const blurAmount = Math.max(0, (1 - icon.z) * 3);
-        const iconOpacity = 0.04 + icon.z * 0.1;
-        const glowIntensity = 0.1 + icon.z * 0.25;
+        const iconOpacity = 0.1 + icon.z * 0.2;
+        const glowIntensity = 0.15 + icon.z * 0.3;
         const glowSize = 10 + icon.z * 20;
         const floatRange = 10 + icon.z * 20;
         const scale = 0.7 + icon.z * 0.3;
@@ -122,7 +105,7 @@ export function FloatingIcons() {
               left: icon.x,
               top: icon.y,
               opacity: iconOpacity,
-              filter: `blur(${blurAmount}px) drop-shadow(0 0 ${glowSize}px rgba(62,135,195,${glowIntensity}))`,
+              filter: `blur(${blurAmount}px) drop-shadow(0 2px 10px rgba(0,0,0,0.18)) drop-shadow(0 0 ${glowSize}px rgba(62,135,195,${glowIntensity}))`,
               transformStyle: "preserve-3d",
               transform: `scale(${scale})`,
             }}

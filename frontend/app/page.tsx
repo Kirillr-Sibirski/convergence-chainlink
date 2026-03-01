@@ -21,17 +21,17 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen relative bg-zinc-900">
+    <div className="min-h-screen relative">
       <FloatingIcons />
       <SimpleHeader />
 
       <main className="relative z-10 flex flex-col items-center justify-center px-4 pt-12 pb-32 gap-8 min-h-[calc(100vh-65px)]">
         <div className="text-center space-y-3">
-          <h1 className="text-4xl font-bold tracking-tight text-white">
+          <h1 className="text-4xl font-bold tracking-tight text-gray-900">
             Autonomous Oracle Resolution
           </h1>
-          <p className="text-gray-400 max-w-md mx-auto">
-            Prediction markets settled by AI reasoning. No hardcoded data sources.
+          <p className="text-gray-500 max-w-md mx-auto">
+            Prediction markets settled by AI reasoning.
           </p>
         </div>
 
