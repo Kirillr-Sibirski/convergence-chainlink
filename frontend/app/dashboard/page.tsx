@@ -1,16 +1,15 @@
 "use client";
 
 import { SimpleHeader } from "@/components/layout/SimpleHeader";
-import { FloatingIcons } from "@/components/ui/floating-icons";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { Button } from "@/components/ui/button";
 import { TrendingUp } from "lucide-react";
+import { BackgroundBeams } from "@/components/ui/background-beams";
 import Link from "next/link";
 
 export default function DashboardPage() {
   return (
     <div className="min-h-screen relative">
-      {/* <FloatingIcons /> */}
       <SimpleHeader />
 
       <main className="relative z-10 px-4 py-12">
@@ -43,6 +42,7 @@ export default function DashboardPage() {
           </SpotlightCard>
         </div>
       </main>
+      <BackgroundBeams />
     </div>
   );
 }

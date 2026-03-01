@@ -5,8 +5,6 @@ import { SimpleHeader } from "@/components/layout/SimpleHeader";
 import { MarketCard } from "@/components/trading/MarketCard";
 import { ScrollIndicator } from "@/components/ui/scroll-indicator";
 import { InfoSection } from "@/components/sections/InfoSection";
-import { FloatingIcons } from "@/components/ui/floating-icons";
-import { GradientText, SparkleText } from "@/components/ui/text-shimmer";
 import { CreateMarketModal } from "@/components/trading/CreateMarketModal";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -18,11 +16,11 @@ export default function Home() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const account = useActiveAccount();
 
-  const handleCreateMarket = async (question: string) => {
+  const handleCreateMarket = async (question: string, deadline: bigint) => {
     if (!account) {
       throw new Error("Please connect your wallet first");
     }
-    await createMarket(account, question);
+    await createMarket(account, question, deadline);
     // The market card will automatically refresh and show the new market
   };
 
