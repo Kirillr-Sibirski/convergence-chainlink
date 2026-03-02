@@ -47,3 +47,6 @@ broadcast/
 aletheia-implementation-plan.md
 moltbook-submission-draft.md
 SHIP-CHECKLIST.md
+cre-workflow/.env
+**/.env
+**/secrets.yaml

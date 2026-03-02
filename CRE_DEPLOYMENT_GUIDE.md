@@ -39,13 +39,13 @@ Create `/workspace/group/convergence-chainlink/cre-workflow/.env`:
 
 ```bash
 # Ethereum Private Key (for on-chain writes)
-CRE_ETH_PRIVATE_KEY=0xd753c130f8fe3559e37b969c58e580333e284bb4f192c02ff41d4f2675411cec
+CRE_ETH_PRIVATE_KEY=your_private_key_here
 
 # CRE Target
 CRE_TARGET=staging
 
 # OpenRouter API Key (for multi-AI consensus)
-OPENROUTER_API_KEY_VAR=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
+OPENROUTER_API_KEY_VAR=your_openrouter_api_key_here
 
 # OR individual model keys:
 # GEMINI_API_KEY_VAR=your_gemini_key

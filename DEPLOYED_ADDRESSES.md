@@ -50,7 +50,7 @@ Deployer: `0x2000f57be293734aeD2Ca9d629080A21E782FCAb`
 
 **Deployment Command Used:**
 ```bash
-export PRIVATE_KEY=0xd753c130f8fe3559e37b969c58e580333e284bb4f192c02ff41d4f2675411cec
+export PRIVATE_KEY=your_private_key_here
 export RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
 export FORWARDER_ADDRESS=0x2000f57be293734aeD2Ca9d629080A21E782FCAb
 
