@@ -10,7 +10,7 @@ import "./AEEIAPool.sol";
  * @title AletheiaMarket
  * @notice DeFi primitive prediction market with tradeable outcome tokens
  * @dev Integrates EOT minting, AMM trading, and CRE-based oracle resolution
- *
+*                          
  * Key features:
  * - Binary markets (YES/NO) with tradeable ERC-20 outcome tokens
  * - Constant product AMM (x*y=k) for continuous trading before resolution

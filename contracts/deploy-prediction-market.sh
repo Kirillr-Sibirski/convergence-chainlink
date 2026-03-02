@@ -13,18 +13,18 @@ if [ -z "$DEPLOYER_PRIVATE_KEY" ]; then
     exit 1
 fi
 
-echo "═══════════════════════════════════════════════════════"
-echo "  Deploying DemoPredictionMarket Contract to Sepolia"
-echo "═══════════════════════════════════════════════════════"
-echo "Oracle Address: $ORACLE_ADDRESS"
-echo ""
+# echo "═══════════════════════════════════════════════════════"
+# echo "  Deploying DemoPredictionMarket Contract to Sepolia"
+# echo "═══════════════════════════════════════════════════════"
+# echo "Oracle Address: $ORACLE_ADDRESS"
+# echo ""
 
-forge create contracts/DemoPredictionMarket.sol:DemoPredictionMarket \
-  --rpc-url https://rpc.sepolia.org \
-  --private-key $DEPLOYER_PRIVATE_KEY \
-  --constructor-args $ORACLE_ADDRESS \
-  --optimize \
-  --optimizer-runs 200
+# forge create contracts/DemoPredictionMarket.sol:DemoPredictionMarket \
+#   --rpc-url https://rpc.sepolia.org \
+#   --private-key $DEPLOYER_PRIVATE_KEY \
+#   --constructor-args $ORACLE_ADDRESS \
+#   --optimize \
+#   --optimizer-runs 200”
 
 echo ""
 echo "✅ Deployment complete!"
