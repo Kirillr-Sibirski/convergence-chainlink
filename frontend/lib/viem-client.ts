@@ -1,27 +1,66 @@
-import { createPublicClient, createWalletClient, http, custom } from 'viem';
-import { sepolia } from 'viem/chains';
+import { createPublicClient, createWalletClient, custom, http } from "viem";
+import { sepolia } from "viem/chains";
+import { CONTRACTS } from "./contracts";
 
-// Public client for reading contract data (no auth needed)
+export const chain = sepolia;
+
 export const publicClient = createPublicClient({
-  chain: sepolia,
-  transport: http('https://ethereum-sepolia-rpc.publicnode.com'),
+  chain,
+  transport: http("https://ethereum-sepolia-rpc.publicnode.com"),
 });
 
-// Get wallet client from browser wallet (MetaMask, etc)
 export function getWalletClient() {
-  if (typeof window === 'undefined' || !window.ethereum) {
-    throw new Error('No wallet detected. Please install MetaMask or another Web3 wallet.');
+  if (typeof window === "undefined" || !window.ethereum) {
+    throw new Error("No wallet detected. Please install a wallet like MetaMask.");
   }
 
   return createWalletClient({
-    chain: sepolia,
+    chain,
     transport: custom(window.ethereum),
   });
 }
 
-// Contract addresses
-export const CONTRACTS = {
-  ORACLE: '0xe7A47740Ff60146f9E3C443bf84Bd5b6d03530a4' as `0x${string}`,
-  PREDICTION_MARKET: '0xf2DA89D632f9E28aF45f4F584Fb9b59F3041a10E' as `0x${string}`,
-  FACTORY: '0x7e3419E3b14436336F41daFc7Fe35A822cdc78AF' as `0x${string}`,
-};
+export async function ensureSepoliaNetwork() {
+  if (typeof window === "undefined" || !window.ethereum) return;
+
+  const chainIdHex = `0x${CONTRACTS.CHAIN_ID.toString(16)}`;
+  const currentChainId = (await window.ethereum.request({
+    method: "eth_chainId",
+  })) as string;
+
+  if (currentChainId?.toLowerCase() === chainIdHex.toLowerCase()) {
+    return;
+  }
+
+  try {
+    await window.ethereum.request({
+      method: "wallet_switchEthereumChain",
+      params: [{ chainId: chainIdHex }],
+    });
+  } catch (err: any) {
+    if (err?.code !== 4902) throw err;
+
+    await window.ethereum.request({
+      method: "wallet_addEthereumChain",
+      params: [
+        {
+          chainId: chainIdHex,
+          chainName: "Sepolia",
+          rpcUrls: ["https://ethereum-sepolia-rpc.publicnode.com"],
+          nativeCurrency: { name: "Sepolia Ether", symbol: "SEP", decimals: 18 },
+          blockExplorerUrls: ["https://sepolia.etherscan.io"],
+        },
+      ],
+    });
+  }
+}
+
+declare global {
+  interface Window {
+    ethereum?: {
+      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+      on: (event: string, cb: (...args: any[]) => void) => void;
+      removeListener: (event: string, cb: (...args: any[]) => void) => void;
+    };
+  }
+}

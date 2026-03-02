@@ -34,6 +34,7 @@ contract EventOutcomeToken is ERC20, Ownable {
     error OnlyMarket();
     error RedemptionNotEnabled();
     error InsufficientBalance();
+    error UseMarketRedeem();
 
     modifier onlyMarket() {
         if (msg.sender != market) revert OnlyMarket();
@@ -92,22 +93,8 @@ contract EventOutcomeToken is ERC20, Ownable {
      * @dev Burns user's tokens and transfers ETH based on redemption rate
      */
     function redeem() external returns (uint256 payout) {
-        if (!redemptionEnabled) revert RedemptionNotEnabled();
-
-        uint256 balance = balanceOf(msg.sender);
-        if (balance == 0) revert InsufficientBalance();
-
-        // Calculate payout
-        payout = (balance * redemptionRate) / 1e18;
-
-        // Burn tokens
-        _burn(msg.sender, balance);
-
-        // Transfer ETH (market contract must have sent funds)
-        (bool success, ) = msg.sender.call{value: payout}("");
-        require(success, "ETH transfer failed");
-
-        emit TokensRedeemed(msg.sender, balance, payout);
+        // Redemption is managed by AletheiaMarket.redeemTokens() to keep payout accounting in one place.
+        revert UseMarketRedeem();
     }
 
 }

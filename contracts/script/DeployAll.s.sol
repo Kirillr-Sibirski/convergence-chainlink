@@ -6,11 +6,14 @@ import "forge-std/console.sol";
 import "../EOTFactory.sol";
 import "../AletheiaOracle.sol";
 import "../AletheiaMarket.sol";
+import "../AEEIAToken.sol";
+import "../OutcomeStaking.sol";
 
 contract DeployAllScript is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address forwarderAddress = vm.envOr("FORWARDER_ADDRESS", vm.addr(deployerPrivateKey));
+        address forwarderAddress = vm.envAddress("FORWARDER_ADDRESS");
+        require(forwarderAddress != address(0), "FORWARDER_ADDRESS not set");
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -30,12 +33,27 @@ contract DeployAllScript is Script {
         AletheiaMarket market = new AletheiaMarket(address(oracle), address(factory));
         console.log("AletheiaMarket deployed at:", address(market));
 
+        // Wire oracle -> market callback for CRE-driven auto-settlement
+        oracle.setPredictionMarket(address(market));
+        console.log("Oracle predictionMarket set to:", address(market));
+
+        // Deploy AEEIA reward token + staking
+        console.log("Deploying AEEIAToken...");
+        AEEIAToken aeeiaToken = new AEEIAToken();
+        console.log("AEEIAToken deployed at:", address(aeeiaToken));
+
+        console.log("Deploying OutcomeStaking...");
+        OutcomeStaking staking = new OutcomeStaking(address(aeeiaToken));
+        console.log("OutcomeStaking deployed at:", address(staking));
+
         vm.stopBroadcast();
 
         console.log("\n=== DEPLOYMENT COMPLETE ===");
         console.log("Factory:", address(factory));
         console.log("Oracle:", address(oracle));
         console.log("Market:", address(market));
+        console.log("AEEIA Token:", address(aeeiaToken));
+        console.log("Staking:", address(staking));
         console.log("Deployer:", vm.addr(deployerPrivateKey));
         console.log("Forwarder:", forwarderAddress);
     }

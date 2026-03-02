@@ -52,7 +52,7 @@
 │            CHAINLINK RUNTIME ENVIRONMENT (CRE)                  │
 │                    (Autonomous Workflow)                        │
 │  ┌──────────────────────────────────────────────────────────┐  │
-│  │  CRON Trigger (every 5 minutes)                          │  │
+│  │  CRON Trigger (every 10 minutes)                          │  │
 │  │  - Checks for markets past deadline                       │  │
 │  │  - Fetches market details                                 │  │
 │  └──────────────────────────────────────────────────────────┘  │
@@ -190,13 +190,13 @@ function createMarket(string memory _question, uint256 _deadline) external {
 
 ### Phase 4: CRE Autonomous Resolution
 
-**CRE Workflow runs every 5 minutes** (CRON: `*/5 * * * *`)
+**CRE Workflow runs every 10 minutes** (CRON: `*/10 * * * *`)
 
 **Execution Flow**:
 
 1. **CRON Trigger Fires**
    ```typescript
-   // CRE wakes up every 5 minutes
+   // CRE wakes up every 10 minutes
    cre.trigger('cron', async (runtime: Runtime, cronPayload: CronPayload) => {
        // Check for expired markets
    });
@@ -628,7 +628,7 @@ export async function fetchMarkets() {
                       │
                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│ 4. CRE CRON TRIGGER (every 5 min)                               │
+│ 4. CRE CRON TRIGGER (every 10 min)                               │
 │    Query: SELECT * FROM markets WHERE deadline <= now AND       │
 │           resolved = false                                       │
 └─────────────────────┬───────────────────────────────────────────┘
@@ -772,7 +772,7 @@ event MarketResolved(
 **`cre-workflow/config.json`**:
 ```json
 {
-  "cronSchedule": "*/5 * * * *",
+  "cronSchedule": "*/10 * * * *",
   "oracleAddress": "0xe7A47740Ff60146f9E3C443bf84Bd5b6d03530a4",
   "chainSelectorName": "ethereum-testnet-sepolia",
   "gasLimit": "500000"

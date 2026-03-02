@@ -1,22 +1,25 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { client, chain } from "@/lib/thirdweb";
 import { X, Wallet } from "lucide-react";
-import { ConnectButton } from "thirdweb/react";
-import { createWallet } from "thirdweb/wallets";
-
-const wallets = [
-  createWallet("io.metamask"),
-  createWallet("com.coinbase.wallet"),
-  createWallet("me.rainbow"),
-];
+import { useWallet } from "@/hooks/useWallet";
 
 interface WalletRequiredDialogProps {
   onClose: () => void;
 }
 
 export function WalletRequiredDialog({ onClose }: WalletRequiredDialogProps) {
+  const { connect, isConnecting } = useWallet();
+
+  const handleConnect = async () => {
+    try {
+      await connect();
+      onClose();
+    } catch (err) {
+      console.error("Wallet connection failed", err);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-sm p-6 space-y-5">
@@ -31,21 +34,17 @@ export function WalletRequiredDialog({ onClose }: WalletRequiredDialogProps) {
         </div>
 
         <p className="text-sm text-muted-foreground">
-          You need a connected wallet to place bets on prediction markets.
+          You need a connected wallet to create and trade markets.
         </p>
 
         <div className="flex justify-center">
-          <ConnectButton
-            client={client}
-            wallets={wallets}
-            chain={chain}
-            connectButton={{ label: "Connect Wallet" }}
-            theme="light"
-          />
+          <Button onClick={() => void handleConnect()} disabled={isConnecting}>
+            {isConnecting ? "Connecting..." : "Connect Wallet"}
+          </Button>
         </div>
 
         <p className="text-xs text-center text-muted-foreground">
-          Supports MetaMask, Coinbase Wallet, and Rainbow
+          Make sure your wallet is on Sepolia testnet.
         </p>
       </div>
     </div>

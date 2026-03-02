@@ -137,7 +137,7 @@ contracts/
 
 ```
 cre-workflow/
-├── main.ts                       # CRON trigger (every 5 min)
+├── main.ts                       # CRON trigger (every 10 min)
 ├── sources/
 │   ├── multi-ai-consensus.ts     # 4-AI weighted voting
 │   ├── question-validator.ts     # Pre-creation validation
@@ -371,7 +371,7 @@ convergence-chainlink/
 │   ├── components/
 │   │   └── trading/              # Market cards, modals
 │   └── lib/
-│       └── web3-thirdweb.ts      # Contract interactions
+│       └── web3-viem.ts      # Contract interactions
 ├── ARCHITECTURE.md               # Technical deep dive
 ├── DEPLOYMENT.md                 # Step-by-step deployment
 └── README.md                     # This file
@@ -430,7 +430,7 @@ cd frontend/
 # Install dependencies
 npm install
 
-# Update contract addresses in lib/thirdweb.ts
+# Update contract addresses in lib/viem-client.ts
 
 # Run locally
 npm run dev
@@ -476,7 +476,7 @@ vercel --prod
 - Processes resolution reports via `_processReport()`
 
 ✅ **Autonomous Workflow**
-- CRON trigger runs every 5 minutes
+- CRON trigger runs every 10 minutes
 - Automatically detects pending markets
 - Resolves without human intervention
 
@@ -558,7 +558,7 @@ vercel --prod
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Complete technical breakdown
 - **[DEPLOYMENT.md](DEPLOYMENT.md)** - Step-by-step deployment guide
 - **[CRE Docs](https://docs.chain.link/cre/)** - Chainlink Runtime Environment
-- **[Thirdweb Docs](https://portal.thirdweb.com/)** - Web3 SDK documentation
+- **[Viem Docs](https://viem.sh/)** - TypeScript interface for Ethereum
 
 ---
 

@@ -187,7 +187,7 @@ export function resolveWithMultiAI(runtime: Runtime<any>, question: string): Con
 	runtime.log('=== Multi-AI Consensus Resolution (OpenRouter) ===')
 	runtime.log(`Question: ${question}`)
 
-	// Query all AI models in parallel
+	// Query all AI models sequentially with independent failure handling
 	const responses: AIResponse[] = []
 
 	try {

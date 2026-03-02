@@ -1,21 +1,18 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, TrendingUp } from "lucide-react";
+import { Coins, LayoutDashboard, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ConnectButton } from "thirdweb/react";
-import { client, chain } from "@/lib/thirdweb";
-import { createWallet } from "thirdweb/wallets";
+import { useWallet } from "@/hooks/useWallet";
 
-const wallets = [
-  createWallet("io.metamask"),
-  createWallet("com.coinbase.wallet"),
-  createWallet("me.rainbow"),
-];
+function shortAddress(address: string) {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}
 
 export function SimpleHeader() {
   const pathname = usePathname();
+  const { account, connect, isConnecting } = useWallet();
 
   return (
     <header className="relative z-20 flex items-center justify-between px-6 py-4 border-b bg-white/70 backdrop-blur-sm">
@@ -46,37 +43,29 @@ export function SimpleHeader() {
               My Bets
             </Link>
           </Button>
+          <Button
+            variant={pathname === "/stake" ? "secondary" : "ghost"}
+            size="sm"
+            asChild
+          >
+            <Link href="/stake" className="flex flex-row items-center gap-1.5">
+              <Coins className="w-4 h-4" />
+              Stake
+            </Link>
+          </Button>
         </nav>
       </div>
 
       <div className="flex items-center gap-3">
-        <ConnectButton
-          client={client}
-          wallets={wallets}
-          chain={chain}
-          connectButton={{
-            label: "Connect Wallet",
-            style: {
-              fontSize: "14px",
-              height: "36px",
-            },
-          }}
-          switchButton={{
-            label: "Wrong Network",
-            style: {
-              fontSize: "14px",
-              height: "36px",
-            },
-          }}
-          detailsButton={{
-            style: {
-              fontSize: "14px",
-              height: "36px",
-            },
-          }}
-          autoConnect={true}
-          theme="light"
-        />
+        {account ? (
+          <Button variant="outline" size="sm" disabled>
+            {shortAddress(account)}
+          </Button>
+        ) : (
+          <Button variant="outline" size="sm" onClick={() => void connect()} disabled={isConnecting}>
+            {isConnecting ? "Connecting..." : "Connect Wallet"}
+          </Button>
+        )}
       </div>
     </header>
   );

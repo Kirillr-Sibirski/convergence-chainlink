@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Script.sol";
 import "forge-std/StdJson.sol";
 import "../AletheiaMarket.sol";
+import "../AletheiaOracle.sol";
 
 /**
  * @title Deploy Market Script
@@ -36,6 +37,10 @@ contract DeployMarketScript is Script {
 
         AletheiaMarket market = new AletheiaMarket(oracleAddress, factoryAddress);
         console.log("AletheiaMarket deployed at:", address(market));
+
+        // Wire oracle -> market callback for CRE-driven auto-settlement
+        AletheiaOracle(oracleAddress).setPredictionMarket(address(market));
+        console.log("Oracle predictionMarket set to:", address(market));
 
         vm.stopBroadcast();
 

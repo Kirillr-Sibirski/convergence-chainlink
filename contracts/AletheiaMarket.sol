@@ -21,6 +21,7 @@ import "./AEEIAPool.sol";
 contract AletheiaMarket {
     AletheiaOracle public oracle;
     EOTFactory public eotFactory;
+    mapping(uint256 => uint256) public oracleToMarketId; // oracleMarketId => marketId
 
     struct Market {
         uint256 oracleMarketId;
@@ -80,11 +81,17 @@ contract AletheiaMarket {
     error NoTokensToRedeem();
     error ZeroAmount();
     error DeadlineMustBeFuture();
+    error OnlyOracle();
 
     constructor(address _oracleAddress, address _eotFactoryAddress) {
         oracle = AletheiaOracle(_oracleAddress);
         eotFactory = EOTFactory(_eotFactoryAddress);
         marketCount = 0;
+    }
+
+    modifier onlyOracle() {
+        if (msg.sender != address(oracle)) revert OnlyOracle();
+        _;
     }
 
     /**
@@ -103,8 +110,8 @@ contract AletheiaMarket {
         uint256 initialLiquidityNo
     ) external payable returns (uint256 marketId) {
         if (deadline <= block.timestamp) revert DeadlineMustBeFuture();
-        if (initialLiquidityYes == 0 || initialLiquidityNo == 0) revert ZeroAmount();
         if (msg.value != initialLiquidityYes + initialLiquidityNo) revert ZeroAmount();
+        if ((initialLiquidityYes == 0) != (initialLiquidityNo == 0)) revert ZeroAmount();
 
         // Create oracle market for CRE resolution
         uint256 oracleMarketId = oracle.createMarket(question, deadline);
@@ -119,22 +126,18 @@ contract AletheiaMarket {
             address(this)
         );
 
-        // Mint initial liquidity tokens to this contract
-        EventOutcomeToken(yesToken).mint(address(this), initialLiquidityYes);
-        EventOutcomeToken(noToken).mint(address(this), initialLiquidityNo);
-
         // Deploy AMM pool
         AEEIAPool pool = new AEEIAPool(yesToken, noToken, marketId);
 
-        // Approve pool to spend tokens
-        EventOutcomeToken(yesToken).approve(address(pool), initialLiquidityYes);
-        EventOutcomeToken(noToken).approve(address(pool), initialLiquidityNo);
-
-        // Add initial liquidity to AMM
-        uint256 lpTokens = pool.addLiquidity(initialLiquidityYes, initialLiquidityNo);
-
-        // Transfer LP tokens to market creator
-        pool.transfer(msg.sender, lpTokens);
+        // Optional initial liquidity: creator can seed pool, or leave it empty for external LPs.
+        if (initialLiquidityYes > 0) {
+            EventOutcomeToken(yesToken).mint(address(this), initialLiquidityYes);
+            EventOutcomeToken(noToken).mint(address(this), initialLiquidityNo);
+            EventOutcomeToken(yesToken).approve(address(pool), initialLiquidityYes);
+            EventOutcomeToken(noToken).approve(address(pool), initialLiquidityNo);
+            uint256 lpTokens = pool.addLiquidity(initialLiquidityYes, initialLiquidityNo);
+            pool.transfer(msg.sender, lpTokens);
+        }
 
         // Store market data
         markets[marketId] = Market({
@@ -149,6 +152,7 @@ contract AletheiaMarket {
             outcome: false,
             createdAt: block.timestamp
         });
+        oracleToMarketId[oracleMarketId] = marketId;
 
         emit MarketCreated(
             marketId,
@@ -216,6 +220,36 @@ contract AletheiaMarket {
 
         // Calculate redemption rate (1 winning token = redemption rate in wei)
         // For simplicity: 1 winning token = 1 ETH (since users minted 1:1)
+        winningToken.enableRedemption(1e18);
+
+        emit MarketSettled(marketId, outcome, confidence, market.totalStaked);
+    }
+
+    /**
+     * @notice Settle market directly from oracle callback (CRE report path)
+     * @param oracleMarketId Oracle market ID that was just resolved
+     * @param outcome Resolved outcome
+     * @param confidence Resolution confidence (0-100)
+     */
+    function settleFromOracle(
+        uint256 oracleMarketId,
+        bool outcome,
+        uint8 confidence
+    ) external onlyOracle {
+        uint256 marketId = oracleToMarketId[oracleMarketId];
+        if (marketId == 0 || marketId > marketCount) revert InvalidMarketId();
+
+        Market storage market = markets[marketId];
+        if (market.settled) return;
+        if (block.timestamp < market.deadline) revert MarketClosed();
+        if (confidence < MINIMUM_CONFIDENCE) revert InsufficientConfidence();
+
+        market.settled = true;
+        market.outcome = outcome;
+
+        EventOutcomeToken winningToken = outcome
+            ? EventOutcomeToken(market.yesToken)
+            : EventOutcomeToken(market.noToken);
         winningToken.enableRedemption(1e18);
 
         emit MarketSettled(marketId, outcome, confidence, market.totalStaked);

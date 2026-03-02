@@ -22,6 +22,7 @@ contract AEEIAPool is ERC20 {
     uint256 public reserveNo;
 
     uint256 private constant MINIMUM_LIQUIDITY = 1000;
+    address private constant DEAD_ADDRESS = 0x000000000000000000000000000000000000dEaD;
     uint256 private constant FEE_DENOMINATOR = 1000;
     uint256 public feeNumerator = 3; // 0.3% fee
 
@@ -87,7 +88,7 @@ contract AEEIAPool is ERC20 {
         if (_totalSupply == 0) {
             // Initial liquidity: geometric mean
             liquidity = Math.sqrt(amountYes * amountNo) - MINIMUM_LIQUIDITY;
-            _mint(address(0), MINIMUM_LIQUIDITY); // Lock minimum liquidity
+            _mint(DEAD_ADDRESS, MINIMUM_LIQUIDITY); // Lock minimum liquidity permanently
         } else {
             // Proportional liquidity
             liquidity = Math.min(

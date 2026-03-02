@@ -3,6 +3,10 @@ pragma solidity ^0.8.20;
 
 import "./ReceiverTemplate.sol";
 
+interface IAletheiaMarketSettlement {
+    function settleFromOracle(uint256 oracleMarketId, bool outcome, uint8 confidence) external;
+}
+
 /**
  * @title AletheiaOracle
  * @notice Multi-source prediction market oracle powered by Chainlink CRE
@@ -24,6 +28,8 @@ contract AletheiaOracle is ReceiverTemplate {
     // State
     mapping(uint256 => Market) public markets;
     uint256 public marketCount;
+    address public predictionMarket;
+    uint8 public constant MINIMUM_CONFIDENCE = 80;
 
     // Events
     event MarketCreated(
@@ -41,6 +47,10 @@ contract AletheiaOracle is ReceiverTemplate {
         uint256 resolvedAt
     );
 
+    event PredictionMarketUpdated(address indexed previousMarket, address indexed newMarket);
+    event SettlementTriggered(uint256 indexed marketId, address indexed predictionMarket);
+    event SettlementFailed(uint256 indexed marketId, address indexed predictionMarket, string reason);
+
     /**
      * @notice Constructor sets up the oracle with CRE forwarder authorization
      * @param forwarderAddress The address of the Chainlink Forwarder contract that will call onReport()
@@ -48,6 +58,16 @@ contract AletheiaOracle is ReceiverTemplate {
      */
     constructor(address forwarderAddress) ReceiverTemplate(forwarderAddress) {
         marketCount = 0;
+    }
+
+    /**
+     * @notice Set prediction market contract for auto-settlement callbacks
+     * @param _predictionMarket AletheiaMarket contract address
+     */
+    function setPredictionMarket(address _predictionMarket) external onlyOwner {
+        address previous = predictionMarket;
+        predictionMarket = _predictionMarket;
+        emit PredictionMarketUpdated(previous, _predictionMarket);
     }
 
     /**
@@ -126,6 +146,17 @@ contract AletheiaOracle is ReceiverTemplate {
         markets[marketId].proofHash = proofHash;
 
         emit MarketResolved(marketId, outcome, confidence, proofHash, block.timestamp);
+
+        // Auto-settle linked prediction market when CRE confidence threshold is met
+        if (predictionMarket != address(0) && confidence >= MINIMUM_CONFIDENCE) {
+            try IAletheiaMarketSettlement(predictionMarket).settleFromOracle(marketId, outcome, confidence) {
+                emit SettlementTriggered(marketId, predictionMarket);
+            } catch Error(string memory reason) {
+                emit SettlementFailed(marketId, predictionMarket, reason);
+            } catch {
+                emit SettlementFailed(marketId, predictionMarket, "unknown");
+            }
+        }
     }
 
     /**

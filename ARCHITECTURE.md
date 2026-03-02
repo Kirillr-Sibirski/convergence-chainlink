@@ -67,7 +67,7 @@ cre-workflow/
 ```
 
 **Flow:**
-1. CRON trigger runs every 5 minutes
+1. CRON trigger runs every 10 minutes
 2. Fetch pending markets (past deadline, not resolved)
 3. For each market:
    - Query 4 AI models in parallel (Gemini, Claude, GPT, Grok)
@@ -453,7 +453,7 @@ cd frontend/
 # Install dependencies
 npm install
 
-# Update contract addresses in lib/thirdweb.ts
+# Update contract addresses in lib/viem-client.ts
 # Set NEXT_PUBLIC_THIRDWEB_CLIENT_ID in .env.local
 
 # Deploy
@@ -515,7 +515,7 @@ vercel --prod
 - Processes resolution reports via `_processReport()`
 
 ✅ **Autonomous Workflow**
-- CRON trigger runs every 5 minutes
+- CRON trigger runs every 10 minutes
 - Automatically detects pending markets
 - Resolves without human intervention
 

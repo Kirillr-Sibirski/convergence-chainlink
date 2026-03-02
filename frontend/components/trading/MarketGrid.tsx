@@ -4,14 +4,21 @@ import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Plus, TrendingUp, Loader2, AlertCircle } from "lucide-react";
+import Link from "next/link";
 import type { Market } from "@/hooks/useMarkets";
 import { CreateMarketModal } from "@/components/trading/CreateMarketModal";
 import { WalletRequiredDialog } from "@/components/wallet/WalletRequiredDialog";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
-import { useActiveAccount } from "thirdweb/react";
-import { createMarket } from "@/lib/web3-thirdweb";
+import { EthIcon } from "@/components/ui/eth-icon";
+import {
+  createMarket,
+  inferDeadlineFromQuestion,
+  mintMarketTokens,
+  redeemMarketTokens,
+} from "@/lib/web3-viem";
+import { useWallet } from "@/hooks/useWallet";
 
-const CATEGORIES = ["All", "Crypto", "AI & Tech", "Politics", "Science", "Other"];
+const CATEGORIES = ["All", "General", "Crypto", "AI & Tech", "Politics", "Science", "Other"];
 
 const SORT_OPTIONS = [
   { label: "Volume", value: "volume" },
@@ -24,17 +31,27 @@ type SortOption = (typeof SORT_OPTIONS)[number]["value"];
 function formatVolume(usdc: number) {
   if (usdc >= 1_000_000) return `$${(usdc / 1_000_000).toFixed(1)}M`;
   if (usdc >= 1_000) return `$${(usdc / 1_000).toFixed(1)}K`;
-  return `$${usdc}`;
+  return `$${usdc.toFixed(0)}`;
 }
 
-function MarketTile({ market }: { market: Market }) {
+function MarketTile({
+  market,
+  actionBusy,
+  onMint,
+  onRedeem,
+}: {
+  market: Market;
+  actionBusy: boolean;
+  onMint: () => Promise<void>;
+  onRedeem: () => Promise<void>;
+}) {
   const now = Math.floor(Date.now() / 1000);
   const daysLeft = Math.ceil((market.deadline - now) / 86400);
-  const noPercent = 100 - market.yesPercent;
+  const noPercent = Math.max(0, 100 - market.yesPercent);
+  const expired = market.deadline <= now;
 
   return (
-    <SpotlightCard className="p-5 flex flex-col gap-4 cursor-pointer">
-      {/* Top row: category + volume */}
+    <SpotlightCard className="p-5 flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
           {market.category}
@@ -44,11 +61,8 @@ function MarketTile({ market }: { market: Market }) {
         </span>
       </div>
 
-      {/* Question + deadline */}
       <div className="flex-1 space-y-1">
-        <p className="font-semibold text-sm leading-snug text-gray-900 line-clamp-2">
-          {market.question}
-        </p>
+        <p className="font-semibold text-sm leading-snug text-gray-900 line-clamp-2">{market.question}</p>
         <p className="text-xs text-muted-foreground">
           Ends{" "}
           {new Date(market.deadline * 1000).toLocaleDateString("en-US", {
@@ -56,19 +70,39 @@ function MarketTile({ market }: { market: Market }) {
             day: "numeric",
             year: "numeric",
           })}{" "}
-          · {daysLeft}d left
+          · {expired ? "expired" : `${daysLeft}d left`}
         </p>
       </div>
 
-      {/* YES / NO buttons */}
       <div className="flex gap-2">
-        <button className="flex-1 py-1.5 text-sm font-semibold rounded-lg border-2 border-green-500 bg-green-50 text-green-700 hover:bg-green-100 active:bg-green-200 transition-colors">
-          YES {market.yesPercent}%
-        </button>
-        <button className="flex-1 py-1.5 text-sm font-semibold rounded-lg border-2 border-red-500 bg-red-50 text-red-700 hover:bg-red-100 active:bg-red-200 transition-colors">
-          NO {noPercent}%
-        </button>
+        <div className="flex-1 py-1.5 text-sm font-semibold rounded-lg border-2 border-green-500 bg-green-50 text-green-700 text-center">
+          YES {market.yesPercent.toFixed(1)}%
+        </div>
+        <div className="flex-1 py-1.5 text-sm font-semibold rounded-lg border-2 border-red-500 bg-red-50 text-red-700 text-center">
+          NO {noPercent.toFixed(1)}%
+        </div>
       </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <Button size="sm" variant="outline" onClick={() => void onMint()} disabled={actionBusy || market.settled || expired}>
+          <EthIcon className="w-3.5 h-3.5" />
+          Mint 0.01 ETH
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => void onRedeem()} disabled={actionBusy || !market.settled}>
+          Redeem
+        </Button>
+      </div>
+
+      <Link href={`/markets/${market.id}`}>
+        <Button size="sm" variant="outline" className="w-full">
+          Open Trade
+        </Button>
+      </Link>
+
+      <p className="text-[11px] text-muted-foreground">
+        CRE status: {market.resolved ? `resolved (${market.confidence}% confidence)` : "awaiting resolution"}.
+        Settlement: {market.settled ? "finalized onchain" : "auto-finalized after CRE report"}.
+      </p>
     </SpotlightCard>
   );
 }
@@ -77,25 +111,25 @@ interface MarketGridProps {
   markets: Market[];
   isLoading: boolean;
   error: string | null;
+  onRefresh?: () => Promise<void>;
 }
 
-export function MarketGrid({ markets, isLoading, error }: MarketGridProps) {
+export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridProps) {
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [sort, setSort] = useState<SortOption>("volume");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showWalletDialog, setShowWalletDialog] = useState(false);
-  const account = useActiveAccount();
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const { account } = useWallet();
 
   const filtered = useMemo(() => {
     const now = Math.floor(Date.now() / 1000);
     return markets
-      .filter((m) => !m.resolved && m.deadline > now)
+      .filter((m) => !m.settled || m.deadline > now)
       .filter((m) => category === "All" || m.category === category)
-      .filter(
-        (m) =>
-          !search || m.question.toLowerCase().includes(search.toLowerCase())
-      )
+      .filter((m) => !search || m.question.toLowerCase().includes(search.toLowerCase()))
       .sort((a, b) => {
         if (sort === "volume") return b.volumeUsdc - a.volumeUsdc;
         if (sort === "deadline") return a.deadline - b.deadline;
@@ -103,18 +137,44 @@ export function MarketGrid({ markets, isLoading, error }: MarketGridProps) {
       });
   }, [markets, search, category, sort]);
 
+  const ensureWallet = () => {
+    if (account) return true;
+    setShowWalletDialog(true);
+    return false;
+  };
+
+  const runAction = async (marketId: number, fn: () => Promise<unknown>) => {
+    setActionError(null);
+    setBusyId(marketId);
+    try {
+      await fn();
+      if (onRefresh) await onRefresh();
+    } catch (err) {
+      console.error("Market action failed:", err);
+      setActionError(err instanceof Error ? err.message : "Market action failed");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const handleCreateMarket = async (question: string) => {
-    if (!account) {
-      setShowWalletDialog(true);
+    if (!ensureWallet()) {
       throw new Error("Please connect your wallet first");
     }
-    const deadline = BigInt(Math.floor(Date.now() / 1000) + 24 * 3600);
-    await createMarket(account, question, deadline);
+
+    const deadline = inferDeadlineFromQuestion(question);
+    await createMarket(
+      question,
+      deadline,
+      "0",
+      "0"
+    );
+
+    if (onRefresh) await onRefresh();
   };
 
   return (
     <div className="space-y-4">
-      {/* Search bar + Create Market */}
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
@@ -129,11 +189,8 @@ export function MarketGrid({ markets, isLoading, error }: MarketGridProps) {
           variant="outline"
           className="gap-1.5 shrink-0"
           onClick={() => {
-            if (!account) {
-              setShowWalletDialog(true);
-            } else {
-              setShowCreateModal(true);
-            }
+            if (!account) setShowWalletDialog(true);
+            else setShowCreateModal(true);
           }}
         >
           <Plus className="w-4 h-4" />
@@ -141,7 +198,6 @@ export function MarketGrid({ markets, isLoading, error }: MarketGridProps) {
         </Button>
       </div>
 
-      {/* Category filter pills + sort */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex gap-1.5 flex-wrap">
           {CATEGORIES.map((cat) => (
@@ -176,7 +232,8 @@ export function MarketGrid({ markets, isLoading, error }: MarketGridProps) {
         </div>
       </div>
 
-      {/* Market count */}
+      {actionError && <div className="text-sm text-destructive bg-destructive/10 rounded-md p-3">{actionError}</div>}
+
       {!isLoading && !error && (
         <p className="text-xs text-muted-foreground">
           {filtered.length} market{filtered.length !== 1 ? "s" : ""}
@@ -185,7 +242,6 @@ export function MarketGrid({ markets, isLoading, error }: MarketGridProps) {
         </p>
       )}
 
-      {/* Grid */}
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -223,7 +279,19 @@ export function MarketGrid({ markets, isLoading, error }: MarketGridProps) {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((market) => (
-            <MarketTile key={market.id} market={market} />
+            <MarketTile
+              key={market.id}
+              market={market}
+              actionBusy={busyId === market.id}
+              onMint={async () => {
+                if (!ensureWallet()) return;
+                await runAction(market.id, async () => mintMarketTokens(market.id, "0.01"));
+              }}
+              onRedeem={async () => {
+                if (!ensureWallet()) return;
+                await runAction(market.id, async () => redeemMarketTokens(market.id));
+              }}
+            />
           ))}
         </div>
       )}
@@ -234,9 +302,7 @@ export function MarketGrid({ markets, isLoading, error }: MarketGridProps) {
           onCreate={handleCreateMarket}
         />
       )}
-      {showWalletDialog && (
-        <WalletRequiredDialog onClose={() => setShowWalletDialog(false)} />
-      )}
+      {showWalletDialog && <WalletRequiredDialog onClose={() => setShowWalletDialog(false)} />}
     </div>
   );
 }

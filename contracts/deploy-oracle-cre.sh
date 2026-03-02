@@ -1,28 +1,18 @@
-#!/bin/bash
-# Deploy AletheiaOracle with CRE ReceiverTemplate integration
-# Forwarder addresses from: https://docs.chain.link/cre/guides/workflow/using-evm-client/forwarder-directory-ts
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Sepolia MockKeystoneForwarder (for simulation/testing)
-MOCK_FORWARDER="0x0000000000000000000000000000000000000000" # Replace with actual mock forwarder if available
+# Deploy Oracle with valid CRE forwarder.
+# Usage:
+#   PRIVATE_KEY=0x... RPC_URL=https://... FORWARDER_ADDRESS=0x... ./contracts/deploy-oracle-cre.sh
 
-# Sepolia KeystoneForwarder (production) - CHECK LATEST DOCS
-# As of documentation, Sepolia production forwarder should be updated from official CRE docs
-SEPOLIA_FORWARDER="0x0000000000000000000000000000000000000000" # MUST UPDATE with real forwarder address
+: "${PRIVATE_KEY:?PRIVATE_KEY is required}"
+: "${RPC_URL:?RPC_URL is required}"
+: "${FORWARDER_ADDRESS:?FORWARDER_ADDRESS is required}"
 
-echo "🚀 Deploying AletheiaOracle with CRE ReceiverTemplate..."
-echo ""
-echo "⚠️  IMPORTANT: Update SEPOLIA_FORWARDER address from"
-echo "    https://docs.chain.link/cre/guides/workflow/using-evm-client/forwarder-directory-ts"
-echo ""
+echo "Deploying AletheiaOracle with FORWARDER_ADDRESS=${FORWARDER_ADDRESS}"
+forge script script/DeployOracle.s.sol \
+  --rpc-url "${RPC_URL}" \
+  --private-key "${PRIVATE_KEY}" \
+  --broadcast
 
-# For now, deploy with zero address (allows anyone to call - INSECURE but works for testing)
-# Replace with real forwarder for production
-forge create contracts/AletheiaOracle.sol:AletheiaOracle \
-  --rpc-url https://ethereum-sepolia-rpc.publicnode.com \
-  --private-key ${DEPLOYER_PRIVATE_KEY} \
-  --constructor-args "${MOCK_FORWARDER}" \
-  --legacy
-
-echo ""
-echo "⚠️  Contract deployed with ZERO address forwarder (TESTING ONLY)"
-echo "   Run setForwarderAddress() after deployment to set the real Sepolia forwarder"
+echo "Done. Deployment file: contracts/deployments/sepolia-oracle.json"

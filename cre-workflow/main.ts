@@ -1,13 +1,11 @@
 import {
 	bytesToHex,
-	ConsensusAggregationByFields,
 	type CronPayload,
 	cre,
 	encodeCallMsg,
 	getNetwork,
 	hexToBase64,
 	LAST_FINALIZED_BLOCK_NUMBER,
-	median,
 	Runner,
 	type Runtime,
 	TxStatus,
@@ -15,13 +13,11 @@ import {
 import { type Address, decodeFunctionResult, encodeFunctionData, zeroAddress, keccak256, toBytes, encodeAbiParameters, parseAbiParameters } from 'viem'
 import { z } from 'zod'
 import { AletheiaOracleABI } from './contracts/abi'
-import { evaluateBTCPriceAbove } from './sources/price-feeds'
-import { resolveUniversalQuestion } from './sources/universal-resolver'
 import { resolveWithMultiAI } from './sources/multi-ai-openrouter'
 
 // Configuration schema
 const configSchema = z.object({
-	cronSchedule: z.string(), // e.g., "*/5 * * * *" for every 5 minutes
+	cronSchedule: z.string(), // e.g., "*/10 * * * *" for every 10 minutes
 	oracleAddress: z.string(), // AletheiaOracle.sol contract address
 	chainSelectorName: z.string(), // e.g., "ethereum-testnet-sepolia"
 	gasLimit: z.string(),
@@ -41,9 +37,13 @@ interface Market {
 interface ResolutionResult {
 	outcome: boolean
 	confidence: number
+	agreementLevel: number
 	sources: string[]
 	evidence: string[]
 }
+
+const MIN_CONFIDENCE = 80
+const MIN_AGREEMENT = 75
 
 /**
  * Fetch pending markets from the oracle contract
@@ -91,7 +91,7 @@ const fetchPendingMarkets = (runtime: Runtime<Config>): Market[] => {
 
 	runtime.log(`Found ${markets.length} pending market(s)`)
 
-	return markets.map((m) => ({
+	return markets.map((m: any) => ({
 		id: m.id,
 		question: m.question,
 		deadline: m.deadline,
@@ -190,6 +190,7 @@ const fetchMultiSourceData = (
 	return {
 		outcome: result.outcome,
 		confidence: result.confidence,
+		agreementLevel: result.agreementLevel,
 		sources: result.sources,
 		evidence: result.evidence,
 	}
@@ -197,17 +198,20 @@ const fetchMultiSourceData = (
 
 /**
  * Validate resolution result
- * Ensures 4/5 sources agree (80% consensus)
+ * Ensures confidence and agreement thresholds are met
  */
 const validateResult = (runtime: Runtime<Config>, result: ResolutionResult): boolean => {
-	const threshold = 0.8 // 4/5 sources = 80%
-
-	if (result.confidence < threshold * 100) {
-		runtime.log(`Consensus too low: ${result.confidence}% < ${threshold * 100}%`)
+	if (result.confidence < MIN_CONFIDENCE) {
+		runtime.log(`Confidence too low: ${result.confidence}% < ${MIN_CONFIDENCE}%`)
 		return false
 	}
 
-	runtime.log(`Consensus validated: ${result.confidence}%`)
+	if (result.agreementLevel < MIN_AGREEMENT) {
+		runtime.log(`Agreement too low: ${result.agreementLevel}% < ${MIN_AGREEMENT}%`)
+		return false
+	}
+
+	runtime.log(`Consensus validated: confidence=${result.confidence}% agreement=${result.agreementLevel}%`)
 	return true
 }
 
@@ -285,7 +289,7 @@ const writeResolution = (
 }
 
 /**
- * Main CRON callback - runs every 5 minutes
+ * Main CRON callback - runs every 10 minutes
  * Checks for pending markets and resolves them autonomously
  */
 const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): string => {
@@ -319,7 +323,7 @@ const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): string =
 			// 4. Fetch from multiple sources with consensus
 			const result = fetchMultiSourceData(runtime, strategy.sources, market.question, strategy.category)
 
-			// 5. Validate result (4/5 consensus)
+			// 5. Validate result (confidence + agreement thresholds)
 			if (!validateResult(runtime, result)) {
 				runtime.log(`Skipping market ${market.id} - insufficient consensus`)
 				continue
@@ -340,7 +344,7 @@ const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): string =
 
 /**
  * Initialize workflow with CRON trigger
- * Runs every 5 minutes to check for markets to resolve
+ * Runs every 10 minutes to check for markets to resolve
  */
 const initWorkflow = (config: Config) => {
 	const cronTrigger = new cre.capabilities.CronCapability()
@@ -348,7 +352,7 @@ const initWorkflow = (config: Config) => {
 	return [
 		cre.handler(
 			cronTrigger.trigger({
-				schedule: config.cronSchedule, // "*/5 * * * *" = every 5 minutes
+				schedule: config.cronSchedule, // "*/10 * * * *" = every 10 minutes
 			}),
 			onCronTrigger,
 		),
@@ -365,4 +369,7 @@ export async function main() {
 	await runner.run(initWorkflow)
 }
 
-await main()
+main().catch((error) => {
+	console.error(error)
+	process.exit(1)
+})

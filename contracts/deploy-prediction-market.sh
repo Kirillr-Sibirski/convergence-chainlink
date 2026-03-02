@@ -1,35 +1,20 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Deploy DemoPredictionMarket contract to Sepolia
-# Usage: DEPLOYER_PRIVATE_KEY=0x... ./contracts/deploy-prediction-market.sh
+# Deploy AletheiaMarket and wire Oracle callback.
+# Prereqs:
+# - contracts/deployments/sepolia-factory.json exists
+# - contracts/deployments/sepolia-oracle.json exists
+# Usage:
+#   PRIVATE_KEY=0x... RPC_URL=https://... ./contracts/deploy-prediction-market.sh
 
-set -e
+: "${PRIVATE_KEY:?PRIVATE_KEY is required}"
+: "${RPC_URL:?RPC_URL is required}"
 
-ORACLE_ADDRESS="0xb13623f2AfB38b849d3a111ebdF08e135Ae8315e"
+echo "Deploying AletheiaMarket and wiring oracle callback..."
+forge script script/DeployMarket.s.sol \
+  --rpc-url "${RPC_URL}" \
+  --private-key "${PRIVATE_KEY}" \
+  --broadcast
 
-if [ -z "$DEPLOYER_PRIVATE_KEY" ]; then
-    echo "Error: DEPLOYER_PRIVATE_KEY environment variable not set"
-    echo "Usage: DEPLOYER_PRIVATE_KEY=0x... ./contracts/deploy-prediction-market.sh"
-    exit 1
-fi
-
-# echo "═══════════════════════════════════════════════════════"
-# echo "  Deploying DemoPredictionMarket Contract to Sepolia"
-# echo "═══════════════════════════════════════════════════════"
-# echo "Oracle Address: $ORACLE_ADDRESS"
-# echo ""
-
-# forge create contracts/DemoPredictionMarket.sol:DemoPredictionMarket \
-#   --rpc-url https://rpc.sepolia.org \
-#   --private-key $DEPLOYER_PRIVATE_KEY \
-#   --constructor-args $ORACLE_ADDRESS \
-#   --optimize \
-#   --optimizer-runs 200”
-
-echo ""
-echo "✅ Deployment complete!"
-echo ""
-echo "Next steps:"
-echo "1. Copy the 'Deployed to:' address above"
-echo "2. Update frontend/lib/contracts.ts PREDICTION_MARKET_ADDRESS"
-echo "3. Test the integration"
+echo "Done. Deployment file: contracts/deployments/sepolia-market.json"
