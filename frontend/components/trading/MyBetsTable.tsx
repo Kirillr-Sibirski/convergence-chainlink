@@ -96,7 +96,7 @@ export function PositionsTable() {
               {position.liqPrice.toFixed(4)}
             </TableCell>
             <TableCell className="text-right">
-              <Button variant="destructive" size="sm">
+              <Button>
                 Close
               </Button>
             </TableCell>
