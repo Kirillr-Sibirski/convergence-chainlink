@@ -2,21 +2,22 @@
   "name": "aletheia-oracle",
   "version": "1.0.0",
   "description": "Multi-source prediction market oracle powered by Chainlink CRE",
-  "main": "main.ts",
-  "type": "module",
+  "main": "dist/main.js",
+  "private": true,
   "scripts": {
+    "postinstall": "bunx cre-setup",
     "test": "node --loader ts-node/esm tests/universal-resolver.test.ts",
     "simulate": "cre workflow simulate . --non-interactive --trigger-index 0 -T staging-settings",
     "build": "tsc --noEmit",
     "install-deps": "npm install"
   },
   "dependencies": {
-    "@chainlink/cre-sdk": "latest",
-    "viem": "^2.0.0",
-    "zod": "^3.22.0"
+    "@chainlink/cre-sdk": "0.0.8-alpha",
+    "viem": "^2.38.3",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
+    "@types/bun": "1.2.21",
     "typescript": "^5.3.0"
   },
   "keywords": [

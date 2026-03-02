@@ -61,7 +61,7 @@ OPENROUTER_API_KEY_VAR=sk-or-v1-27c70... ✅
 **Validation**:
 ```bash
 curl https://openrouter.ai/api/v1/auth/key \
-  -H "Authorization: Bearer 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"
+  -H "Authorization: Bearer YOUR_OPENROUTER_KEY_HERE"
 ```
 
 **Expected Response**: Valid key with credits
