@@ -106,14 +106,21 @@ curl https://openrouter.ai/api/v1/auth/key \
 
 ---
 
-### 8. Dependencies
+### 8. Dependencies & Compilation
 
 **CRE Workflow**:
 ```bash
 cd cre-workflow
-bun install
+bun install  # Requires bun installed first
 ```
-**Output**: ✅ All dependencies installed
+**Output**: ⚠️ REQUIRES BUN INSTALLATION (see CRE_COMPILATION_FIX.md)
+
+**Issue Found**: Missing `cre-compile` script (requires `bunx cre-setup` postinstall)
+
+**Fix Applied**:
+- Updated `package.json` with `"postinstall": "bunx cre-setup"`
+- Updated CRE SDK to stable version `0.0.8-alpha`
+- Updated `tsconfig.json` to match official demo structure
 
 **Frontend**:
 ```bash
@@ -122,7 +129,7 @@ npm install
 ```
 **Output**: ✅ All dependencies installed
 
-**Status**: ✅ PASS
+**Status**: ⏳ PENDING (requires user to install bun and run `bun install`)
 
 ---
 
@@ -142,8 +149,14 @@ npm install
 ### Deployment Commands
 
 ```bash
-# 1. Navigate to workflow directory
+# 0. Install Bun (if not installed) - macOS/Linux
+curl -fsSL https://bun.sh/install | bash
+export PATH="$HOME/.bun/bin:$PATH"
+
+# 1. Navigate to workflow directory and install dependencies
 cd /workspace/group/convergence-chainlink/cre-workflow
+rm -rf node_modules package-lock.json
+bun install  # This will run postinstall: bunx cre-setup
 
 # 2. Login to CRE (requires user interaction)
 export PATH="$HOME/.cre/bin:$PATH"
@@ -155,6 +168,8 @@ cre workflow simulate . --target local-simulation --non-interactive --trigger-in
 # 4. Deploy to Chainlink testnet
 cre workflow deploy . --target staging
 ```
+
+**⚠️ Important**: Step 0-1 must be done before simulation or deployment. See `CRE_COMPILATION_FIX.md` for details.
 
 ---
 
@@ -244,16 +259,16 @@ cast call 0xe7A47740Ff60146f9E3C443bf84Bd5b6d03530a4 "markets(uint256)(uint256,s
 
 ## 📝 Testing Summary
 
-| Category | Tests | Passed | Failed | Status |
-|----------|-------|--------|--------|--------|
+| Category | Tests | Passed | Blocked | Status |
+|----------|-------|--------|---------|--------|
 | **Frontend** | 2 | 2 | 0 | ✅ |
 | **Contracts** | 3 | 3 | 0 | ✅ |
 | **Environment** | 2 | 2 | 0 | ✅ |
 | **CRE Code** | 5 | 5 | 0 | ✅ |
-| **Dependencies** | 2 | 2 | 0 | ✅ |
-| **Total** | **14** | **14** | **0** | **✅** |
+| **Dependencies** | 2 | 1 | 1 | ⏳ |
+| **Total** | **14** | **13** | **1** | **⏳** |
 
-**Overall Status**: 🟢 **100% PASS RATE**
+**Overall Status**: ⏳ **93% COMPLETE - REQUIRES BUN INSTALLATION**
 
 ---
 
@@ -267,14 +282,35 @@ cast call 0xe7A47740Ff60146f9E3C443bf84Bd5b6d03530a4 "markets(uint256)(uint256,s
 - ✅ All tests passing
 
 ### Manual (Requires User):
-1. Run `cre login` (interactive OAuth)
-2. Run `cre workflow deploy . --target staging`
-3. Create test market with 5-minute deadline
-4. Wait and monitor CRE logs
-5. Verify resolution on-chain
+1. **Install Bun** (one-time): `curl -fsSL https://bun.sh/install | bash`
+2. **Install CRE dependencies**: `cd cre-workflow && bun install`
+3. **Login to CRE**: `cre login` (interactive OAuth)
+4. **Deploy workflow**: `cre workflow deploy . --target staging`
+5. **Create test market** with 5-minute deadline
+6. **Monitor CRE logs**: `cre workflow logs <workflow-id> --follow`
+7. **Verify resolution** on-chain
+
+**📖 See `CRE_COMPILATION_FIX.md` for detailed instructions on steps 1-2**
 
 ---
 
-**Last Updated**: March 2, 2026, 07:25 UTC
+**Last Updated**: March 2, 2026, 08:45 UTC
 **Test Runner**: Claude Sonnet 4.5
-**Status**: 🟢 READY FOR DEPLOYMENT
+**Status**: ⏳ READY AFTER BUN INSTALLATION
+
+---
+
+## 🔧 Latest Fix (March 2, 2026, 08:45 UTC)
+
+**Problem**: CRE workflow simulation failed with "script not found 'cre-compile'"
+
+**Root Cause**: Missing postinstall script that creates the `cre-compile` tool via `bunx cre-setup`. The CRE SDK requires Bun to set up compilation tools.
+
+**Solution**: See `CRE_COMPILATION_FIX.md` for step-by-step instructions.
+
+**Changes Made**:
+1. Updated `package.json` to match official CRE demo structure
+2. Updated `tsconfig.json` for CommonJS compilation
+3. Created comprehensive fix guide in `CRE_COMPILATION_FIX.md`
+
+**Next Steps**: User must install Bun and run `bun install` in `cre-workflow/` directory.
