@@ -197,6 +197,26 @@ export const STAKING_ABI = [
 
 export const POOL_ABI = [
   {
+    inputs: [],
+    name: "InsufficientLiquidity",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "InsufficientAmount",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "InsufficientOutputAmount",
+    type: "error",
+  },
+  {
+    inputs: [],
+    name: "InvalidK",
+    type: "error",
+  },
+  {
     inputs: [
       { internalType: "uint256", name: "amountYes", type: "uint256" },
       { internalType: "uint256", name: "amountNo", type: "uint256" },

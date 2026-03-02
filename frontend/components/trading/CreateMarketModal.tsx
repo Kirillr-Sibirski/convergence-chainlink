@@ -14,25 +14,80 @@ interface CreateMarketModalProps {
   onCreate: (question: string) => Promise<void>;
 }
 
+type SubmitStage = "idle" | "validating" | "validated" | "creating";
+
 export function CreateMarketModal({ onClose, onCreate }: CreateMarketModalProps) {
   const [question, setQuestion] = useState("");
-  const [isCreating, setIsCreating] = useState(false);
+  const [submitStage, setSubmitStage] = useState<SubmitStage>("idle");
   const [error, setError] = useState("");
+  const [validationInfo, setValidationInfo] = useState<string | null>(null);
+  const [validatedQuestion, setValidatedQuestion] = useState<string | null>(null);
 
-  const handleCreate = async () => {
+  const isBusy = submitStage === "validating" || submitStage === "creating";
+  const isValidated = submitStage === "validated" && validatedQuestion === question.trim();
+
+  const onQuestionChange = (value: string) => {
+    setQuestion(value);
+    setError("");
+    setValidationInfo(null);
+    if (validatedQuestion !== value.trim()) {
+      setValidatedQuestion(null);
+      setSubmitStage("idle");
+    }
+  };
+
+  const validateQuestion = async () => {
+    setSubmitStage("validating");
+    setError("");
+    setValidationInfo(null);
+
+    const validationResp = await fetch("/api/validate-question", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question }),
+    });
+    if (!validationResp.ok) {
+      throw new Error("Question validation request failed");
+    }
+
+    const validation = (await validationResp.json()) as {
+      valid: boolean;
+      score: number;
+      issues?: string[];
+      warning?: string;
+      source?: "ai" | "fallback";
+      requiresSimulation?: boolean;
+    };
+
+    if (validation.warning) {
+      setValidationInfo(validation.warning);
+    }
+
+    if (!validation.valid || validation.requiresSimulation) {
+      const issues = validation.issues?.length ? ` ${validation.issues.join(" ")}` : "";
+      throw new Error(`Question not validated.${issues} Run CRE simulation and validate again.`);
+    }
+
+    setValidatedQuestion(question.trim());
+    setSubmitStage("validated");
+  };
+
+  const handlePrimaryAction = async () => {
     if (!question.trim()) return setError("Please enter a question");
 
-    setIsCreating(true);
-    setError("");
-
     try {
+      if (!isValidated) {
+        await validateQuestion();
+        return;
+      }
+
+      setSubmitStage("creating");
       await onCreate(question);
       onClose();
     } catch (err) {
       console.error("Failed to create market:", err);
       setError(err instanceof Error ? err.message : "Failed to create market");
-    } finally {
-      setIsCreating(false);
+      setSubmitStage(isValidated ? "validated" : "idle");
     }
   };
 
@@ -49,13 +104,13 @@ export function CreateMarketModal({ onClose, onCreate }: CreateMarketModalProps)
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-72 text-sm" align="start">
-                <p className="font-medium mb-2">AletheiaMarket flow</p>
+                <p className="font-medium mb-2">How this works</p>
                 <ul className="space-y-1.5 text-muted-foreground text-xs">
-                  <li>• Creates market in `AletheiaMarket` and linked `AletheiaOracle`</li>
-                  <li>• Deadline is inferred from the question text (fallback: +7 days)</li>
-                  <li>• Deploys YES/NO tokens and market AMM with zero initial liquidity</li>
-                  <li>• CRE resolves oracle outcome after deadline</li>
-                  <li>• Anyone can call settle, winners redeem onchain</li>
+                  <li>• Ask a clear yes/no question with a time target</li>
+                  <li>• The date is read from your question text</li>
+                  <li>• The market is created first, liquidity can be added later</li>
+                  <li>• After expiry, run simulation to process the result</li>
+                  <li>• If you picked the winning side, you can redeem</li>
                 </ul>
               </PopoverContent>
             </Popover>
@@ -71,28 +126,42 @@ export function CreateMarketModal({ onClose, onCreate }: CreateMarketModalProps)
               id="question"
               placeholder="Will ETH close above $5,000 by Dec 31, 2026?"
               value={question}
-              onChange={(e) => setQuestion(e.target.value)}
+              onChange={(e) => onQuestionChange(e.target.value)}
               maxLength={200}
             />
           </div>
           <div className="text-xs text-muted-foreground bg-muted/50 rounded-md p-3 flex items-center gap-2">
             <EthIcon className="w-3 h-3 shrink-0" />
-            Market creator only defines the question. Liquidity providers can seed the pool after creation.
+            You only need to write the question. Liquidity can be added after market creation.
+          </div>
+          {validationInfo && (
+            <div className="text-xs text-amber-700 bg-amber-100 rounded-md p-3">
+              {validationInfo}
+            </div>
+          )}
+          <div className="text-xs text-muted-foreground bg-gray-50 rounded-md p-3">
+            Step 1: validate your question. Step 2: create the market.
           </div>
 
           {error && <div className="text-sm text-destructive bg-destructive/10 rounded-md p-3">{error}</div>}
 
           <div className="flex gap-3 pt-2">
-            <Button variant="outline" className="flex-1 bg-white hover:bg-gray-50" onClick={onClose} disabled={isCreating}>
+            <Button variant="outline" className="flex-1 bg-white hover:bg-gray-50" onClick={onClose} disabled={isBusy}>
               Cancel
             </Button>
             <Button
               variant="outline"
               className="flex-1 bg-gray-100 hover:bg-gray-200 border-gray-300 text-gray-900 font-semibold"
-              onClick={handleCreate}
-              disabled={isCreating}
+              onClick={handlePrimaryAction}
+              disabled={isBusy || !question.trim()}
             >
-              {isCreating ? "Creating..." : "Create Market"}
+              {submitStage === "validating"
+                ? "Validating Query..."
+                : submitStage === "creating"
+                ? "Creating Market..."
+                : isValidated
+                ? "Create Market"
+                : "Validate Query"}
             </Button>
           </div>
         </CardContent>

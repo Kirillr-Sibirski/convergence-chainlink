@@ -34,3 +34,48 @@ body {
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-playfair), serif;
 }
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes softFloat {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.animate-fade-up {
+  animation: fadeUp 700ms ease-out both;
+}
+
+.animate-fade-up-delay {
+  animation: fadeUp 850ms ease-out 120ms both, softFloat 7s ease-in-out 1.2s infinite;
+}
+
+.animate-delay-1 {
+  animation-delay: 120ms;
+}
+
+.animate-delay-2 {
+  animation-delay: 240ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-fade-up-delay,
+  .animate-delay-1,
+  .animate-delay-2 {
+    animation: none;
+  }
+}

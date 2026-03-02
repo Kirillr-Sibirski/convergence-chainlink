@@ -345,6 +345,9 @@ export async function swapOutcomeTokens(
     functionName: "getAmountOut",
     args: [buyYes, amountIn],
   })) as bigint;
+  if (quotedOut <= BigInt(0)) {
+    throw new Error("Pool has no executable liquidity for this swap yet.");
+  }
 
   const minOut = (quotedOut * BigInt(10000 - slippageBps)) / BigInt(10000);
   const { request } = await publicClient.simulateContract({
