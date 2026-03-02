@@ -7,7 +7,7 @@
   "scripts": {
     "postinstall": "bunx cre-setup",
     "test": "node --loader ts-node/esm tests/universal-resolver.test.ts",
-    "simulate": "cre workflow simulate . --non-interactive --trigger-index 0 -T staging-settings",
+    "simulate": "cre workflow simulate . --non-interactive --trigger-index 0 -T staging",
     "build": "tsc --noEmit",
     "install-deps": "npm install"
   },

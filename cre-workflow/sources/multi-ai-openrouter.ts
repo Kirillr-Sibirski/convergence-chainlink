@@ -104,8 +104,7 @@ function askAI(
 			'X-Title': 'AEEIA Prediction Markets',
 		},
 		cacheSettings: {
-			store: true,
-			maxAge: '60s',
+			maxAgeMs: 60000,
 		},
 	}
 
@@ -161,14 +160,14 @@ export function askGPT(runtime: Runtime<any>, question: string): AIResponse {
  * Query Gemini via OpenRouter
  */
 export function askGemini(runtime: Runtime<any>, question: string): AIResponse {
-	return askAI(runtime, question, 'google/gemini-2.0-flash-exp:free', 'Gemini 2.0')
+	return askAI(runtime, question, 'google/gemini-2.0-flash-001', 'Gemini 2.0 Flash')
 }
 
 /**
  * Query Grok via OpenRouter
  */
 export function askGrok(runtime: Runtime<any>, question: string): AIResponse {
-	return askAI(runtime, question, 'x-ai/grok-2-1212', 'Grok 2')
+	return askAI(runtime, question, 'x-ai/grok-3-mini-beta', 'Grok 3 Mini')
 }
 
 /**

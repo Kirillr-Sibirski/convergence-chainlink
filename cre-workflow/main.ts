@@ -293,7 +293,8 @@ const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): string =
 		throw new Error('Scheduled execution time is required')
 	}
 
-	runtime.log(`CRON triggered at ${payload.scheduledExecutionTime.toISOString()}`)
+	const execTimeMs = Number(payload.scheduledExecutionTime.seconds) * 1000
+	runtime.log(`CRON triggered at ${new Date(execTimeMs).toISOString()}`)
 
 	// 1. Fetch pending markets (past deadline, not resolved)
 	const pendingMarkets = fetchPendingMarkets(runtime)
@@ -364,4 +365,4 @@ export async function main() {
 	await runner.run(initWorkflow)
 }
 
-main()
+await main()
