@@ -27,6 +27,27 @@ const HOW_IT_WORKS = [
   },
 ];
 
+const USE_CASES = [
+  "Trade event probabilities before resolution",
+  "Hedge positions by holding opposite outcome tokens",
+  "Provide liquidity and earn from market activity",
+];
+
+const FLOW_STEPS = [
+  {
+    step: "1. Ask A Clear Question",
+    detail: "Create a binary market with a concrete deadline and measurable condition.",
+  },
+  {
+    step: "2. Trade And Price Discovery",
+    detail: "Users buy and sell YES/NO positions, and probability moves live with market activity.",
+  },
+  {
+    step: "3. Process Result And Redeem",
+    detail: "After expiry, run simulation for demo processing, then redeem winning outcomes.",
+  },
+];
+
 export default function LandingPage() {
   return (
     <div className="min-h-screen relative overflow-x-hidden">
@@ -68,7 +89,7 @@ export default function LandingPage() {
               <Button
                 asChild
                 size="lg"
-                className="bg-gray-900 hover:bg-gray-800 shadow-[0_10px_24px_rgba(17,24,39,0.28)] border border-gray-900"
+                className="bg-gray-900 text-white hover:bg-gray-800 shadow-[0_10px_24px_rgba(17,24,39,0.28)] border border-gray-900"
               >
                 <Link href="/markets">Start Trading</Link>
               </Button>
@@ -130,6 +151,65 @@ export default function LandingPage() {
               <p className="text-sm text-gray-600 leading-relaxed">{item.description}</p>
             </SpotlightCard>
           ))}
+        </div>
+      </section>
+
+      <section className="relative z-10 px-6 pb-24">
+        <div className="mx-auto max-w-6xl grid lg:grid-cols-2 gap-6">
+          <SpotlightCard className="p-7 bg-white/75 border-gray-200/80 backdrop-blur-xl shadow-[0_16px_40px_rgba(17,24,39,0.06)] animate-fade-up">
+            <div className="space-y-4">
+              <p className="text-xs uppercase tracking-[0.16em] text-gray-500">Why People Use It</p>
+              <h3 className="text-2xl font-semibold text-gray-900">A Simpler Market Experience</h3>
+              <div className="space-y-2">
+                {USE_CASES.map((item, idx) => (
+                  <div
+                    key={item}
+                    className={`rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 animate-fade-up ${
+                      idx === 1 ? "animate-delay-1" : idx === 2 ? "animate-delay-2" : ""
+                    }`}
+                  >
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </SpotlightCard>
+
+          <SpotlightCard className="p-7 bg-gray-900 border-gray-800 text-white shadow-[0_20px_50px_rgba(17,24,39,0.24)] animate-fade-up-delay">
+            <div className="space-y-4">
+              <p className="text-xs uppercase tracking-[0.16em] text-gray-300">Market Flow</p>
+              <h3 className="text-2xl font-semibold leading-tight">From Question To Payout</h3>
+              <div className="space-y-3">
+                {FLOW_STEPS.map((item, idx) => (
+                  <div
+                    key={item.step}
+                    className={`rounded-lg border border-white/15 bg-white/5 px-3 py-2 animate-fade-up ${
+                      idx === 1 ? "animate-delay-1" : idx === 2 ? "animate-delay-2" : ""
+                    }`}
+                  >
+                    <p className="text-sm font-semibold text-white">{item.step}</p>
+                    <p className="text-xs text-gray-300">{item.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </SpotlightCard>
+        </div>
+      </section>
+
+      <section className="relative z-10 px-6 pb-24">
+        <div className="mx-auto max-w-6xl rounded-2xl border border-gray-200/80 bg-white/70 backdrop-blur-xl shadow-[0_18px_40px_rgba(17,24,39,0.08)] px-6 py-10 text-center space-y-4 animate-fade-up animate-glow-pulse">
+          <h2 className="text-3xl font-bold tracking-tight text-gray-900">Ready To Open Your First Position?</h2>
+          <p className="text-sm text-gray-600 max-w-2xl mx-auto">
+            Browse live markets, trade outcome tokens, and follow resolutions from one dashboard.
+          </p>
+          <Button
+            asChild
+            size="lg"
+            className="bg-gray-900 text-white hover:bg-gray-800 border border-gray-900 shadow-[0_10px_24px_rgba(17,24,39,0.24)]"
+          >
+            <Link href="/markets">Explore Markets</Link>
+          </Button>
         </div>
       </section>
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { formatEther, parseEther } from "viem";
+import { encodeAbiParameters, formatEther, keccak256, parseAbiParameters, parseEther } from "viem";
 import {
   ALETHEIA_MARKET_ABI,
   CONTRACTS,
@@ -56,6 +56,52 @@ export interface PoolLiquidityState {
   reserveNo: bigint;
   lpTotalSupply: bigint;
   userLpBalance: bigint;
+}
+
+export interface WorldIdProof {
+  root: bigint;
+  nullifierHash: bigint;
+  proof: readonly [
+    bigint,
+    bigint,
+    bigint,
+    bigint,
+    bigint,
+    bigint,
+    bigint,
+    bigint
+  ];
+}
+
+export interface QuestionValidationStatus {
+  processed: boolean;
+  approved: boolean;
+  score: number;
+  checks: {
+    legitimate: boolean;
+    clearTimeline: boolean;
+    resolvable: boolean;
+    binary: boolean;
+  };
+}
+
+export interface MarketCreationRequestUI {
+  id: number;
+  requester: `0x${string}`;
+  question: string;
+  deadline: number;
+  oracleValidationRequestId: number;
+  finalized: boolean;
+  createdAt: number;
+  processed: boolean;
+  approved: boolean;
+  score: number;
+  checks: {
+    legitimate: boolean;
+    clearTimeline: boolean;
+    resolvable: boolean;
+    binary: boolean;
+  };
 }
 
 function toPercent(yesPrice: bigint, noPrice: bigint): number {
@@ -162,19 +208,11 @@ export async function fetchMarkets(): Promise<UIMarket[]> {
   return markets;
 }
 
-export async function createMarket(
+export async function requestMarketCreation(
   question: string,
-  deadlineTimestamp: number,
-  initialYesLiquidityEth: string,
-  initialNoLiquidityEth: string
+  deadlineTimestamp: number
 ): Promise<WalletWriteResult> {
   if (!question.trim()) throw new Error("Question is required");
-
-  const initialYes = parseEther(initialYesLiquidityEth);
-  const initialNo = parseEther(initialNoLiquidityEth);
-  if (initialYes < BigInt(0) || initialNo < BigInt(0)) {
-    throw new Error("Initial YES and NO liquidity cannot be negative");
-  }
 
   await ensureSepoliaNetwork();
   const walletClient = getWalletClient();
@@ -184,12 +222,169 @@ export async function createMarket(
     account,
     address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
     abi: ALETHEIA_MARKET_ABI,
-    functionName: "createMarket",
-    args: [question, BigInt(deadlineTimestamp), initialYes, initialNo],
-    value: initialYes + initialNo,
+    functionName: "requestMarketCreation",
+    args: [question, BigInt(deadlineTimestamp)],
   });
 
   return writeContractAndWait(request);
+}
+
+export async function getQuestionValidationStatus(
+  question: string,
+  deadlineTimestamp: number
+): Promise<QuestionValidationStatus> {
+  const digest = keccak256(
+    encodeAbiParameters(parseAbiParameters("string question, uint256 deadline"), [
+      question,
+      BigInt(deadlineTimestamp),
+    ])
+  );
+
+  const result = (await publicClient.readContract({
+    address: CONTRACTS.ORACLE_ADDRESS,
+    abi: ORACLE_ABI,
+    functionName: "getQuestionValidation",
+    args: [digest],
+  })) as [boolean, boolean, number, boolean, boolean, boolean, boolean, `0x${string}`];
+
+  return {
+    processed: result[0],
+    approved: result[1],
+    score: Number(result[2]),
+    checks: {
+      legitimate: result[3],
+      clearTimeline: result[4],
+      resolvable: result[5],
+      binary: result[6],
+    },
+  };
+}
+
+export async function waitForQuestionValidation(
+  question: string,
+  deadlineTimestamp: number,
+  timeoutMs = 60000,
+  pollMs = 3000
+): Promise<QuestionValidationStatus> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const status = await getQuestionValidationStatus(question, deadlineTimestamp);
+    if (status.processed) return status;
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
+  }
+
+  throw new Error("Validation report not found onchain yet. Run CRE simulation and try again.");
+}
+
+export async function createMarketVerified(
+  question: string,
+  deadlineTimestamp: number,
+  worldIdProof: WorldIdProof
+): Promise<WalletWriteResult> {
+  await ensureSepoliaNetwork();
+  const walletClient = getWalletClient();
+  const [account] = await walletClient.requestAddresses();
+
+  const { request } = await publicClient.simulateContract({
+    account,
+    address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
+    abi: ALETHEIA_MARKET_ABI,
+    functionName: "createMarketVerified",
+    args: [
+      question,
+      BigInt(deadlineTimestamp),
+      BigInt(0),
+      BigInt(0),
+      worldIdProof.root,
+      worldIdProof.nullifierHash,
+      worldIdProof.proof,
+    ],
+    value: BigInt(0),
+  });
+
+  return writeContractAndWait(request);
+}
+
+export async function finalizeMarketCreation(
+  requestId: number,
+  worldIdProof: WorldIdProof
+): Promise<WalletWriteResult> {
+  await ensureSepoliaNetwork();
+  const walletClient = getWalletClient();
+  const [account] = await walletClient.requestAddresses();
+
+  const { request } = await publicClient.simulateContract({
+    account,
+    address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
+    abi: ALETHEIA_MARKET_ABI,
+    functionName: "finalizeMarketCreation",
+    args: [
+      BigInt(requestId),
+      BigInt(0),
+      BigInt(0),
+      worldIdProof.root,
+      worldIdProof.nullifierHash,
+      worldIdProof.proof,
+    ],
+    value: BigInt(0),
+  });
+
+  return writeContractAndWait(request);
+}
+
+export async function fetchCreationRequests(account?: `0x${string}`): Promise<MarketCreationRequestUI[]> {
+  const requestCount = (await publicClient.readContract({
+    address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
+    abi: ALETHEIA_MARKET_ABI,
+    functionName: "creationRequestCount",
+  })) as bigint;
+
+  if (requestCount === BigInt(0)) return [];
+
+  const lowerAccount = account?.toLowerCase();
+
+  const requests = await Promise.all(
+    Array.from({ length: Number(requestCount) }, async (_, i) => {
+      const requestId = BigInt(i + 1);
+      const req = (await publicClient.readContract({
+        address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
+        abi: ALETHEIA_MARKET_ABI,
+        functionName: "creationRequests",
+        args: [requestId],
+      })) as any;
+
+      const requester = req[1] as `0x${string}`;
+      if (lowerAccount && requester.toLowerCase() !== lowerAccount) return null;
+
+      const validation = (await publicClient.readContract({
+        address: CONTRACTS.ORACLE_ADDRESS,
+        abi: ORACLE_ABI,
+        functionName: "getValidationResult",
+        args: [req[4]],
+      })) as [boolean, boolean, number, boolean, boolean, boolean, boolean, `0x${string}`];
+
+      return {
+        id: Number(req[0]),
+        requester,
+        question: req[2] as string,
+        deadline: Number(req[3]),
+        oracleValidationRequestId: Number(req[4]),
+        finalized: req[5] as boolean,
+        createdAt: Number(req[6]),
+        processed: validation[0],
+        approved: validation[1],
+        score: Number(validation[2]),
+        checks: {
+          legitimate: validation[3],
+          clearTimeline: validation[4],
+          resolvable: validation[5],
+          binary: validation[6],
+        },
+      } satisfies MarketCreationRequestUI;
+    })
+  );
+
+  return requests.filter((r): r is MarketCreationRequestUI => r !== null);
 }
 
 export async function mintMarketTokens(marketId: number, amountEth: string): Promise<WalletWriteResult> {
@@ -318,6 +513,49 @@ export async function quoteSwapOutput(
   })) as bigint;
 }
 
+export async function quoteBuyOutcomeWithEth(
+  marketId: number,
+  buyYes: boolean,
+  amountEth: string
+): Promise<bigint> {
+  const amountIn = parseEther(amountEth);
+  if (amountIn <= BigInt(0)) return BigInt(0);
+
+  const swapOut = await quoteSwapOutput(marketId, buyYes, amountEth);
+  return amountIn + swapOut;
+}
+
+export async function buyOutcomeWithEth(
+  marketId: number,
+  buyYes: boolean,
+  amountEth: string,
+  slippageBps = 100
+): Promise<WalletWriteResult> {
+  const amountIn = parseEther(amountEth);
+  if (amountIn <= BigInt(0)) throw new Error("Trade amount must be greater than 0");
+
+  await ensureSepoliaNetwork();
+  const walletClient = getWalletClient();
+  const [account] = await walletClient.requestAddresses();
+
+  const swapOut = await quoteSwapOutput(marketId, buyYes, amountEth);
+  if (swapOut <= BigInt(0)) {
+    throw new Error("Pool has no executable liquidity for this trade yet.");
+  }
+  const minSwapOut = (swapOut * BigInt(10000 - slippageBps)) / BigInt(10000);
+
+  const { request } = await publicClient.simulateContract({
+    account,
+    address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
+    abi: ALETHEIA_MARKET_ABI,
+    functionName: "buyOutcomeWithEth",
+    args: [BigInt(marketId), buyYes, minSwapOut],
+    value: amountIn,
+  });
+
+  return writeContractAndWait(request);
+}
+
 export async function swapOutcomeTokens(
   marketId: number,
   buyYes: boolean,
@@ -403,50 +641,26 @@ export async function getPoolLiquidityState(
   return { reserveYes, reserveNo, lpTotalSupply, userLpBalance };
 }
 
-export async function addMarketLiquidity(
+export async function provideMarketLiquidity(
   marketId: number,
-  amountYesEth: string,
-  amountNoEth: string
+  amountEth: string
 ): Promise<WalletWriteResult> {
-  const amountYes = parseEther(amountYesEth);
-  const amountNo = parseEther(amountNoEth);
-  if (amountYes <= BigInt(0) || amountNo <= BigInt(0)) {
-    throw new Error("Liquidity amounts must be greater than 0");
+  const amount = parseEther(amountEth);
+  if (amount <= BigInt(0)) {
+    throw new Error("Liquidity amount must be greater than 0");
   }
 
   await ensureSepoliaNetwork();
   const walletClient = getWalletClient();
   const [account] = await walletClient.requestAddresses();
 
-  const market = (await publicClient.readContract({
-    address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
-    abi: ALETHEIA_MARKET_ABI,
-    functionName: "markets",
-    args: [BigInt(marketId)],
-  })) as any;
-
-  const yesToken = market[3] as `0x${string}`;
-  const noToken = market[4] as `0x${string}`;
-  const poolAddress = market[5] as `0x${string}`;
-
-  const [yesAllowance, noAllowance] = await Promise.all([
-    getAllowance(yesToken, account, poolAddress),
-    getAllowance(noToken, account, poolAddress),
-  ]);
-
-  if (yesAllowance < amountYes) {
-    await approveTokenSpending(yesToken, poolAddress, amountYes);
-  }
-  if (noAllowance < amountNo) {
-    await approveTokenSpending(noToken, poolAddress, amountNo);
-  }
-
   const { request } = await publicClient.simulateContract({
     account,
-    address: poolAddress,
-    abi: POOL_ABI,
-    functionName: "addLiquidity",
-    args: [amountYes, amountNo],
+    address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
+    abi: ALETHEIA_MARKET_ABI,
+    functionName: "provideLiquidity",
+    args: [BigInt(marketId)],
+    value: amount,
   });
 
   return writeContractAndWait(request);

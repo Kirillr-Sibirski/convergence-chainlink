@@ -9,9 +9,15 @@ import type { Market } from "@/hooks/useMarkets";
 import { CreateMarketModal } from "@/components/trading/CreateMarketModal";
 import { WalletRequiredDialog } from "@/components/wallet/WalletRequiredDialog";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
-import { createMarket, inferDeadlineFromQuestion } from "@/lib/web3-viem";
+import {
+  createMarketVerified,
+  getQuestionValidationStatus,
+  inferDeadlineFromQuestion,
+  waitForQuestionValidation,
+  type WorldIdProof,
+} from "@/lib/web3-viem";
 import { useWallet } from "@/hooks/useWallet";
-import { CRE_SIM_CMD, getPendingCreResolutionCount } from "@/lib/cre-gate";
+import { buildCreValidateCmd, CRE_SIM_CMD, getPendingCreResolutionCount, triggerCreQuestionValidation } from "@/lib/cre-gate";
 
 const SORT_OPTIONS = [
   { label: "Most Active", value: "volume" },
@@ -77,15 +83,27 @@ function MarketTile({
       </div>
 
       {creBlocked ? (
-        <Button size="sm" variant="outline" className="w-full" disabled>
-          Run CRE Simulation First
-        </Button>
-      ) : (
-        <Link href={`/markets/${market.id}`}>
-          <Button size="sm" variant="outline" className="w-full bg-white/90">
-            Trade / Provide Liquidity
+        <div className="grid grid-cols-2 gap-2">
+          <Button size="sm" variant="outline" className="w-full" disabled>
+            Trade
           </Button>
-        </Link>
+          <Button size="sm" variant="outline" className="w-full" disabled>
+            Provide Liquidity
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
+          <Link href={`/markets/${market.id}`}>
+            <Button size="sm" variant="outline" className="w-full bg-white/90">
+              Trade
+            </Button>
+          </Link>
+          <Link href={`/markets/${market.id}#liquidity`}>
+            <Button size="sm" variant="outline" className="w-full bg-white/90">
+              Provide Liquidity
+            </Button>
+          </Link>
+        </div>
       )}
 
       {market.settled && (
@@ -125,10 +143,6 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
 
   const pendingCreResolution = useMemo(() => getPendingCreResolutionCount(markets), [markets]);
   const creBlocked = pendingCreResolution > 0;
-  const endingSoon = useMemo(() => {
-    const now = Math.floor(Date.now() / 1000);
-    return filtered.filter((m) => m.deadline > now && m.deadline <= now + 2 * 24 * 3600).length;
-  }, [filtered]);
 
   const ensureWallet = () => {
     if (account) return true;
@@ -136,18 +150,49 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
     return false;
   };
 
-  const handleCreateMarket = async (question: string) => {
-    if (creBlocked) {
-      throw new Error(`Run CRE simulation first: ${CRE_SIM_CMD}`);
-    }
-
+  const handleValidateMarket = async (question: string) => {
     if (!ensureWallet()) {
       throw new Error("Please connect your wallet first");
     }
 
     const deadline = inferDeadlineFromQuestion(question);
-    await createMarket(question, deadline, "0", "0");
+    const existing = await getQuestionValidationStatus(question, deadline);
+    if (existing.processed) {
+      if (!existing.approved) {
+        throw new Error(
+          "Question validation failed. It must be legitimate, binary, resolvable, and include a clear timeline."
+        );
+      }
+      return;
+    }
 
+    const triggerMode = await triggerCreQuestionValidation(question, deadline);
+    if (triggerMode === "manual") {
+      throw new Error(`Run CRE HTTP simulation first: ${buildCreValidateCmd(question, deadline)}`);
+    }
+
+    const validation = await waitForQuestionValidation(question, deadline);
+    if (!validation.approved) {
+      throw new Error(
+        "Question validation failed. It must be legitimate, binary, resolvable, and include a clear timeline."
+      );
+    }
+  };
+
+  const handleCreateMarket = async (question: string, worldProof: WorldIdProof) => {
+    if (!ensureWallet()) {
+      throw new Error("Please connect your wallet first");
+    }
+
+    const deadline = inferDeadlineFromQuestion(question);
+    const validation = await getQuestionValidationStatus(question, deadline);
+    if (!validation.processed || !validation.approved) {
+      throw new Error(`Question is not verified yet. Run: ${buildCreValidateCmd(question, deadline)}`);
+    }
+    if (!validation.checks.legitimate || !validation.checks.clearTimeline || !validation.checks.resolvable || !validation.checks.binary) {
+      throw new Error("Question validation failed CRE checks (legitimate/timeline/resolvable/binary).");
+    }
+    await createMarketVerified(question, deadline, worldProof);
     if (onRefresh) await onRefresh();
   };
 
@@ -177,38 +222,20 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
             Create Market
           </Button>
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <div className="rounded-lg border border-gray-200 bg-white/75 px-3 py-2">
-          <p className="text-[11px] text-muted-foreground">Visible Markets</p>
-          <p className="text-lg font-semibold text-gray-900">{filtered.length}</p>
-        </div>
-        <div className="rounded-lg border border-gray-200 bg-white/75 px-3 py-2">
-          <p className="text-[11px] text-muted-foreground">Ending Soon</p>
-          <p className="text-lg font-semibold text-gray-900">{endingSoon}</p>
-        </div>
-        <div className="rounded-lg border border-gray-200 bg-white/75 px-3 py-2">
-          <p className="text-[11px] text-muted-foreground">Sort</p>
-          <div className="mt-1 flex items-center gap-1">
-            {SORT_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => setSort(opt.value)}
-                className={`px-2 py-1 text-[11px] rounded-md border transition-colors ${
-                  sort === opt.value
-                    ? "bg-gray-100 text-gray-900 border-gray-300 font-medium"
-                    : "text-gray-500 border-transparent hover:border-gray-200 hover:text-gray-700"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="rounded-lg border border-gray-200 bg-white/75 px-3 py-2">
-          <p className="text-[11px] text-muted-foreground">Status</p>
-          <p className="text-sm font-medium text-gray-800 mt-1">{creBlocked ? "Waiting For Simulation" : "Ready"}</p>
+        <div className="mt-2 flex items-center gap-1">
+          {SORT_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setSort(opt.value)}
+              className={`px-2 py-1 text-[11px] rounded-md border transition-colors ${
+                sort === opt.value
+                  ? "bg-gray-100 text-gray-900 border-gray-300 font-medium"
+                  : "text-gray-500 border-transparent hover:border-gray-200 hover:text-gray-700"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -268,7 +295,14 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
         </div>
       )}
 
-      {showCreateModal && <CreateMarketModal onClose={() => setShowCreateModal(false)} onCreate={handleCreateMarket} />}
+      {showCreateModal && (
+        <CreateMarketModal
+          onClose={() => setShowCreateModal(false)}
+          onValidate={handleValidateMarket}
+          onCreate={handleCreateMarket}
+          signal={account ?? undefined}
+        />
+      )}
       {showWalletDialog && <WalletRequiredDialog onClose={() => setShowWalletDialog(false)} />}
     </div>
   );

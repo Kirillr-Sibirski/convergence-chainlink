@@ -18,6 +18,8 @@ contract DeployMarketScript is Script {
 
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        address worldIdAddress = vm.envAddress("WORLD_ID_ROUTER_ADDRESS");
+        uint256 worldIdExternalNullifierHash = vm.envUint("WORLD_ID_EXTERNAL_NULLIFIER_HASH");
 
         // Read previously deployed addresses
         string memory factoryJson = vm.readFile("deployments/sepolia-factory.json");
@@ -28,6 +30,7 @@ contract DeployMarketScript is Script {
 
         require(factoryAddress != address(0), "Factory address not found");
         require(oracleAddress != address(0), "Oracle address not found");
+        require(worldIdAddress != address(0), "WORLD_ID_ROUTER_ADDRESS not set");
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -35,7 +38,12 @@ contract DeployMarketScript is Script {
         console.log("Oracle address:", oracleAddress);
         console.log("Factory address:", factoryAddress);
 
-        AletheiaMarket market = new AletheiaMarket(oracleAddress, factoryAddress);
+        AletheiaMarket market = new AletheiaMarket(
+            oracleAddress,
+            factoryAddress,
+            worldIdAddress,
+            worldIdExternalNullifierHash
+        );
         console.log("AletheiaMarket deployed at:", address(market));
 
         // Wire oracle -> market callback for CRE-driven auto-settlement

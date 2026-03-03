@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { formatEther, parseEther } from "viem";
+import { formatEther } from "viem";
 import { ArrowLeftRight } from "lucide-react";
 import { SimpleHeader } from "@/components/layout/SimpleHeader";
 import { BackgroundBeams } from "@/components/ui/background-beams";
@@ -13,22 +13,18 @@ import { Button } from "@/components/ui/button";
 import { EthIcon } from "@/components/ui/eth-icon";
 import { useWallet } from "@/hooks/useWallet";
 import {
-  addMarketLiquidity,
-  approveTokenSpending,
+  buyOutcomeWithEth,
   fetchMarkets,
   getPoolLiquidityState,
-  getAllowance,
   getUserMarketBalances,
   type PoolLiquidityState,
-  mintMarketTokens,
-  quoteSwapOutput,
-  swapOutcomeTokens,
+  provideMarketLiquidity,
+  quoteBuyOutcomeWithEth,
   type UIMarket,
 } from "@/lib/web3-viem";
 import { CRE_SIM_CMD, getPendingCreResolutionCount } from "@/lib/cre-gate";
 
 type Side = "YES" | "NO";
-type TradeMode = "buy" | "sell";
 
 export default function MarketTradePage() {
   const params = useParams<{ id: string }>();
@@ -37,7 +33,6 @@ export default function MarketTradePage() {
   const [market, setMarket] = useState<UIMarket | null>(null);
   const [yesBalance, setYesBalance] = useState(BigInt(0));
   const [noBalance, setNoBalance] = useState(BigInt(0));
-  const [mode, setMode] = useState<TradeMode>("buy");
   const [side, setSide] = useState<Side>("YES");
   const [amount, setAmount] = useState("0.01");
   const [quoteOut, setQuoteOut] = useState<bigint>(BigInt(0));
@@ -95,11 +90,11 @@ export default function MarketTradePage() {
       return;
     }
 
-    const buyYes = mode === "buy" ? side === "YES" : side === "NO";
-    void quoteSwapOutput(market.id, buyYes, amount)
+    const buyYes = side === "YES";
+    void quoteBuyOutcomeWithEth(market.id, buyYes, amount)
       .then(setQuoteOut)
       .catch(() => setQuoteOut(BigInt(0)));
-  }, [market, amount, mode, side]);
+  }, [market, amount, side]);
 
   const expired = useMemo(
     () => !!market && market.deadline <= Math.floor(Date.now() / 1000),
@@ -111,9 +106,7 @@ export default function MarketTradePage() {
     !!poolState &&
     poolState.reserveYes > BigInt(0) &&
     poolState.reserveNo > BigInt(0);
-  const buyYes = mode === "buy" ? side === "YES" : side === "NO";
-  const sellTokenLabel: Side = buyYes ? "NO" : "YES";
-  const receiveTokenLabel: Side = buyYes ? "YES" : "NO";
+  const buyYes = side === "YES";
 
   const runAction = useCallback(
     async (fn: () => Promise<void>) => {
@@ -215,36 +208,21 @@ export default function MarketTradePage() {
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2">
                       <ArrowLeftRight className="w-4 h-4" />
-                      Trade Outcome Tokens
+                      Buy Outcome Tokens
                     </CardTitle>
                     <CardDescription>
-                      Choose Buy or Sell, pick YES/NO, and trade in one click.
+                      Buy YES or NO directly with ETH in one transaction.
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        variant={mode === "buy" ? "default" : "outline"}
-                        className={mode === "buy" ? "bg-green-600 hover:bg-green-700 border-green-700 text-white" : ""}
-                        disabled={creBlocked}
-                        onClick={() => setMode("buy")}
-                      >
-                        Buy
-                      </Button>
-                      <Button
-                        variant={mode === "sell" ? "default" : "outline"}
-                        className={mode === "sell" ? "bg-red-600 hover:bg-red-700 border-red-700 text-white" : ""}
-                        disabled={creBlocked}
-                        onClick={() => setMode("sell")}
-                      >
-                        Sell
-                      </Button>
-                    </div>
-
+                  <CardContent className="space-y-4 rounded-xl border border-gray-200 bg-white p-4 shadow-[0_16px_35px_rgba(15,23,42,0.08)]">
                     <div className="grid grid-cols-2 gap-2">
                       <Button
                         variant={side === "YES" ? "default" : "outline"}
-                        className={side === "YES" ? "bg-green-600 hover:bg-green-700 border-green-700 text-white" : "border-green-300 text-green-700"}
+                        className={
+                          side === "YES"
+                            ? "bg-green-600 hover:bg-green-700 border-green-700 text-white"
+                            : "border-green-300 text-green-700 bg-green-50/50"
+                        }
                         disabled={creBlocked}
                         onClick={() => setSide("YES")}
                       >
@@ -252,7 +230,11 @@ export default function MarketTradePage() {
                       </Button>
                       <Button
                         variant={side === "NO" ? "default" : "outline"}
-                        className={side === "NO" ? "bg-red-600 hover:bg-red-700 border-red-700 text-white" : "border-red-300 text-red-700"}
+                        className={
+                          side === "NO"
+                            ? "bg-red-600 hover:bg-red-700 border-red-700 text-white"
+                            : "border-red-300 text-red-700 bg-red-50/50"
+                        }
                         disabled={creBlocked}
                         onClick={() => setSide("NO")}
                       >
@@ -260,10 +242,8 @@ export default function MarketTradePage() {
                       </Button>
                     </div>
 
-                    <div className={`rounded-md border p-3 ${sellTokenLabel === "YES" ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
-                      <p className="text-xs mb-1 font-medium">
-                        You pay ({sellTokenLabel})
-                      </p>
+                    <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
+                      <p className="text-xs mb-1 font-medium">You pay</p>
                       <Input
                         type="number"
                         min="0"
@@ -271,45 +251,42 @@ export default function MarketTradePage() {
                         value={amount}
                         disabled={creBlocked}
                         onChange={(e) => setAmount(e.target.value)}
-                        placeholder={`Amount of ${sellTokenLabel} tokens`}
+                        placeholder="ETH amount"
                         className="bg-white"
                       />
                     </div>
 
-                    <p className="text-xs text-muted-foreground">
-                      <span className="inline-flex items-center gap-1">
-                        <EthIcon className="w-3 h-3" />
-                        Estimated receive: {Number(formatEther(quoteOut)).toFixed(6)} {receiveTokenLabel}
-                      </span>
-                    </p>
+                    <div className={`rounded-md border p-3 ${side === "YES" ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
+                      <p className="text-xs mb-1 font-medium">You receive (estimated)</p>
+                      <p className={`text-sm font-semibold ${side === "YES" ? "text-green-700" : "text-red-700"}`}>
+                        {Number(formatEther(quoteOut)).toFixed(6)} {side}
+                      </p>
+                    </div>
 
                     <Button
                       variant="default"
-                      className={side === "YES" ? "w-full bg-green-600 hover:bg-green-700 border-green-700 text-white" : "w-full bg-red-600 hover:bg-red-700 border-red-700 text-white"}
+                      className={
+                        side === "YES"
+                          ? "w-full bg-green-600 hover:bg-green-700 border-green-700 text-white"
+                          : "w-full bg-red-600 hover:bg-red-700 border-red-700 text-white"
+                      }
                       disabled={!canTrade || !hasPoolLiquidity || busy || Number(amount) <= 0}
                       onClick={() =>
                         void runAction(async () => {
-                          const sellToken = buyYes ? market.noToken : market.yesToken;
-                          const required = parseEther(amount);
-                          const allowance = await getAllowance(
-                            sellToken,
-                            account as `0x${string}`,
-                            market.pool
-                          );
-                          if (allowance < required) {
-                            await approveTokenSpending(sellToken, market.pool, required);
-                          }
-                          await swapOutcomeTokens(market.id, buyYes, amount);
+                          await buyOutcomeWithEth(market.id, buyYes, amount);
                         })
                       }
                     >
-                      {busy ? "Executing..." : `Approve & ${mode === "buy" ? "Buy" : "Sell"} ${side}`}
+                      {busy ? "Buying..." : `Buy ${side} with ETH`}
                     </Button>
+                    <p className="text-[11px] text-muted-foreground">
+                      One signature only. No token approvals required for buys.
+                    </p>
                   </CardContent>
                 </Card>
               )}
 
-              <Card>
+              <Card id="liquidity">
                 <CardHeader>
                   <CardTitle className="text-base">Provide Liquidity</CardTitle>
                   <CardDescription>Provide liquidity with ETH in one step.</CardDescription>
@@ -363,18 +340,17 @@ export default function MarketTradePage() {
                       disabled={!account || busy || !canTrade || Number(liquidityAmount) <= 0 || creBlocked}
                       onClick={() =>
                         void runAction(async () => {
-                          await mintMarketTokens(market.id, liquidityAmount);
-                          await addMarketLiquidity(market.id, liquidityAmount, liquidityAmount);
+                          await provideMarketLiquidity(market.id, liquidityAmount);
                         })
                       }
                     >
                       <span className="inline-flex items-center gap-1.5">
                         <EthIcon className="w-3.5 h-3.5" />
-                        Provide Liquidity
+                        {busy ? "Providing Liquidity..." : "Provide Liquidity"}
                       </span>
                     </Button>
                     <p className="text-[11px] text-muted-foreground">
-                      This uses your ETH to mint matching YES/NO tokens and adds them to the pool.
+                      One transaction: your ETH is converted to balanced YES/NO liquidity and you receive LP tokens.
                     </p>
                   </div>
                   {!hasPoolLiquidity && (

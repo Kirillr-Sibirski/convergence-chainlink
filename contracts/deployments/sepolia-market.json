@@ -1,6 +1,6 @@
 {
-  "market": "0x261dc51bac926f77df587ca582f7ca739033f061",
-  "oracle": "0xe93b74f436640e25dbdcfc71c736c40a35b9a983",
-  "factory": "0x55e184bf4f59ee7b68ef1d60bd2184fc33a050bc",
+  "market": "0x3669e53c53b6209603e80ef02c96e7e95005376f",
+  "oracle": "0x42c71270f53c7f2b4d9d363b033ed7738e8e860d",
+  "factory": "0x9a59cd89c00dfeb2b6641dbb894e240521dd069d",
   "network": "sepolia"
 }

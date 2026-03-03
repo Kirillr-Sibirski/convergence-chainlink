@@ -105,8 +105,8 @@ async function main() {
   const wallet = createWalletClient({ account, chain, transport: http(rpcUrl) });
   const pub = createPublicClient({ chain, transport: http(rpcUrl) });
 
-  const staking = "0x3b7c0693204fdefe9a9dda85ca7d75158be872db" as const;
-  const aeeia = "0x6251d658104c9cd7d1183e5df0040b05aeca6f89" as const;
+  const staking = "0x4434f99f7655f94705217601706536bd94273c2f" as const;
+  const aeeia = "0xb38f8a149f95850cb5eff5fce5621d36b8f8bbd0" as const;
 
   const before = (await pub.readContract({
     address: staking,
@@ -162,4 +162,3 @@ main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
-

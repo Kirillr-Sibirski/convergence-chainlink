@@ -13,7 +13,7 @@ import {
 import { type Address, decodeFunctionResult, encodeFunctionData, zeroAddress, keccak256, toBytes, encodeAbiParameters, parseAbiParameters } from 'viem'
 import { z } from 'zod'
 import { AletheiaOracleABI } from './contracts/abi'
-import { resolveWithMultiAI } from './sources/multi-ai-openrouter'
+import { resolveWithMultiAI, validateQuestionWithMultiAI } from './sources/multi-ai-openrouter'
 
 // Configuration schema
 const configSchema = z.object({
@@ -33,6 +33,14 @@ interface Market {
 	resolved: boolean
 }
 
+interface ValidationRequest {
+	id: bigint
+	requester: Address
+	question: string
+	deadline: bigint
+	processed: boolean
+}
+
 // Resolution result structure
 interface ResolutionResult {
 	outcome: boolean
@@ -44,6 +52,9 @@ interface ResolutionResult {
 
 const MIN_CONFIDENCE = 80
 const MIN_AGREEMENT = 75
+const REPORT_TYPE_RESOLUTION = 1
+const REPORT_TYPE_VALIDATION = 2
+const REPORT_TYPE_QUESTION_VALIDATION = 3
 
 /**
  * Fetch pending markets from the oracle contract
@@ -96,6 +107,49 @@ const fetchPendingMarkets = (runtime: Runtime<Config>): Market[] => {
 		question: m.question,
 		deadline: m.deadline,
 		resolved: m.resolved,
+	}))
+}
+
+const fetchPendingValidationRequests = (runtime: Runtime<Config>): ValidationRequest[] => {
+	const network = getNetwork({
+		chainFamily: 'evm',
+		chainSelectorName: runtime.config.chainSelectorName,
+		isTestnet: true,
+	})
+
+	if (!network) {
+		throw new Error(`Network not found: ${runtime.config.chainSelectorName}`)
+	}
+
+	const evmClient = new cre.capabilities.EVMClient(network.chainSelector.selector)
+	const callData = encodeFunctionData({
+		abi: AletheiaOracleABI,
+		functionName: 'getPendingValidationRequests',
+	})
+
+	const contractCall = evmClient
+		.callContract(runtime, {
+			call: encodeCallMsg({
+				from: zeroAddress,
+				to: runtime.config.oracleAddress as Address,
+				data: callData,
+			}),
+			blockNumber: LAST_FINALIZED_BLOCK_NUMBER,
+		})
+		.result()
+
+	const requests = decodeFunctionResult({
+		abi: AletheiaOracleABI,
+		functionName: 'getPendingValidationRequests',
+		data: bytesToHex(contractCall.data),
+	})
+
+	return requests.map((r: any) => ({
+		id: r.id,
+		requester: r.requester,
+		question: r.question,
+		deadline: r.deadline,
+		processed: r.processed,
 	}))
 }
 
@@ -253,8 +307,8 @@ const writeResolution = (
 	// ABI-encode report data for onReport() -> _processReport()
 	// This encodes the parameters that will be passed to _processReport(bytes report)
 	const reportData = encodeAbiParameters(
-		parseAbiParameters('uint256 marketId, bool outcome, uint8 confidence, bytes32 proofHash'),
-		[marketId, result.outcome, result.confidence, proofHash]
+		parseAbiParameters('uint8 reportType, uint256 marketId, bool outcome, uint8 confidence, bytes32 proofHash'),
+		[REPORT_TYPE_RESOLUTION, marketId, result.outcome, result.confidence, proofHash]
 	)
 
 	// Generate DON report with cryptographic signature
@@ -288,6 +342,179 @@ const writeResolution = (
 	return txHash
 }
 
+const writeValidationResult = (
+	runtime: Runtime<Config>,
+	requestId: bigint,
+	approved: boolean,
+	score: number,
+	checks: { legitimate: boolean; clearTimeline: boolean; resolvable: boolean; binary: boolean },
+	reasons: string[]
+): string => {
+	const network = getNetwork({
+		chainFamily: 'evm',
+		chainSelectorName: runtime.config.chainSelectorName,
+		isTestnet: true,
+	})
+
+	if (!network) {
+		throw new Error(`Network not found: ${runtime.config.chainSelectorName}`)
+	}
+
+	const evmClient = new cre.capabilities.EVMClient(network.chainSelector.selector)
+	const proofHash = keccak256(
+		toBytes(
+			JSON.stringify({
+				requestId: requestId.toString(),
+				approved,
+				score,
+				checks,
+				reasons,
+				timestamp: Date.now(),
+			}),
+		),
+	)
+
+	const reportData = encodeAbiParameters(
+		parseAbiParameters(
+			'uint8 reportType, uint256 requestId, bool approved, uint8 score, bool legitimate, bool clearTimeline, bool resolvable, bool binary, bytes32 proofHash',
+		),
+		[
+			REPORT_TYPE_VALIDATION,
+			requestId,
+			approved,
+			score,
+			checks.legitimate,
+			checks.clearTimeline,
+			checks.resolvable,
+			checks.binary,
+			proofHash,
+		],
+	)
+
+	const reportResponse = runtime
+		.report({
+			encodedPayload: hexToBase64(reportData),
+			encoderName: 'evm',
+			signingAlgo: 'ecdsa',
+			hashingAlgo: 'keccak256',
+		})
+		.result()
+
+	const resp = evmClient
+		.writeReport(runtime, {
+			receiver: runtime.config.oracleAddress,
+			report: reportResponse,
+			gasConfig: {
+				gasLimit: runtime.config.gasLimit,
+			},
+		})
+		.result()
+
+	if (resp.txStatus !== TxStatus.SUCCESS) {
+		throw new Error(`Failed to write validation report: ${resp.errorMessage || resp.txStatus}`)
+	}
+
+	return bytesToHex(resp.txHash || new Uint8Array(32))
+}
+
+const writeQuestionValidationResult = (
+	runtime: Runtime<Config>,
+	questionDigest: `0x${string}`,
+	approved: boolean,
+	score: number,
+	checks: { legitimate: boolean; clearTimeline: boolean; resolvable: boolean; binary: boolean },
+	reasons: string[]
+): string => {
+	const network = getNetwork({
+		chainFamily: 'evm',
+		chainSelectorName: runtime.config.chainSelectorName,
+		isTestnet: true,
+	})
+	if (!network) throw new Error(`Network not found: ${runtime.config.chainSelectorName}`)
+
+	const evmClient = new cre.capabilities.EVMClient(network.chainSelector.selector)
+	const proofHash = keccak256(
+		toBytes(JSON.stringify({ questionDigest, approved, score, checks, reasons, timestamp: Date.now() })),
+	)
+
+	const reportData = encodeAbiParameters(
+		parseAbiParameters(
+			'uint8 reportType, bytes32 questionDigest, bool approved, uint8 score, bool legitimate, bool clearTimeline, bool resolvable, bool binary, bytes32 proofHash',
+		),
+		[
+			REPORT_TYPE_QUESTION_VALIDATION,
+			questionDigest,
+			approved,
+			score,
+			checks.legitimate,
+			checks.clearTimeline,
+			checks.resolvable,
+			checks.binary,
+			proofHash,
+		],
+	)
+
+	const reportResponse = runtime
+		.report({
+			encodedPayload: hexToBase64(reportData),
+			encoderName: 'evm',
+			signingAlgo: 'ecdsa',
+			hashingAlgo: 'keccak256',
+		})
+		.result()
+
+	const resp = evmClient
+		.writeReport(runtime, {
+			receiver: runtime.config.oracleAddress,
+			report: reportResponse,
+			gasConfig: { gasLimit: runtime.config.gasLimit },
+		})
+		.result()
+
+	if (resp.txStatus !== TxStatus.SUCCESS) {
+		throw new Error(`Failed to write question validation report: ${resp.errorMessage || resp.txStatus}`)
+	}
+	return bytesToHex(resp.txHash || new Uint8Array(32))
+}
+
+const onHttpTrigger = (runtime: Runtime<Config>, payload: { input: Uint8Array }): string => {
+	const raw = new TextDecoder().decode(payload.input)
+	const parsed = JSON.parse(raw) as { question?: string; deadline?: string | number }
+	const question = parsed.question?.trim() || ''
+	if (!question) throw new Error('HTTP payload missing question')
+
+	const deadline =
+		typeof parsed.deadline === 'number'
+			? Math.floor(parsed.deadline)
+			: Number.parseInt(String(parsed.deadline || '0'), 10)
+	if (!Number.isFinite(deadline) || deadline <= 0) {
+		throw new Error('HTTP payload missing valid deadline')
+	}
+
+	const digest = keccak256(
+		encodeAbiParameters(parseAbiParameters('string question, uint256 deadline'), [question, BigInt(deadline)])
+	)
+	const validation = validateQuestionWithMultiAI(runtime, question)
+	const approved =
+		validation.valid &&
+		validation.score >= 70 &&
+		validation.checks.legitimate &&
+		validation.checks.clearTimeline &&
+		validation.checks.resolvable &&
+		validation.checks.binary
+
+	const txHash = writeQuestionValidationResult(
+		runtime,
+		digest,
+		approved,
+		validation.score,
+		validation.checks,
+		validation.issues
+	)
+	runtime.log(`Question validation written: digest=${digest}, approved=${approved}, tx=${txHash}`)
+	return JSON.stringify({ digest, approved, score: validation.score, txHash })
+}
+
 /**
  * Main CRON callback - runs every 10 minutes
  * Checks for pending markets and resolves them autonomously
@@ -300,7 +527,40 @@ const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): string =
 	const execTimeMs = Number(payload.scheduledExecutionTime.seconds) * 1000
 	runtime.log(`CRON triggered at ${new Date(execTimeMs).toISOString()}`)
 
-	// 1. Fetch pending markets (past deadline, not resolved)
+	// 1. Process pending creation validation requests first
+	const pendingValidation = fetchPendingValidationRequests(runtime)
+	runtime.log(`Found ${pendingValidation.length} pending validation request(s)`)
+
+	let validatedCount = 0
+	for (const req of pendingValidation) {
+		try {
+			runtime.log(`Validating request ${req.id}: ${req.question}`)
+			const validation = validateQuestionWithMultiAI(runtime, req.question)
+
+			const approved =
+				validation.valid &&
+				validation.score >= 70 &&
+				validation.checks.legitimate &&
+				validation.checks.clearTimeline &&
+				validation.checks.resolvable &&
+				validation.checks.binary
+
+			const txHash = writeValidationResult(
+				runtime,
+				req.id,
+				approved,
+				validation.score,
+				validation.checks,
+				validation.issues
+			)
+			runtime.log(`Validation request ${req.id} processed: approved=${approved}, tx=${txHash}`)
+			validatedCount++
+		} catch (error) {
+			runtime.log(`Validation request ${req.id} failed: ${error}`)
+		}
+	}
+
+	// 2. Fetch pending markets (past deadline, not resolved)
 	const pendingMarkets = fetchPendingMarkets(runtime)
 
 	if (pendingMarkets.length === 0) {
@@ -310,26 +570,26 @@ const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): string =
 
 	runtime.log(`Found ${pendingMarkets.length} pending market(s)`)
 
-	// 2. Process each market
+	// 3. Process each market
 	const resolved: string[] = []
 	for (const market of pendingMarkets) {
 		try {
 			runtime.log(`Processing market ${market.id}: ${market.question}`)
 
-			// 3. Determine verification strategy
+			// 4. Determine verification strategy
 			const strategy = determineVerificationStrategy(runtime, market.question)
 			runtime.log(`Strategy: ${strategy.category}, sources: ${strategy.sources.length}`)
 
-			// 4. Fetch from multiple sources with consensus
+			// 5. Fetch from multiple sources with consensus
 			const result = fetchMultiSourceData(runtime, strategy.sources, market.question, strategy.category)
 
-			// 5. Validate result (confidence + agreement thresholds)
+			// 6. Validate result (confidence + agreement thresholds)
 			if (!validateResult(runtime, result)) {
 				runtime.log(`Skipping market ${market.id} - insufficient consensus`)
 				continue
 			}
 
-			// 6. Write resolution on-chain
+			// 7. Write resolution on-chain
 			const txHash = writeResolution(runtime, market.id, result)
 			resolved.push(`Market ${market.id}: ${txHash}`)
 
@@ -339,7 +599,7 @@ const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): string =
 		}
 	}
 
-	return `Resolved ${resolved.length} market(s): ${resolved.join(', ')}`
+	return `Validated ${validatedCount} request(s), resolved ${resolved.length} market(s): ${resolved.join(', ')}`
 }
 
 /**
@@ -348,6 +608,7 @@ const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): string =
  */
 const initWorkflow = (config: Config) => {
 	const cronTrigger = new cre.capabilities.CronCapability()
+	const httpTrigger = new cre.capabilities.HTTPCapability()
 
 	return [
 		cre.handler(
@@ -355,6 +616,12 @@ const initWorkflow = (config: Config) => {
 				schedule: config.cronSchedule, // "*/10 * * * *" = every 10 minutes
 			}),
 			onCronTrigger,
+		),
+		cre.handler(
+			httpTrigger.trigger({
+				authorizedKeys: [],
+			}),
+			onHttpTrigger,
 		),
 	]
 }

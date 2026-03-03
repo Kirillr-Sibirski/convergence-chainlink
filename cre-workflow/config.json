@@ -1,6 +1,6 @@
 {
   "cronSchedule": "*/10 * * * *",
-  "oracleAddress": "0xe93b74f436640e25dbdcfc71c736c40a35b9a983",
+  "oracleAddress": "0x42c71270f53c7f2b4d9d363b033ed7738e8e860d",
   "chainSelectorName": "ethereum-testnet-sepolia",
   "gasLimit": "500000"
 }

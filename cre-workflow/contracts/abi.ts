@@ -2,6 +2,34 @@
 export const AletheiaOracleABI = [
   {
     type: 'function',
+    name: 'getPendingValidationRequests',
+    inputs: [],
+    outputs: [
+      {
+        name: 'pendingRequests',
+        type: 'tuple[]',
+        internalType: 'struct AletheiaOracle.ValidationRequest[]',
+        components: [
+          { name: 'id', type: 'uint256', internalType: 'uint256' },
+          { name: 'requester', type: 'address', internalType: 'address' },
+          { name: 'question', type: 'string', internalType: 'string' },
+          { name: 'deadline', type: 'uint256', internalType: 'uint256' },
+          { name: 'processed', type: 'bool', internalType: 'bool' },
+          { name: 'approved', type: 'bool', internalType: 'bool' },
+          { name: 'score', type: 'uint8', internalType: 'uint8' },
+          { name: 'legitimate', type: 'bool', internalType: 'bool' },
+          { name: 'clearTimeline', type: 'bool', internalType: 'bool' },
+          { name: 'resolvable', type: 'bool', internalType: 'bool' },
+          { name: 'binary', type: 'bool', internalType: 'bool' },
+          { name: 'proofHash', type: 'bytes32', internalType: 'bytes32' },
+          { name: 'createdAt', type: 'uint256', internalType: 'uint256' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     name: 'getPendingMarkets',
     inputs: [],
     outputs: [
