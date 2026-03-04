@@ -3,10 +3,11 @@ import { sepolia } from "viem/chains";
 import { CONTRACTS } from "./contracts";
 
 export const chain = sepolia;
+const SEPOLIA_RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com";
 
 export const publicClient = createPublicClient({
   chain,
-  transport: http("https://ethereum-sepolia-rpc.publicnode.com"),
+  transport: http(SEPOLIA_RPC_URL),
 });
 
 export function getWalletClient() {
@@ -46,7 +47,7 @@ export async function ensureSepoliaNetwork() {
         {
           chainId: chainIdHex,
           chainName: "Sepolia",
-          rpcUrls: ["https://ethereum-sepolia-rpc.publicnode.com"],
+          rpcUrls: [SEPOLIA_RPC_URL],
           nativeCurrency: { name: "Sepolia Ether", symbol: "SEP", decimals: 18 },
           blockExplorerUrls: ["https://sepolia.etherscan.io"],
         },

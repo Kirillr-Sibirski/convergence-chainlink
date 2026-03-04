@@ -17,9 +17,9 @@ const headingFont = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  title: "AEEIA - Tokenized Outcomes & AI-Fetched Sources",
+  title: "Aletheia - Permissionless AI-Resolved Prediction Markets",
   description:
-    "Tokenized outcomes on prediction markets resolved by processing outcomes with AI. Powered by Chainlink Runtime Environment.",
+    "Permissionless binary prediction markets with CRE-based AI consensus resolution and sybil-resistant market creation.",
 };
 
 export default function RootLayout({

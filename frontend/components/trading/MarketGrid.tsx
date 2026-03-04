@@ -144,7 +144,7 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
     const trigger = await triggerCreQuestionValidation(question);
     if (trigger.mode === "manual") {
       throw new Error(
-        `CRE HTTP endpoint is not configured. Simulate CRE workflow with: ${buildCreValidateCmd(
+        `CRE workflow is not yet deployed. Simulate CRE workflow with: ${buildCreValidateCmd(
           question,
           fallbackDeadline
         )}. After simulation, click Validate Question again.`

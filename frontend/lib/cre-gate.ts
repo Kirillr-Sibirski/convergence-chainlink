@@ -1,9 +1,9 @@
 export const CRE_SIM_CMD =
-  "cd /Users/kirillrybkov/Desktop/convergence-chainlink/cre-workflow && cre workflow simulate . --non-interactive --trigger-index 0 --broadcast -T staging";
+  "cre workflow simulate . --non-interactive --trigger-index 0 --broadcast -T staging";
 
 export function buildCreValidateCmd(question: string, deadline?: number): string {
   const payload = JSON.stringify(deadline ? { question, deadline } : { question }).replace(/'/g, "\\'");
-  return `cd /Users/kirillrybkov/Desktop/convergence-chainlink/cre-workflow && cre workflow simulate . --non-interactive --trigger-index 1 --http-payload '${payload}' --broadcast -T staging`;
+  return `cre workflow simulate . --non-interactive --trigger-index 1 --http-payload '${payload}' --broadcast -T staging`;
 }
 
 export type CreValidationTriggerResult =

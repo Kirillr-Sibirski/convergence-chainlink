@@ -22,7 +22,7 @@ export function InfoSection() {
             CRE-Verified Truth.
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            AEEIA doesn't blindly trust AI answers. Instead, it fetches real sources,
+            Aletheia doesn't blindly trust AI answers. Instead, it fetches real sources,
             cross-verifies information, and uses AI to process evidence — all verified
             through Chainlink Runtime Environment.
           </p>

@@ -52,7 +52,11 @@ export default function LandingPage() {
               Powered by Chainlink CRE
             </div>
 
-            <h1 className="text-5xl md:text-6xl text-gray-900">Permissionless prediction markets with accountable AI resolution.</h1>
+            <h1 className="text-5xl md:text-6xl text-gray-900">
+              <BrandName highlightVowels italic />:
+              <br />
+              permissionless markets with accountable AI resolution.
+            </h1>
 
             <p className="text-base text-gray-600 max-w-xl">
               <BrandName /> is a binary prediction market protocol where anyone can create markets, traders can price outcomes in ETH, and resolution is handled by CRE-based AI consensus.
@@ -79,21 +83,17 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="animate-fade-up-delay -mt-10">
+          <div className="animate-fade-up -mt-10">
             <AletheiaStlViewer className="scale-[1.06]" />
             <div className="mt-2 text-center text-gray-500">
-              <p className="text-sm tracking-[0.08em]">
-                <span className="underline decoration-2 underline-offset-4">A</span>L
-                <span className="underline decoration-2 underline-offset-4">E</span>TH
-                <span className="underline decoration-2 underline-offset-4">E</span>
-                <span className="underline decoration-2 underline-offset-4">I</span>
-                <span className="underline decoration-2 underline-offset-4">A</span>
+              <p className="text-sm tracking-[0.04em] italic">
+                Aletheia (ἀλήθεια), n.
               </p>
-              <p className="mt-1 text-xs">
-                n. (Greek) truth; often personified as the goddess of truth.
+              <p className="mt-1 text-xs italic">
+                Greek: truth; often personified as the goddess of truth.
               </p>
               <p className="mt-1 text-[11px] text-gray-400">
-                Statue reference: Summer Garden, Saint Petersburg.
+                Summer Garden, Saint Petersburg
               </p>
             </div>
           </div>

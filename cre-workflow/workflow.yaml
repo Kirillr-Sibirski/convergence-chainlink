@@ -1,8 +1,8 @@
-# CRE Workflow Settings for AEEIA Prediction Market Oracle
+# CRE Workflow Settings for Aletheia Prediction Market Oracle
 
 local-simulation:
   user-workflow:
-    workflow-name: "aeeia-oracle"
+    workflow-name: "aletheia-oracle"
   workflow-artifacts:
     workflow-path: "./main.ts"
     config-path: "./config.json"
@@ -10,7 +10,7 @@ local-simulation:
 
 staging:
   user-workflow:
-    workflow-name: "aeeia-oracle"
+    workflow-name: "aletheia-oracle"
   workflow-artifacts:
     workflow-path: "./main.ts"
     config-path: "./config.json"

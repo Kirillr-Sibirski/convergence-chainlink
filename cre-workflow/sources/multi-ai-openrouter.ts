@@ -166,7 +166,7 @@ function askAI(
 			'Content-Type': 'application/json',
 			Authorization: `Bearer ${apiKey.value}`,
 			'HTTP-Referer': 'https://github.com/Kirillr-Sibirski/convergence-chainlink',
-			'X-Title': 'AEEIA Prediction Markets',
+			'X-Title': 'Aletheia Prediction Markets',
 		},
 		cacheSettings: {
 			maxAgeMs: 60000,
@@ -383,7 +383,7 @@ function askAIValidation(
 			'Content-Type': 'application/json',
 			Authorization: `Bearer ${apiKey.value}`,
 			'HTTP-Referer': 'https://github.com/Kirillr-Sibirski/convergence-chainlink',
-			'X-Title': 'AEEIA Question Validation',
+			'X-Title': 'Aletheia Question Validation',
 		},
 		cacheSettings: {
 			maxAgeMs: 60000,
@@ -463,7 +463,7 @@ function askAIDeadline(
 			'Content-Type': 'application/json',
 			Authorization: `Bearer ${apiKey.value}`,
 			'HTTP-Referer': 'https://github.com/Kirillr-Sibirski/convergence-chainlink',
-			'X-Title': 'AEEIA Deadline Extraction',
+			'X-Title': 'Aletheia Deadline Extraction',
 		},
 		cacheSettings: { maxAgeMs: 60000 },
 	}

@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { IDKitWidget, type ISuccessResult, VerificationLevel } from "@worldcoin/idkit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { X, Info } from "lucide-react";
+import { X, Check, Copy, FlaskConical, Info } from "lucide-react";
 import { decodeAbiParameters } from "viem";
 import { createPortal } from "react-dom";
-import type { WorldIdProofInput } from "@/lib/web3-viem";
+import { inferDeadlineFromQuestion, type WorldIdProofInput } from "@/lib/web3-viem";
+import { buildCreValidateCmd } from "@/lib/cre-gate";
 
 interface CreateMarketModalProps {
   onClose: () => void;
@@ -36,18 +37,37 @@ export function CreateMarketModal({ onClose, onValidate, onCreate, walletAddress
   const [submitStage, setSubmitStage] = useState<SubmitStage>("idle");
   const [worldProof, setWorldProof] = useState<WorldIdProofInput | null>(null);
   const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
   const [validationInfo, setValidationInfo] = useState<string>(
     "Step 1: Validate with CRE. Step 2: Verify with World ID. Step 3: Create market onchain."
   );
 
   const isBusy = submitStage === "validating" || submitStage === "submitting";
+  const hasCreHttpTrigger = Boolean(process.env.NEXT_PUBLIC_CRE_HTTP_TRIGGER_URL);
+  const normalizedQuestion = question.trim() || "Will ETH close above $5,000 by April 1st?";
+  const fallbackDeadline = useMemo(() => inferDeadlineFromQuestion(normalizedQuestion), [normalizedQuestion]);
+  const creSimulateCommand = useMemo(
+    () => buildCreValidateCmd(normalizedQuestion, fallbackDeadline),
+    [normalizedQuestion, fallbackDeadline]
+  );
 
   const onQuestionChange = (value: string) => {
     setQuestion(value);
     setError("");
+    setCopied(false);
     setSubmitStage("idle");
     setWorldProof(null);
     setValidationInfo("Step 1: Validate with CRE. Step 2: Verify with World ID. Step 3: Create market onchain.");
+  };
+
+  const handleCopyCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(creSimulateCommand);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setError("Clipboard copy failed. Copy the command manually.");
+    }
   };
 
   const handleValidate = async () => {
@@ -63,7 +83,12 @@ export function CreateMarketModal({ onClose, onValidate, onCreate, walletAddress
     } catch (err) {
       console.error("Failed to validate market question:", err);
       setSubmitStage("idle");
-      setError(err instanceof Error ? err.message : "Failed to validate question");
+      const message = err instanceof Error ? err.message : "Failed to validate question";
+      if (message.includes("CRE workflow is not yet deployed")) {
+        setError("Manual CRE simulation is required in beta mode. Run the command below, then click Validate Question.");
+      } else {
+        setError(message);
+      }
       setValidationInfo("Question is not verified yet.");
     }
   };
@@ -138,6 +163,46 @@ export function CreateMarketModal({ onClose, onValidate, onCreate, walletAddress
           </div>
 
           <div className="text-xs text-amber-700 bg-amber-100 rounded-md p-3">{validationInfo}</div>
+
+          {!hasCreHttpTrigger && (
+            <div className="rounded-md border border-sky-200 bg-sky-50 p-3 space-y-2">
+              <p className="text-xs font-semibold text-sky-900 inline-flex items-center gap-1.5">
+                <FlaskConical className="h-3.5 w-3.5" />
+                Beta testing mode: manual CRE simulation
+              </p>
+              <p className="text-xs text-sky-800">
+                CRE workflow is not yet deployed in this environment. For beta testing, simulate the CRE workflow for
+                this question, then click Validate Question again.
+              </p>
+              <p className="text-[11px] text-sky-700">Run this command from the `cre-workflow` directory.</p>
+              <div className="rounded border border-slate-800 bg-slate-950 p-2">
+                <pre className="overflow-x-auto">
+                  <code className="font-mono text-[11px] leading-relaxed text-slate-100 break-all whitespace-pre-wrap">
+                  {creSimulateCommand}
+                  </code>
+                </pre>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="bg-white hover:bg-sky-100 border-sky-200 text-sky-900"
+                onClick={handleCopyCommand}
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 mr-1" />
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3.5 w-3.5 mr-1" />
+                    Copy CRE simulate command
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
 
           {submitStage === "validated" && (
             <div className="rounded-md border border-gray-200 bg-gray-50 p-3 space-y-2">

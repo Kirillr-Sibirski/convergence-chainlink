@@ -24,8 +24,8 @@ export function AletheiaStlViewer({
     scene.background = null;
 
     const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 1000);
-    camera.position.set(0, 10, 26);
-    camera.lookAt(0, 0, 0);
+    camera.position.set(0, 10, 30);
+    camera.lookAt(0, -1.2, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -93,18 +93,17 @@ export function AletheiaStlViewer({
           : new THREE.Vector3(1, 1, 1);
 
         const maxDim = Math.max(size.x, size.y, size.z) || 1;
-        const scale = 14 / maxDim;
+        const scale = 18 / maxDim;
 
         const mat = new THREE.MeshStandardMaterial({
           color: 0xd9dde6,
-          metalness: 0.18,
+          metalness: 0.10,
           roughness: 0.42,
         });
 
         statue = new THREE.Mesh(geometry, mat);
         statue.scale.setScalar(scale);
         // STL is Z-up; rotate to Y-up so it stands upright.
-        statue.rotation.x = -Math.PI / 2;
         statue.position.y = -2.2;
         group.add(statue);
 
@@ -114,9 +113,10 @@ export function AletheiaStlViewer({
           if (disposed) return;
           if (statue) {
             // Yaw-only rotation: rotate around vertical axis based on scroll input.
-            statue.rotation.y += (targetYaw - statue.rotation.y) * 0.1;
             statue.rotation.x = -Math.PI / 2;
-            statue.rotation.z = 0;
+            statue.rotation.z += (targetYaw - statue.rotation.z) * 0.1;
+            
+            statue.rotation.y = 0;
             statue.position.y = -2.2;
           }
           renderer.render(scene, camera);
@@ -166,7 +166,9 @@ export function AletheiaStlViewer({
           <div ref={mountRef} className="h-[620px] overflow-hidden" />
         )}
       </div>
-      <div className="absolute inset-x-14 -bottom-1 h-10 bg-black/15 blur-2xl rounded-full" />
+      <div className="absolute inset-x-16 -bottom-0.5 h-8 bg-black/12 blur-2xl rounded-full" />
+      <div className="absolute inset-x-20 bottom-1 h-5 bg-black/18 blur-xl rounded-full" />
+      <div className="absolute inset-x-28 bottom-2 h-3 bg-black/22 blur-md rounded-full" />
     </div>
   );
 }
