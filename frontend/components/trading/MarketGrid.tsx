@@ -102,6 +102,7 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
   const [sort, setSort] = useState<SortOption>("volume");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showWalletDialog, setShowWalletDialog] = useState(false);
+  const [validatedDeadlines, setValidatedDeadlines] = useState<Record<string, number>>({});
   const { account } = useWallet();
 
   const filtered = useMemo(() => {
@@ -128,29 +129,47 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
   const handleValidateMarket = async (question: string) => {
     if (!ensureWallet()) throw new Error("Please connect your wallet first");
 
-    const deadline = inferDeadlineFromQuestion(question);
-    const existing = await getQuestionValidationStatus(question, deadline);
+    const fallbackDeadline = inferDeadlineFromQuestion(question);
+    const existing = await getQuestionValidationStatus(question, fallbackDeadline);
     if (existing.processed) {
       if (!existing.approved) throw new Error("Question validation failed CRE checks.");
+      setValidatedDeadlines((prev) => ({
+        ...prev,
+        [question]: fallbackDeadline,
+      }));
       return;
     }
 
-    const triggerMode = await triggerCreQuestionValidation(question, deadline);
-    if (triggerMode === "manual") {
-      throw new Error(`Run CRE HTTP simulation first: ${buildCreValidateCmd(question, deadline)}`);
+    const trigger = await triggerCreQuestionValidation(question);
+    if (trigger.mode === "manual") {
+      throw new Error(
+        `CRE HTTP endpoint is not configured. Simulate CRE workflow with: ${buildCreValidateCmd(
+          question,
+          fallbackDeadline
+        )}. After simulation, click Validate Question again.`
+      );
     }
 
-    const validation = await waitForQuestionValidation(question, deadline);
+    const validation = await waitForQuestionValidation(question, trigger.deadline);
     if (!validation.approved) throw new Error("Question validation failed CRE checks.");
+
+    setValidatedDeadlines((prev) => ({
+      ...prev,
+      [question]: trigger.deadline,
+    }));
   };
 
   const handleCreateMarket = async (question: string) => {
     if (!ensureWallet()) throw new Error("Please connect your wallet first");
 
-    const deadline = inferDeadlineFromQuestion(question);
+    const deadline = validatedDeadlines[question];
+    if (!deadline) {
+      throw new Error("Validate question first so CRE can extract the deadline.");
+    }
+
     const validation = await getQuestionValidationStatus(question, deadline);
     if (!validation.processed || !validation.approved) {
-      throw new Error(`Question is not verified yet. Run: ${buildCreValidateCmd(question, deadline)}`);
+      throw new Error("Question is not verified yet. Click Validate Question and wait for CRE verification.");
     }
 
     await createMarketVerified(question, deadline);

@@ -21,7 +21,7 @@ export function CreateMarketModal({ onClose, onValidate, onCreate }: CreateMarke
   const [submitStage, setSubmitStage] = useState<SubmitStage>("idle");
   const [error, setError] = useState("");
   const [validationInfo, setValidationInfo] = useState<string>(
-    "Step 1: Validate question via CRE HTTP trigger. Step 2: Create market onchain."
+    "Step 1: Validate question with CRE (AI extracts the deadline). If HTTP trigger is unavailable, run CRE simulation command shown below. Step 2: Create market onchain."
   );
 
   const isBusy = submitStage === "validating" || submitStage === "submitting";
@@ -30,7 +30,7 @@ export function CreateMarketModal({ onClose, onValidate, onCreate }: CreateMarke
     setQuestion(value);
     setError("");
     setSubmitStage("idle");
-    setValidationInfo("Step 1: Validate question via CRE HTTP trigger. Step 2: Create market onchain.");
+    setValidationInfo("Step 1: Validate question with CRE (AI extracts the deadline). If HTTP trigger is unavailable, run CRE simulation command shown below. Step 2: Create market onchain.");
   };
 
   const handleValidate = async () => {
@@ -82,8 +82,9 @@ export function CreateMarketModal({ onClose, onValidate, onCreate }: CreateMarke
                 <p className="font-medium mb-2">How this works</p>
                 <ul className="space-y-1.5 text-muted-foreground text-xs">
                   <li>• Ask a clear yes/no question with a time target</li>
-                  <li>• The date is read from your question text</li>
-                  <li>• CRE HTTP validation must approve your question first</li>
+                  <li>• CRE AI extracts the deadline from your question</li>
+                  <li>• CRE must approve your question first</li>
+                  <li>• If no live HTTP trigger is set, simulate CRE workflow manually</li>
                   <li>• Then create the market with one transaction</li>
                 </ul>
               </PopoverContent>

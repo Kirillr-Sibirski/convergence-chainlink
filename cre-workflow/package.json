@@ -6,7 +6,6 @@
   "private": true,
   "scripts": {
     "postinstall": "bunx cre-setup",
-    "test": "node --loader ts-node/esm tests/universal-resolver.test.ts",
     "simulate": "cre workflow simulate . --non-interactive --trigger-index 0 -T staging",
     "simulate:http": "cre workflow simulate . --non-interactive --trigger-index 1 --http-payload",
     "build": "tsc --noEmit",

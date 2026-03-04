@@ -28,6 +28,33 @@ interface ValidationAIResponse {
 	model: string
 }
 
+interface DeadlineAIResponse {
+	deadlineUnix: number
+	confidence: number
+	reasoning: string
+	model: string
+}
+
+function parseModelJsonContent(rawText: string): any {
+	const trimmed = rawText.trim()
+	const withoutFences = trimmed
+		.replace(/^```(?:json)?\s*/i, '')
+		.replace(/\s*```$/i, '')
+		.trim()
+
+	try {
+		return JSON.parse(withoutFences)
+	} catch {
+		const start = withoutFences.indexOf('{')
+		const end = withoutFences.lastIndexOf('}')
+		if (start >= 0 && end > start) {
+			const candidate = withoutFences.slice(start, end + 1)
+			return JSON.parse(candidate)
+		}
+		throw new Error(`Could not parse model JSON output: ${withoutFences.slice(0, 120)}`)
+	}
+}
+
 // System prompt for all AI models
 const SYSTEM_PROMPT = `You are an autonomous AI agent with web search capabilities, acting as a fact-checking oracle for binary (YES/NO) prediction markets.
 
@@ -85,6 +112,17 @@ Rules:
 - resolvable: public sources/APIs can verify outcome.
 - binary: objective yes/no outcome.
 - reject vague, subjective, non-verifiable, or future-only speculation without measurable criteria.`
+
+const DEADLINE_PROMPT = `Extract the market deadline from the question.
+
+Return ONLY minified JSON:
+{"deadlineUnix":number,"confidence":number,"reasoning":string}
+
+Rules:
+- deadlineUnix must be a UTC unix timestamp in seconds.
+- If month-only is given (e.g. "in April"), use first day of that month at 00:00:00 UTC.
+- If year is omitted, infer the nearest future date that matches the text.
+- If no clear deadline exists, return deadlineUnix:0 and confidence:0.`
 
 /**
  * Query AI model via OpenRouter
@@ -152,8 +190,8 @@ function askAI(
 				throw new Error(`Malformed ${displayName} response`)
 			}
 
-			// Parse AI response JSON
-			const aiResponse = JSON.parse(text.trim())
+			// Parse AI response JSON (tolerate markdown fences and leading/trailing text)
+			const aiResponse = parseModelJsonContent(text)
 			return {
 				outcome: aiResponse.outcome,
 				confidence: aiResponse.confidence,
@@ -365,7 +403,7 @@ function askAIValidation(
 			const text = apiResponse?.choices?.[0]?.message?.content
 			if (!text) throw new Error(`Malformed ${displayName} validation response`)
 
-			const parsed = JSON.parse(text.trim())
+			const parsed = parseModelJsonContent(text)
 			const checks = parsed.checks || {}
 
 			const result: ValidationAIResponse = {
@@ -389,6 +427,68 @@ function askAIValidation(
 			return result
 		},
 		consensusIdenticalAggregation<ValidationAIResponse>(),
+	)
+
+	return sendRequester(runtime.config).result()
+}
+
+function askAIDeadline(
+	runtime: Runtime<any>,
+	question: string,
+	modelName: string,
+	displayName: string,
+): DeadlineAIResponse {
+	const apiKey = runtime.getSecret({ id: 'OPENROUTER_API_KEY' }).result()
+	const httpClient = new cre.capabilities.HTTPClient()
+
+	const requestData = {
+		model: modelName,
+		messages: [
+			{ role: 'system', content: DEADLINE_PROMPT },
+			{ role: 'user', content: `Question: ${question}` },
+		],
+		temperature: 0,
+		max_tokens: 300,
+	}
+
+	const bodyBytes = new TextEncoder().encode(JSON.stringify(requestData))
+	const body = Buffer.from(bodyBytes).toString('base64')
+
+	const req = {
+		url: 'https://openrouter.ai/api/v1/chat/completions',
+		method: 'POST' as const,
+		body,
+		headers: {
+			'Content-Type': 'application/json',
+			Authorization: `Bearer ${apiKey.value}`,
+			'HTTP-Referer': 'https://github.com/Kirillr-Sibirski/convergence-chainlink',
+			'X-Title': 'AEEIA Deadline Extraction',
+		},
+		cacheSettings: { maxAgeMs: 60000 },
+	}
+
+	const sendRequester = httpClient.sendRequest(
+		runtime,
+		(sendReq: HTTPSendRequester, _config: any) => {
+			const resp = sendReq.sendRequest(req).result()
+			const bodyText = new TextDecoder().decode(resp.body)
+			if (!ok(resp)) {
+				throw new Error(`${displayName} deadline API error: ${resp.statusCode} - ${bodyText}`)
+			}
+
+			const apiResponse = JSON.parse(bodyText)
+			const text = apiResponse?.choices?.[0]?.message?.content
+			if (!text) throw new Error(`Malformed ${displayName} deadline response`)
+
+			const parsed = parseModelJsonContent(text)
+			return {
+				deadlineUnix: Number(parsed.deadlineUnix || 0),
+				confidence: Number(parsed.confidence || 0),
+				reasoning: String(parsed.reasoning || ''),
+				model: displayName,
+			}
+		},
+		consensusIdenticalAggregation<DeadlineAIResponse>(),
 	)
 
 	return sendRequester(runtime.config).result()
@@ -458,4 +558,34 @@ export function validateQuestionWithMultiAI(runtime: Runtime<any>, question: str
 		checks,
 		modelsUsed: responses.map((r) => r.model),
 	}
+}
+
+export function inferDeadlineWithMultiAI(runtime: Runtime<any>, question: string): number {
+	const responses: DeadlineAIResponse[] = []
+
+	try {
+		responses.push(askAIDeadline(runtime, question, 'google/gemini-2.0-flash-001', 'Gemini 2.0 Flash'))
+	} catch (error) {
+		runtime.log(`[Gemini] Deadline extraction failed: ${error}`)
+	}
+	try {
+		responses.push(askAIDeadline(runtime, question, 'anthropic/claude-3.5-sonnet', 'Claude 3.5 Sonnet'))
+	} catch (error) {
+		runtime.log(`[Claude] Deadline extraction failed: ${error}`)
+	}
+	try {
+		responses.push(askAIDeadline(runtime, question, 'openai/gpt-4o-mini', 'GPT-4o Mini'))
+	} catch (error) {
+		runtime.log(`[GPT] Deadline extraction failed: ${error}`)
+	}
+
+	const valid = responses.filter((r) => Number.isFinite(r.deadlineUnix) && r.deadlineUnix > 0)
+	if (valid.length === 0) {
+		throw new Error('Could not infer deadline from question')
+	}
+
+	const sorted = valid.map((r) => Math.floor(r.deadlineUnix)).sort((a, b) => a - b)
+	const median = sorted[Math.floor(sorted.length / 2)]
+	runtime.log(`Inferred deadline: ${median} (${new Date(median * 1000).toISOString()})`)
+	return median
 }

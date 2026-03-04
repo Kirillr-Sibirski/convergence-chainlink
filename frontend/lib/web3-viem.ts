@@ -79,16 +79,55 @@ export function inferDeadlineFromQuestion(question: string): number {
   }
 
   const lower = question.toLowerCase();
-  const markers = [" by ", " before ", " on ", " at ", " until "];
+  const markers = [" by ", " before ", " on ", " at ", " until ", " in "];
   for (const marker of markers) {
     const idx = lower.indexOf(marker);
     if (idx < 0) continue;
-    const candidate = question.slice(idx + marker.length).trim();
+    const candidate = question
+      .slice(idx + marker.length)
+      .trim()
+      .replace(/[?.!,;:]+$/g, "");
     const parsed = Date.parse(candidate);
     if (Number.isFinite(parsed)) {
       const ts = Math.floor(parsed / 1000);
       if (ts > now + 3600) return ts;
     }
+  }
+
+  // Accept semi-ambiguous month-only inputs (e.g. "in April")
+  // and normalize to the first day of that month at 00:00 UTC.
+  const monthMatch = lower.match(
+    /\b(january|february|march|april|may|june|july|august|september|october|november|december)\b(?:\s+(\d{4}))?/i
+  );
+  if (monthMatch) {
+    const monthName = monthMatch[1].toLowerCase();
+    const explicitYear = monthMatch[2] ? Number.parseInt(monthMatch[2], 10) : null;
+    const monthIndex: Record<string, number> = {
+      january: 0,
+      february: 1,
+      march: 2,
+      april: 3,
+      may: 4,
+      june: 5,
+      july: 6,
+      august: 7,
+      september: 8,
+      october: 9,
+      november: 10,
+      december: 11,
+    };
+
+    const currentYear = new Date().getUTCFullYear();
+    const chosenMonth = monthIndex[monthName];
+    let year = explicitYear ?? currentYear;
+    let ts = Math.floor(Date.UTC(year, chosenMonth, 1, 0, 0, 0) / 1000);
+
+    if (!explicitYear && ts <= now + 3600) {
+      year += 1;
+      ts = Math.floor(Date.UTC(year, chosenMonth, 1, 0, 0, 0) / 1000);
+    }
+
+    return ts;
   }
 
   return now + 7 * 24 * 3600;
@@ -190,7 +229,7 @@ export async function waitForQuestionValidation(
     await new Promise((resolve) => setTimeout(resolve, pollMs));
   }
 
-  throw new Error("Validation report not found onchain yet. Run CRE simulation and try again.");
+  throw new Error("Validation report not found onchain yet. CRE verification is still pending.");
 }
 
 export async function createMarketVerified(
