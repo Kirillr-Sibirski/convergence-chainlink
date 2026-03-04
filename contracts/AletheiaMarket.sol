@@ -2,14 +2,22 @@
 pragma solidity ^0.8.20;
 
 import "./AletheiaOracle.sol";
+import "./ByteHasher.sol";
+import "./IWorldID.sol";
 
 /**
  * @title AletheiaMarket
  * @notice Simple ETH-based binary prediction market resolved by Chainlink CRE oracle.
  */
 contract AletheiaMarket {
+    using ByteHasher for bytes;
+
     AletheiaOracle public oracle;
+    IWorldID public worldId;
     mapping(uint256 => uint256) public oracleToMarketId;
+    mapping(address => uint256) public lastCreatedAt;
+
+    uint256 public immutable worldIdExternalNullifierHash;
 
     struct Market {
         uint256 oracleMarketId;
@@ -33,6 +41,8 @@ contract AletheiaMarket {
     mapping(uint256 => mapping(address => Bet)) public userBets;
 
     uint8 public constant MINIMUM_CONFIDENCE = 80;
+    uint256 public constant WORLD_ID_GROUP_ID = 1;
+    uint256 public constant CREATE_COOLDOWN = 1 days;
 
     event MarketCreated(uint256 indexed marketId, uint256 indexed oracleMarketId, string question, uint256 deadline);
     event BetPlaced(uint256 indexed marketId, address indexed user, bool onYes, uint256 amount);
@@ -52,9 +62,16 @@ contract AletheiaMarket {
     error OnlyOracle();
     error QuestionNotValidated();
     error InsufficientShares();
+    error CreationRateLimited(uint256 nextAllowedAt);
 
-    constructor(address _oracleAddress) {
+    constructor(address _oracleAddress, address _worldIdAddress, string memory appId, string memory action) {
+        require(_oracleAddress != address(0), "Invalid oracle");
+        require(_worldIdAddress != address(0), "Invalid WorldID");
+        require(bytes(appId).length > 0, "Invalid WorldID app");
+        require(bytes(action).length > 0, "Invalid WorldID action");
         oracle = AletheiaOracle(_oracleAddress);
+        worldId = IWorldID(_worldIdAddress);
+        worldIdExternalNullifierHash = abi.encodePacked(abi.encodePacked(appId).hashToField(), action).hashToField();
     }
 
     modifier onlyOracle() {
@@ -62,11 +79,20 @@ contract AletheiaMarket {
         _;
     }
 
-    function createMarketVerified(string calldata question, uint256 deadline)
+    function createMarketVerified(
+        string calldata question,
+        uint256 deadline,
+        uint256 root,
+        uint256 nullifierHash,
+        uint256[8] calldata proof
+    )
         external
         returns (uint256 marketId)
     {
         if (deadline <= block.timestamp) revert DeadlineMustBeFuture();
+        if (block.timestamp < lastCreatedAt[msg.sender] + CREATE_COOLDOWN) {
+            revert CreationRateLimited(lastCreatedAt[msg.sender] + CREATE_COOLDOWN);
+        }
 
         (
             bool processed,
@@ -82,6 +108,17 @@ contract AletheiaMarket {
         if (!processed || !approved || !legitimate || !clearTimeline || !resolvable || !binary) {
             revert QuestionNotValidated();
         }
+
+        worldId.verifyProof(
+            root,
+            WORLD_ID_GROUP_ID,
+            abi.encodePacked(msg.sender).hashToField(),
+            nullifierHash,
+            worldIdExternalNullifierHash,
+            proof
+        );
+
+        lastCreatedAt[msg.sender] = block.timestamp;
 
         uint256 oracleMarketId = oracle.createMarket(question, deadline);
 

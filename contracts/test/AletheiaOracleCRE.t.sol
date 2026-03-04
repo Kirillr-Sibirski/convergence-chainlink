@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import "forge-std/Test.sol";
 import "../AletheiaOracle.sol";
 import "../AletheiaMarket.sol";
+import "../IWorldID.sol";
 import "../ReceiverTemplate.sol";
 
 contract MockForwarder {
@@ -12,15 +13,28 @@ contract MockForwarder {
     }
 }
 
+contract MockWorldID is IWorldID {
+    function verifyProof(
+        uint256,
+        uint256,
+        uint256,
+        uint256,
+        uint256,
+        uint256[8] calldata
+    ) external pure {}
+}
+
 contract AletheiaOracleCRETest is Test {
     MockForwarder internal forwarder;
+    MockWorldID internal worldId;
     AletheiaOracle internal oracle;
     AletheiaMarket internal market;
 
     function setUp() public {
         forwarder = new MockForwarder();
+        worldId = new MockWorldID();
         oracle = new AletheiaOracle(address(forwarder));
-        market = new AletheiaMarket(address(oracle));
+        market = new AletheiaMarket(address(oracle), address(worldId), "app_staging_test", "create-market");
         oracle.setPredictionMarket(address(market));
     }
 
@@ -49,7 +63,8 @@ contract AletheiaOracleCRETest is Test {
         );
         forwarder.push(address(oracle), "", validationReport);
 
-        uint256 marketId = market.createMarketVerified(question, deadline);
+        uint256[8] memory proof;
+        uint256 marketId = market.createMarketVerified(question, deadline, 1, 123, proof);
 
         vm.warp(deadline + 1);
 

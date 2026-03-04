@@ -44,6 +44,19 @@ export interface UserBet {
   claimed: boolean;
 }
 
+export interface MarketPricePoint {
+  timestamp: number;
+  yesPercent: number;
+  totalYes: bigint;
+  totalNo: bigint;
+}
+
+export interface WorldIdProofInput {
+  root: bigint;
+  nullifierHash: bigint;
+  proof: readonly [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint];
+}
+
 export async function connectWallet(): Promise<`0x${string}`> {
   await ensureSepoliaNetwork();
   const walletClient = getWalletClient();
@@ -234,7 +247,8 @@ export async function waitForQuestionValidation(
 
 export async function createMarketVerified(
   question: string,
-  deadlineTimestamp: number
+  deadlineTimestamp: number,
+  worldIdProof: WorldIdProofInput
 ): Promise<WalletWriteResult> {
   await ensureSepoliaNetwork();
   const walletClient = getWalletClient();
@@ -245,7 +259,7 @@ export async function createMarketVerified(
     address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
     abi: ALETHEIA_MARKET_ABI,
     functionName: "createMarketVerified",
-    args: [question, BigInt(deadlineTimestamp)],
+    args: [question, BigInt(deadlineTimestamp), worldIdProof.root, worldIdProof.nullifierHash, worldIdProof.proof],
   });
 
   return writeContractAndWait(request);
@@ -340,4 +354,110 @@ export async function getUserClaimablePayout(marketId: number, user: `0x${string
 
 export function formatEthShort(value: bigint): string {
   return Number(formatEther(value)).toFixed(4);
+}
+
+export async function fetchMarketPriceHistory(marketId: number): Promise<MarketPricePoint[]> {
+  const latest = await publicClient.getBlockNumber();
+  const fallbackFrom = latest > BigInt(250000) ? latest - BigInt(250000) : BigInt(0);
+
+  const createdLogs = await publicClient.getLogs({
+    address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
+    event: {
+      type: "event",
+      name: "MarketCreated",
+      inputs: [
+        { indexed: true, name: "marketId", type: "uint256" },
+        { indexed: true, name: "oracleMarketId", type: "uint256" },
+        { indexed: false, name: "question", type: "string" },
+        { indexed: false, name: "deadline", type: "uint256" },
+      ],
+    },
+    args: { marketId: BigInt(marketId) },
+    fromBlock: fallbackFrom,
+    toBlock: "latest",
+  });
+
+  const startBlock = createdLogs[0]?.blockNumber ?? fallbackFrom;
+
+  const [betLogs, sellLogs] = await Promise.all([
+    publicClient.getLogs({
+      address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
+      event: {
+        type: "event",
+        name: "BetPlaced",
+        inputs: [
+          { indexed: true, name: "marketId", type: "uint256" },
+          { indexed: true, name: "user", type: "address" },
+          { indexed: false, name: "onYes", type: "bool" },
+          { indexed: false, name: "amount", type: "uint256" },
+        ],
+      },
+      args: { marketId: BigInt(marketId) },
+      fromBlock: startBlock,
+      toBlock: "latest",
+    }),
+    publicClient.getLogs({
+      address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
+      event: {
+        type: "event",
+        name: "SharesSold",
+        inputs: [
+          { indexed: true, name: "marketId", type: "uint256" },
+          { indexed: true, name: "user", type: "address" },
+          { indexed: false, name: "onYes", type: "bool" },
+          { indexed: false, name: "amount", type: "uint256" },
+        ],
+      },
+      args: { marketId: BigInt(marketId) },
+      fromBlock: startBlock,
+      toBlock: "latest",
+    }),
+  ]);
+
+  const ordered = [
+    ...betLogs.map((l) => ({ type: "bet" as const, log: l })),
+    ...sellLogs.map((l) => ({ type: "sell" as const, log: l })),
+  ].sort((a, b) => {
+    if (a.log.blockNumber === b.log.blockNumber) {
+      return Number((a.log.logIndex ?? 0) - (b.log.logIndex ?? 0));
+    }
+    return Number(a.log.blockNumber - b.log.blockNumber);
+  });
+
+  const blockSet = new Set<bigint>([startBlock, ...ordered.map((e) => e.log.blockNumber)]);
+  const blockEntries = await Promise.all(Array.from(blockSet).map(async (bn) => [bn, await publicClient.getBlock({ blockNumber: bn })] as const));
+  const blockTs = new Map<bigint, number>(blockEntries.map(([bn, b]) => [bn, Number(b.timestamp)]));
+
+  let totalYes = BigInt(0);
+  let totalNo = BigInt(0);
+  const points: MarketPricePoint[] = [
+    {
+      timestamp: blockTs.get(startBlock) ?? Math.floor(Date.now() / 1000),
+      yesPercent: 50,
+      totalYes,
+      totalNo,
+    },
+  ];
+
+  for (const entry of ordered) {
+    const onYes = Boolean(entry.log.args.onYes);
+    const amount = entry.log.args.amount as bigint;
+
+    if (entry.type === "bet") {
+      if (onYes) totalYes += amount;
+      else totalNo += amount;
+    } else {
+      if (onYes) totalYes = totalYes > amount ? totalYes - amount : BigInt(0);
+      else totalNo = totalNo > amount ? totalNo - amount : BigInt(0);
+    }
+
+    points.push({
+      timestamp: blockTs.get(entry.log.blockNumber) ?? Math.floor(Date.now() / 1000),
+      yesPercent: toPercent(totalYes, totalNo),
+      totalYes,
+      totalNo,
+    });
+  }
+
+  return points;
 }

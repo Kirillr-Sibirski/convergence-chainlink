@@ -45,6 +45,9 @@ export const ALETHEIA_MARKET_ABI = [
     inputs: [
       { internalType: "string", name: "question", type: "string" },
       { internalType: "uint256", name: "deadline", type: "uint256" },
+      { internalType: "uint256", name: "root", type: "uint256" },
+      { internalType: "uint256", name: "nullifierHash", type: "uint256" },
+      { internalType: "uint256[8]", name: "proof", type: "uint256[8]" },
     ],
     name: "createMarketVerified",
     outputs: [{ internalType: "uint256", name: "marketId", type: "uint256" }],
@@ -138,5 +141,38 @@ export const ALETHEIA_MARKET_ABI = [
     ],
     stateMutability: "view",
     type: "function",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "uint256", name: "marketId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "user", type: "address" },
+      { indexed: false, internalType: "bool", name: "onYes", type: "bool" },
+      { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+    ],
+    name: "BetPlaced",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "uint256", name: "marketId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "user", type: "address" },
+      { indexed: false, internalType: "bool", name: "onYes", type: "bool" },
+      { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+    ],
+    name: "SharesSold",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "uint256", name: "marketId", type: "uint256" },
+      { indexed: true, internalType: "uint256", name: "oracleMarketId", type: "uint256" },
+      { indexed: false, internalType: "string", name: "question", type: "string" },
+      { indexed: false, internalType: "uint256", name: "deadline", type: "uint256" },
+    ],
+    name: "MarketCreated",
+    type: "event",
   },
 ] as const;

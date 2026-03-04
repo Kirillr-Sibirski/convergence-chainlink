@@ -10,7 +10,11 @@ contract DeployAllScript is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address forwarderAddress = vm.envAddress("FORWARDER_ADDRESS");
+        address worldIdAddress = vm.envAddress("WORLD_ID_ROUTER_ADDRESS");
+        string memory worldIdAppId = vm.envString("WORLD_ID_APP_ID");
+        string memory worldIdAction = vm.envString("WORLD_ID_ACTION");
         require(forwarderAddress != address(0), "FORWARDER_ADDRESS not set");
+        require(worldIdAddress != address(0), "WORLD_ID_ROUTER_ADDRESS not set");
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -22,7 +26,7 @@ contract DeployAllScript is Script {
 
         // Deploy Market
         console.log("Deploying AletheiaMarket...");
-        AletheiaMarket market = new AletheiaMarket(address(oracle));
+        AletheiaMarket market = new AletheiaMarket(address(oracle), worldIdAddress, worldIdAppId, worldIdAction);
         console.log("AletheiaMarket deployed at:", address(market));
 
         // Wire oracle -> market callback for CRE-driven auto-settlement
@@ -36,5 +40,6 @@ contract DeployAllScript is Script {
         console.log("Market:", address(market));
         console.log("Deployer:", vm.addr(deployerPrivateKey));
         console.log("Forwarder:", forwarderAddress);
+        console.log("WorldID Router:", worldIdAddress);
     }
 }

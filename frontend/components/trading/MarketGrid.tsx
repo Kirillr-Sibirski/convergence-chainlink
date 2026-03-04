@@ -14,6 +14,7 @@ import {
   createMarketVerified,
   getQuestionValidationStatus,
   inferDeadlineFromQuestion,
+  type WorldIdProofInput,
   waitForQuestionValidation,
 } from "@/lib/web3-viem";
 import { buildCreValidateCmd, CRE_SIM_CMD, getPendingCreResolutionCount, triggerCreQuestionValidation } from "@/lib/cre-gate";
@@ -159,7 +160,7 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
     }));
   };
 
-  const handleCreateMarket = async (question: string) => {
+  const handleCreateMarket = async (question: string, worldProof: WorldIdProofInput) => {
     if (!ensureWallet()) throw new Error("Please connect your wallet first");
 
     const deadline = validatedDeadlines[question];
@@ -172,7 +173,7 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
       throw new Error("Question is not verified yet. Click Validate Question and wait for CRE verification.");
     }
 
-    await createMarketVerified(question, deadline);
+    await createMarketVerified(question, deadline, worldProof);
     if (onRefresh) await onRefresh();
   };
 
@@ -263,7 +264,12 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
       )}
 
       {showCreateModal && (
-        <CreateMarketModal onClose={() => setShowCreateModal(false)} onValidate={handleValidateMarket} onCreate={handleCreateMarket} />
+        <CreateMarketModal
+          onClose={() => setShowCreateModal(false)}
+          onValidate={handleValidateMarket}
+          onCreate={handleCreateMarket}
+          walletAddress={account!}
+        />
       )}
       {showWalletDialog && <WalletRequiredDialog onClose={() => setShowWalletDialog(false)} />}
     </div>

@@ -1,27 +1,43 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { IDKitWidget, type ISuccessResult, VerificationLevel } from "@worldcoin/idkit";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { X, Info } from "lucide-react";
+import { decodeAbiParameters } from "viem";
+import { createPortal } from "react-dom";
+import type { WorldIdProofInput } from "@/lib/web3-viem";
 
 interface CreateMarketModalProps {
   onClose: () => void;
   onValidate: (question: string) => Promise<void>;
-  onCreate: (question: string) => Promise<void>;
+  onCreate: (question: string, worldProof: WorldIdProofInput) => Promise<void>;
+  walletAddress: string;
 }
 
-type SubmitStage = "idle" | "validating" | "validated" | "submitting";
+type SubmitStage = "idle" | "validating" | "validated" | "worldVerified" | "submitting";
 
-export function CreateMarketModal({ onClose, onValidate, onCreate }: CreateMarketModalProps) {
+function toWorldProof(result: ISuccessResult): WorldIdProofInput {
+  const decoded = decodeAbiParameters([{ type: "uint256[8]" }], result.proof as `0x${string}`)[0];
+  return {
+    root: BigInt(result.merkle_root),
+    nullifierHash: BigInt(result.nullifier_hash),
+    proof: decoded,
+  };
+}
+
+export function CreateMarketModal({ onClose, onValidate, onCreate, walletAddress }: CreateMarketModalProps) {
+  const [mounted, setMounted] = useState(false);
   const [question, setQuestion] = useState("");
   const [submitStage, setSubmitStage] = useState<SubmitStage>("idle");
+  const [worldProof, setWorldProof] = useState<WorldIdProofInput | null>(null);
   const [error, setError] = useState("");
   const [validationInfo, setValidationInfo] = useState<string>(
-    "Step 1: Validate question with CRE (AI extracts the deadline). If HTTP trigger is unavailable, run CRE simulation command shown below. Step 2: Create market onchain."
+    "Step 1: Validate with CRE. Step 2: Verify with World ID. Step 3: Create market onchain."
   );
 
   const isBusy = submitStage === "validating" || submitStage === "submitting";
@@ -30,7 +46,8 @@ export function CreateMarketModal({ onClose, onValidate, onCreate }: CreateMarke
     setQuestion(value);
     setError("");
     setSubmitStage("idle");
-    setValidationInfo("Step 1: Validate question with CRE (AI extracts the deadline). If HTTP trigger is unavailable, run CRE simulation command shown below. Step 2: Create market onchain.");
+    setWorldProof(null);
+    setValidationInfo("Step 1: Validate with CRE. Step 2: Verify with World ID. Step 3: Create market onchain.");
   };
 
   const handleValidate = async () => {
@@ -42,7 +59,7 @@ export function CreateMarketModal({ onClose, onValidate, onCreate }: CreateMarke
       setValidationInfo("Waiting for verification from CRE...");
       await onValidate(question);
       setSubmitStage("validated");
-      setValidationInfo("Question verified. You can create the market now.");
+      setValidationInfo("Question verified by CRE. Continue with World ID verification.");
     } catch (err) {
       console.error("Failed to validate market question:", err);
       setSubmitStage("idle");
@@ -53,21 +70,32 @@ export function CreateMarketModal({ onClose, onValidate, onCreate }: CreateMarke
 
   const handleCreate = async () => {
     if (!question.trim()) return setError("Please enter a question");
-    if (submitStage !== "validated") return setError("Validate question first.");
+    if (submitStage !== "worldVerified" || !worldProof) return setError("Verify with World ID first.");
 
     try {
       setSubmitStage("submitting");
-      await onCreate(question);
+      await onCreate(question, worldProof);
       onClose();
     } catch (err) {
       console.error("Failed to create market:", err);
       setError(err instanceof Error ? err.message : "Failed to create market");
-      setSubmitStage("validated");
+      setSubmitStage("worldVerified");
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+  const worldAppId = process.env.NEXT_PUBLIC_WORLD_ID_APP_ID as `app_${string}` | undefined;
+  const worldAction = process.env.NEXT_PUBLIC_WORLD_ID_ACTION ?? "create-market";
+  const canUseWorldId = Boolean(worldAppId && walletAddress);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
       <Card className="w-full max-w-lg bg-white border shadow-xl rounded-xl">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <div className="flex items-center gap-2">
@@ -84,6 +112,8 @@ export function CreateMarketModal({ onClose, onValidate, onCreate }: CreateMarke
                   <li>• Ask a clear yes/no question with a time target</li>
                   <li>• CRE AI extracts the deadline from your question</li>
                   <li>• CRE must approve your question first</li>
+                  <li>• Verify your identity with World ID</li>
+                  <li>• Each wallet can create one market per 24 hours</li>
                   <li>• If no live HTTP trigger is set, simulate CRE workflow manually</li>
                   <li>• Then create the market with one transaction</li>
                 </ul>
@@ -109,6 +139,51 @@ export function CreateMarketModal({ onClose, onValidate, onCreate }: CreateMarke
 
           <div className="text-xs text-amber-700 bg-amber-100 rounded-md p-3">{validationInfo}</div>
 
+          {submitStage === "validated" && (
+            <div className="rounded-md border border-gray-200 bg-gray-50 p-3 space-y-2">
+              <p className="text-xs text-gray-700">World ID verification is required before creating a market.</p>
+              {!canUseWorldId ? (
+                <p className="text-xs text-destructive">
+                  Missing World ID config. Set NEXT_PUBLIC_WORLD_ID_APP_ID and NEXT_PUBLIC_WORLD_ID_ACTION.
+                </p>
+              ) : (
+                <IDKitWidget
+                  app_id={worldAppId!}
+                  action={worldAction}
+                  signal={walletAddress}
+                  verification_level={VerificationLevel.Orb}
+                  onSuccess={(result: ISuccessResult) => {
+                    try {
+                      const proof = toWorldProof(result);
+                      setWorldProof(proof);
+                      setSubmitStage("worldVerified");
+                      setValidationInfo("World ID verified. You can create the market now.");
+                      setError("");
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : "Failed to parse World ID proof");
+                    }
+                  }}
+                  handleVerify={async () => {}}
+                  onError={(e: { code: string }) => {
+                    setError(`World ID verification failed: ${e.code}`);
+                  }}
+                >
+                  {({ open }: { open: () => void }) => (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full bg-white hover:bg-gray-100"
+                      onClick={open}
+                      disabled={isBusy}
+                    >
+                      Verify with World ID
+                    </Button>
+                  )}
+                </IDKitWidget>
+              )}
+            </div>
+          )}
+
           {error && <div className="text-sm text-destructive bg-destructive/10 rounded-md p-3">{error}</div>}
 
           <div className="flex gap-3 pt-2">
@@ -118,20 +193,21 @@ export function CreateMarketModal({ onClose, onValidate, onCreate }: CreateMarke
             <Button
               variant="outline"
               className="flex-1 bg-gray-100 hover:bg-gray-200 border-gray-300 text-gray-900 font-semibold"
-              onClick={submitStage === "validated" ? handleCreate : handleValidate}
+              onClick={submitStage === "worldVerified" ? handleCreate : handleValidate}
               disabled={isBusy || !question.trim()}
             >
               {submitStage === "validating"
                 ? "Waiting for verification..."
                 : submitStage === "submitting"
                 ? "Creating Market..."
-                : submitStage === "validated"
+                : submitStage === "worldVerified"
                 ? "Create Market"
                 : "Validate Question"}
             </Button>
           </div>
         </CardContent>
       </Card>
-    </div>
+    </div>,
+    document.body
   );
 }

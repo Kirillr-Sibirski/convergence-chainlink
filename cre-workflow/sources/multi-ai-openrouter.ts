@@ -349,6 +349,7 @@ export function resolveWithMultiAI(runtime: Runtime<any>, question: string): Con
 function askAIValidation(
 	runtime: Runtime<any>,
 	question: string,
+	deadline: number,
 	modelName: string,
 	displayName: string,
 ): ValidationAIResponse {
@@ -364,7 +365,7 @@ function askAIValidation(
 			},
 			{
 				role: 'user',
-				content: `Validate this prediction market question:\n${question}`,
+				content: `Validate this prediction market question:\n${question}\n\nResolved deadline (UTC unix): ${deadline}`,
 			},
 		],
 		temperature: 0,
@@ -494,26 +495,27 @@ function askAIDeadline(
 	return sendRequester(runtime.config).result()
 }
 
-export function validateQuestionWithMultiAI(runtime: Runtime<any>, question: string): ValidationConsensusResult {
+export function validateQuestionWithMultiAI(runtime: Runtime<any>, question: string, deadline?: number): ValidationConsensusResult {
+	const effectiveDeadline = Number.isFinite(deadline) && (deadline ?? 0) > 0 ? Math.floor(deadline as number) : 0
 	const responses: ValidationAIResponse[] = []
 
 	try {
-		responses.push(askAIValidation(runtime, question, 'google/gemini-2.0-flash-001', 'Gemini 2.0 Flash'))
+		responses.push(askAIValidation(runtime, question, effectiveDeadline, 'google/gemini-2.0-flash-001', 'Gemini 2.0 Flash'))
 	} catch (error) {
 		runtime.log(`[Gemini] Validation failed: ${error}`)
 	}
 	try {
-		responses.push(askAIValidation(runtime, question, 'anthropic/claude-3.5-sonnet', 'Claude 3.5 Sonnet'))
+		responses.push(askAIValidation(runtime, question, effectiveDeadline, 'anthropic/claude-3.5-sonnet', 'Claude 3.5 Sonnet'))
 	} catch (error) {
 		runtime.log(`[Claude] Validation failed: ${error}`)
 	}
 	try {
-		responses.push(askAIValidation(runtime, question, 'openai/gpt-4o-mini', 'GPT-4o Mini'))
+		responses.push(askAIValidation(runtime, question, effectiveDeadline, 'openai/gpt-4o-mini', 'GPT-4o Mini'))
 	} catch (error) {
 		runtime.log(`[GPT] Validation failed: ${error}`)
 	}
 	try {
-		responses.push(askAIValidation(runtime, question, 'x-ai/grok-3-mini-beta', 'Grok 3 Mini'))
+		responses.push(askAIValidation(runtime, question, effectiveDeadline, 'x-ai/grok-3-mini-beta', 'Grok 3 Mini'))
 	} catch (error) {
 		runtime.log(`[Grok] Validation failed: ${error}`)
 	}

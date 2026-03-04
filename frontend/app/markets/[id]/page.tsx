@@ -9,12 +9,15 @@ import { BackgroundBeams } from "@/components/ui/background-beams";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { MarketPriceChart } from "@/components/trading/MarketPriceChart";
 import { useWallet } from "@/hooks/useWallet";
 import {
   claimWinnings,
   fetchMarkets,
+  fetchMarketPriceHistory,
   getUserBet,
   getUserClaimablePayout,
+  type MarketPricePoint,
   placeBet,
   sellShares,
   type UIMarket,
@@ -32,6 +35,7 @@ export default function MarketBetPage() {
   const [yesBet, setYesBet] = useState(BigInt(0));
   const [noBet, setNoBet] = useState(BigInt(0));
   const [claimable, setClaimable] = useState(BigInt(0));
+  const [pricePoints, setPricePoints] = useState<MarketPricePoint[]>([]);
   const [mode, setMode] = useState<Mode>("buy");
   const [side, setSide] = useState<Side>("YES");
   const [amount, setAmount] = useState("0.01");
@@ -54,6 +58,7 @@ export default function MarketBetPage() {
       setPendingCreResolution(getPendingCreResolutionCount(markets));
       const current = markets.find((m) => m.id === marketId) ?? null;
       setMarket(current);
+      setPricePoints(current ? await fetchMarketPriceHistory(current.id) : []);
 
       if (current && account) {
         const bet = await getUserBet(current.id, account as `0x${string}`);
@@ -164,6 +169,16 @@ export default function MarketBetPage() {
                     <p className="text-muted-foreground">Your NO Bet</p>
                     <p className="font-semibold">{Number(formatEther(noBet)).toFixed(4)} ETH</p>
                   </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Price Chart</CardTitle>
+                  <CardDescription>Historical implied YES probability from onchain trades.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <MarketPriceChart points={pricePoints} />
                 </CardContent>
               </Card>
 

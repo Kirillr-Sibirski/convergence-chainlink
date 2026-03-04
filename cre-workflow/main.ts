@@ -494,7 +494,7 @@ const onHttpTrigger = (runtime: Runtime<Config>, payload: { input: Uint8Array })
 	const digest = keccak256(
 		encodeAbiParameters(parseAbiParameters('string question, uint256 deadline'), [question, BigInt(deadline)])
 	)
-	const validation = validateQuestionWithMultiAI(runtime, question)
+	const validation = validateQuestionWithMultiAI(runtime, question, deadline)
 	const approved =
 		validation.valid &&
 		validation.score >= 70 &&
@@ -535,7 +535,7 @@ const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): string =
 	for (const req of pendingValidation) {
 		try {
 			runtime.log(`Validating request ${req.id}: ${req.question}`)
-			const validation = validateQuestionWithMultiAI(runtime, req.question)
+			const validation = validateQuestionWithMultiAI(runtime, req.question, Number(req.deadline))
 
 			const approved =
 				validation.valid &&

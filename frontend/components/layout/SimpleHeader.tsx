@@ -5,6 +5,7 @@ import { LayoutDashboard, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useWallet } from "@/hooks/useWallet";
+import { BrandName } from "@/components/branding/BrandName";
 
 function shortAddress(address: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -21,7 +22,7 @@ export function SimpleHeader() {
           <div className="flex items-center gap-4">
             <Link href="/" className="group">
               <div className="leading-tight">
-                <p className="text-lg font-semibold tracking-tight text-gray-900">AEEIA</p>
+                <p className="text-lg font-semibold tracking-tight text-gray-900"><BrandName /></p>
                 <p className="text-[10px] uppercase tracking-[0.16em] text-gray-500 group-hover:text-gray-700 transition-colors">
                   AI-Resolved Markets
                 </p>

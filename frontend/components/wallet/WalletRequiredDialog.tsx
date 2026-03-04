@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { X, Wallet } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
@@ -9,6 +11,7 @@ interface WalletRequiredDialogProps {
 }
 
 export function WalletRequiredDialog({ onClose }: WalletRequiredDialogProps) {
+  const [mounted, setMounted] = useState(false);
   const { connect, isConnecting } = useWallet();
 
   const handleConnect = async () => {
@@ -20,8 +23,15 @@ export function WalletRequiredDialog({ onClose }: WalletRequiredDialogProps) {
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
       <div className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-sm p-6 space-y-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -47,6 +57,7 @@ export function WalletRequiredDialog({ onClose }: WalletRequiredDialogProps) {
           Make sure your wallet is on Sepolia testnet.
         </p>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
