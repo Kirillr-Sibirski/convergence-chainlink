@@ -18,32 +18,17 @@ contract DeployMarketScript is Script {
 
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address worldIdAddress = vm.envAddress("WORLD_ID_ROUTER_ADDRESS");
-        uint256 worldIdExternalNullifierHash = vm.envUint("WORLD_ID_EXTERNAL_NULLIFIER_HASH");
-
-        // Read previously deployed addresses
-        string memory factoryJson = vm.readFile("deployments/sepolia-factory.json");
-        address factoryAddress = factoryJson.readAddress(".factory");
 
         string memory oracleJson = vm.readFile("deployments/sepolia-oracle.json");
         address oracleAddress = oracleJson.readAddress(".oracle");
 
-        require(factoryAddress != address(0), "Factory address not found");
         require(oracleAddress != address(0), "Oracle address not found");
-        require(worldIdAddress != address(0), "WORLD_ID_ROUTER_ADDRESS not set");
 
         vm.startBroadcast(deployerPrivateKey);
 
         console.log("Deploying AletheiaMarket...");
         console.log("Oracle address:", oracleAddress);
-        console.log("Factory address:", factoryAddress);
-
-        AletheiaMarket market = new AletheiaMarket(
-            oracleAddress,
-            factoryAddress,
-            worldIdAddress,
-            worldIdExternalNullifierHash
-        );
+        AletheiaMarket market = new AletheiaMarket(oracleAddress);
         console.log("AletheiaMarket deployed at:", address(market));
 
         // Wire oracle -> market callback for CRE-driven auto-settlement
@@ -57,7 +42,6 @@ contract DeployMarketScript is Script {
             "{\n",
             '  "market": "', vm.toString(address(market)), '",\n',
             '  "oracle": "', vm.toString(oracleAddress), '",\n',
-            '  "factory": "', vm.toString(factoryAddress), '",\n',
             '  "network": "sepolia"\n',
             "}"
         ));
@@ -68,7 +52,6 @@ contract DeployMarketScript is Script {
         console.log("Deployment info saved to: deployments/sepolia-market.json");
         console.log("");
         console.log("Contract addresses:");
-        console.log("  Factory:", factoryAddress);
         console.log("  Oracle:", oracleAddress);
         console.log("  Market:", address(market));
     }

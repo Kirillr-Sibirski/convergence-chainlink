@@ -1,45 +1,38 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { AlertCircle, Clock3, Loader2, Plus, Search, TrendingUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Plus, TrendingUp, Loader2, AlertCircle, Clock3 } from "lucide-react";
-import Link from "next/link";
-import type { Market } from "@/hooks/useMarkets";
+import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { CreateMarketModal } from "@/components/trading/CreateMarketModal";
 import { WalletRequiredDialog } from "@/components/wallet/WalletRequiredDialog";
-import { SpotlightCard } from "@/components/ui/spotlight-card";
+import { useWallet } from "@/hooks/useWallet";
+import type { Market } from "@/hooks/useMarkets";
 import {
   createMarketVerified,
   getQuestionValidationStatus,
   inferDeadlineFromQuestion,
   waitForQuestionValidation,
-  type WorldIdProof,
 } from "@/lib/web3-viem";
-import { useWallet } from "@/hooks/useWallet";
 import { buildCreValidateCmd, CRE_SIM_CMD, getPendingCreResolutionCount, triggerCreQuestionValidation } from "@/lib/cre-gate";
 
 const SORT_OPTIONS = [
-  { label: "Most Active", value: "volume" },
+  { label: "Most Volume", value: "volume" },
   { label: "Ending Soon", value: "deadline" },
   { label: "Newest", value: "newest" },
 ] as const;
 
 type SortOption = (typeof SORT_OPTIONS)[number]["value"];
 
-function formatVolume(usdc: number) {
-  if (usdc >= 1_000_000) return `$${(usdc / 1_000_000).toFixed(1)}M`;
-  if (usdc >= 1_000) return `$${(usdc / 1_000).toFixed(1)}K`;
-  return `$${usdc.toFixed(0)}`;
+function formatVolumeEth(value: bigint) {
+  const n = Number(value) / 1e18;
+  if (n >= 1000) return `${n.toFixed(1)} ETH`;
+  return `${n.toFixed(3)} ETH`;
 }
 
-function MarketTile({
-  market,
-  creBlocked,
-}: {
-  market: Market;
-  creBlocked: boolean;
-}) {
+function MarketTile({ market, creBlocked }: { market: Market; creBlocked: boolean }) {
   const now = Math.floor(Date.now() / 1000);
   const daysLeft = Math.ceil((market.deadline - now) / 86400);
   const noPercent = Math.max(0, 100 - market.yesPercent);
@@ -60,7 +53,7 @@ function MarketTile({
         >
           {expired ? "Expired" : "Open"}
         </span>
-        <span className="text-xs text-muted-foreground tabular-nums shrink-0">{formatVolume(market.volumeUsdc)}</span>
+        <span className="text-xs text-muted-foreground tabular-nums shrink-0">{formatVolumeEth(market.totalVolume)}</span>
       </div>
 
       <div className="flex-1 space-y-2">
@@ -82,33 +75,15 @@ function MarketTile({
         </div>
       </div>
 
-      {creBlocked ? (
-        <div className="grid grid-cols-2 gap-2">
-          <Button size="sm" variant="outline" className="w-full" disabled>
-            Trade
-          </Button>
-          <Button size="sm" variant="outline" className="w-full" disabled>
-            Provide Liquidity
-          </Button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-2">
-          <Link href={`/markets/${market.id}`}>
-            <Button size="sm" variant="outline" className="w-full bg-white/90">
-              Trade
-            </Button>
-          </Link>
-          <Link href={`/markets/${market.id}#liquidity`}>
-            <Button size="sm" variant="outline" className="w-full bg-white/90">
-              Provide Liquidity
-            </Button>
-          </Link>
-        </div>
-      )}
+      <Link href={`/markets/${market.id}`}>
+        <Button size="sm" variant="outline" className="w-full bg-white/90" disabled={creBlocked}>
+          Place Bet
+        </Button>
+      </Link>
 
       {market.settled && (
         <p className="text-[11px] text-green-700 bg-green-50 border border-green-200 rounded-md px-2 py-1">
-          Resolved. Check Dashboard for winnings.
+          Resolved. Check Dashboard to claim winnings.
         </p>
       )}
     </SpotlightCard>
@@ -135,7 +110,7 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
       .filter((m) => !m.settled || m.deadline > now)
       .filter((m) => !search || m.question.toLowerCase().includes(search.toLowerCase()))
       .sort((a, b) => {
-        if (sort === "volume") return b.volumeUsdc - a.volumeUsdc;
+        if (sort === "volume") return Number(b.totalVolume - a.totalVolume);
         if (sort === "deadline") return a.deadline - b.deadline;
         return b.createdAt - a.createdAt;
       });
@@ -151,18 +126,12 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
   };
 
   const handleValidateMarket = async (question: string) => {
-    if (!ensureWallet()) {
-      throw new Error("Please connect your wallet first");
-    }
+    if (!ensureWallet()) throw new Error("Please connect your wallet first");
 
     const deadline = inferDeadlineFromQuestion(question);
     const existing = await getQuestionValidationStatus(question, deadline);
     if (existing.processed) {
-      if (!existing.approved) {
-        throw new Error(
-          "Question validation failed. It must be legitimate, binary, resolvable, and include a clear timeline."
-        );
-      }
+      if (!existing.approved) throw new Error("Question validation failed CRE checks.");
       return;
     }
 
@@ -172,27 +141,19 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
     }
 
     const validation = await waitForQuestionValidation(question, deadline);
-    if (!validation.approved) {
-      throw new Error(
-        "Question validation failed. It must be legitimate, binary, resolvable, and include a clear timeline."
-      );
-    }
+    if (!validation.approved) throw new Error("Question validation failed CRE checks.");
   };
 
-  const handleCreateMarket = async (question: string, worldProof: WorldIdProof) => {
-    if (!ensureWallet()) {
-      throw new Error("Please connect your wallet first");
-    }
+  const handleCreateMarket = async (question: string) => {
+    if (!ensureWallet()) throw new Error("Please connect your wallet first");
 
     const deadline = inferDeadlineFromQuestion(question);
     const validation = await getQuestionValidationStatus(question, deadline);
     if (!validation.processed || !validation.approved) {
       throw new Error(`Question is not verified yet. Run: ${buildCreValidateCmd(question, deadline)}`);
     }
-    if (!validation.checks.legitimate || !validation.checks.clearTimeline || !validation.checks.resolvable || !validation.checks.binary) {
-      throw new Error("Question validation failed CRE checks (legitimate/timeline/resolvable/binary).");
-    }
-    await createMarketVerified(question, deadline, worldProof);
+
+    await createMarketVerified(question, deadline);
     if (onRefresh) await onRefresh();
   };
 
@@ -243,7 +204,7 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
         <div className="text-sm rounded-md p-3 border border-amber-300 bg-amber-50 text-amber-800 space-y-1">
           <p>
             {pendingCreResolution} market{pendingCreResolution !== 1 ? "s are" : " is"} waiting for result processing.
-            Trading, liquidity, and new market creation are blocked until simulation is run.
+            New market creation and betting are blocked until simulation is run.
           </p>
           <p className="text-xs">
             Run <code>{CRE_SIM_CMD}</code>, then refresh this page.
@@ -273,19 +234,6 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
         <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
           <TrendingUp className="w-10 h-10" />
           <p className="text-sm">{search ? `No markets found for "${search}"` : "No active markets yet"}</p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 mt-1"
-            disabled={creBlocked}
-            onClick={() => {
-              if (!account) setShowWalletDialog(true);
-              else setShowCreateModal(true);
-            }}
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Create the first one
-          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -296,12 +244,7 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
       )}
 
       {showCreateModal && (
-        <CreateMarketModal
-          onClose={() => setShowCreateModal(false)}
-          onValidate={handleValidateMarket}
-          onCreate={handleCreateMarket}
-          signal={account ?? undefined}
-        />
+        <CreateMarketModal onClose={() => setShowCreateModal(false)} onValidate={handleValidateMarket} onCreate={handleCreateMarket} />
       )}
       {showWalletDialog && <WalletRequiredDialog onClose={() => setShowWalletDialog(false)} />}
     </div>

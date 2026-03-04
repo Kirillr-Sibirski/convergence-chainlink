@@ -7,30 +7,22 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { X, Info } from "lucide-react";
-import { decodeAbiParameters } from "viem";
-import { IDKitWidget, type ISuccessResult, VerificationLevel } from "@worldcoin/idkit";
-import { EthIcon } from "@/components/ui/eth-icon";
-import type { WorldIdProof } from "@/lib/web3-viem";
 
 interface CreateMarketModalProps {
   onClose: () => void;
   onValidate: (question: string) => Promise<void>;
-  onCreate: (question: string, worldProof: WorldIdProof) => Promise<void>;
-  signal?: string;
+  onCreate: (question: string) => Promise<void>;
 }
 
 type SubmitStage = "idle" | "validating" | "validated" | "submitting";
 
-export function CreateMarketModal({ onClose, onValidate, onCreate, signal }: CreateMarketModalProps) {
+export function CreateMarketModal({ onClose, onValidate, onCreate }: CreateMarketModalProps) {
   const [question, setQuestion] = useState("");
   const [submitStage, setSubmitStage] = useState<SubmitStage>("idle");
   const [error, setError] = useState("");
-  const [validationInfo, setValidationInfo] = useState<string | null>(
-    "Step 1: Validate question via CRE HTTP trigger. Step 2: Verify World ID. Step 3: Send one create transaction."
+  const [validationInfo, setValidationInfo] = useState<string>(
+    "Step 1: Validate question via CRE HTTP trigger. Step 2: Create market onchain."
   );
-  const [worldProof, setWorldProof] = useState<WorldIdProof | null>(null);
-  const worldIdAppId = process.env.NEXT_PUBLIC_WORLD_ID_APP_ID;
-  const worldIdAction = process.env.NEXT_PUBLIC_WORLD_ID_ACTION ?? "create-market";
 
   const isBusy = submitStage === "validating" || submitStage === "submitting";
 
@@ -38,35 +30,7 @@ export function CreateMarketModal({ onClose, onValidate, onCreate, signal }: Cre
     setQuestion(value);
     setError("");
     setSubmitStage("idle");
-    setWorldProof(null);
-    setValidationInfo(
-      "Step 1: Validate question via CRE HTTP trigger. Step 2: Verify World ID. Step 3: Send one create transaction."
-    );
-  };
-
-  const handleWorldIdSuccess = (result: ISuccessResult) => {
-    try {
-      const decoded = decodeAbiParameters([{ type: "uint256[8]" }], result.proof as `0x${string}`)[0] as readonly bigint[];
-      if (decoded.length !== 8) throw new Error("Invalid proof length");
-      setWorldProof({
-        root: BigInt(result.merkle_root),
-        nullifierHash: BigInt(result.nullifier_hash),
-        proof: [
-          decoded[0],
-          decoded[1],
-          decoded[2],
-          decoded[3],
-          decoded[4],
-          decoded[5],
-          decoded[6],
-          decoded[7],
-        ],
-      });
-      setError("");
-    } catch (err) {
-      console.error(err);
-      setError("Could not parse World ID proof. Please verify again.");
-    }
+    setValidationInfo("Step 1: Validate question via CRE HTTP trigger. Step 2: Create market onchain.");
   };
 
   const handleValidate = async () => {
@@ -78,7 +42,7 @@ export function CreateMarketModal({ onClose, onValidate, onCreate, signal }: Cre
       setValidationInfo("Waiting for verification from CRE...");
       await onValidate(question);
       setSubmitStage("validated");
-      setValidationInfo("Question verified. Continue with World ID, then create market.");
+      setValidationInfo("Question verified. You can create the market now.");
     } catch (err) {
       console.error("Failed to validate market question:", err);
       setSubmitStage("idle");
@@ -87,19 +51,18 @@ export function CreateMarketModal({ onClose, onValidate, onCreate, signal }: Cre
     }
   };
 
-  const handlePrimaryAction = async () => {
+  const handleCreate = async () => {
     if (!question.trim()) return setError("Please enter a question");
     if (submitStage !== "validated") return setError("Validate question first.");
-    if (!worldProof) return setError("Please verify with World ID first.");
 
     try {
       setSubmitStage("submitting");
-      await onCreate(question, worldProof);
+      await onCreate(question);
       onClose();
     } catch (err) {
       console.error("Failed to create market:", err);
       setError(err instanceof Error ? err.message : "Failed to create market");
-      setSubmitStage("idle");
+      setSubmitStage("validated");
     }
   };
 
@@ -120,9 +83,8 @@ export function CreateMarketModal({ onClose, onValidate, onCreate, signal }: Cre
                 <ul className="space-y-1.5 text-muted-foreground text-xs">
                   <li>• Ask a clear yes/no question with a time target</li>
                   <li>• The date is read from your question text</li>
-                  <li>• Validate question via CRE HTTP trigger first</li>
-                  <li>• World ID proof is required after validation</li>
-                  <li>• Creation is one onchain transaction after checks pass</li>
+                  <li>• CRE HTTP validation must approve your question first</li>
+                  <li>• Then create the market with one transaction</li>
                 </ul>
               </PopoverContent>
             </Popover>
@@ -140,45 +102,11 @@ export function CreateMarketModal({ onClose, onValidate, onCreate, signal }: Cre
               value={question}
               onChange={(e) => onQuestionChange(e.target.value)}
               maxLength={200}
-              disabled={submitStage === "validating" || submitStage === "submitting"}
+              disabled={isBusy}
             />
           </div>
-          <div className="text-xs text-muted-foreground bg-muted/50 rounded-md p-3 flex items-center gap-2">
-            <EthIcon className="w-3 h-3 shrink-0" />
-            You only need to write the question. Liquidity can be added after market creation.
-          </div>
-          <div className="text-xs text-amber-700 bg-amber-100 rounded-md p-3">
-            {validationInfo}
-          </div>
 
-          <div className="rounded-md border border-gray-200 bg-gray-50 p-3 flex items-center justify-between gap-2">
-            <p className="text-xs text-gray-700">
-              World ID status: {worldProof ? "Verified" : submitStage === "validated" ? "Ready to verify" : "Locked until question is verified"}
-            </p>
-            {worldIdAppId ? (
-              worldProof ? (
-                <span className="text-[11px] rounded-md border border-green-200 bg-green-50 text-green-700 px-2 py-1">
-                  Verified
-                </span>
-              ) : (
-                <IDKitWidget
-                  app_id={worldIdAppId as `app_${string}`}
-                  action={worldIdAction}
-                  signal={signal}
-                  verification_level={VerificationLevel.Orb}
-                  onSuccess={handleWorldIdSuccess}
-                >
-                  {({ open }: { open: () => void }) => (
-                    <Button type="button" size="sm" variant="outline" onClick={open} disabled={submitStage !== "validated"}>
-                      Verify World ID
-                    </Button>
-                  )}
-                </IDKitWidget>
-              )
-            ) : (
-              <span className="text-[11px] text-amber-700">Set NEXT_PUBLIC_WORLD_ID_APP_ID</span>
-            )}
-          </div>
+          <div className="text-xs text-amber-700 bg-amber-100 rounded-md p-3">{validationInfo}</div>
 
           {error && <div className="text-sm text-destructive bg-destructive/10 rounded-md p-3">{error}</div>}
 
@@ -189,8 +117,8 @@ export function CreateMarketModal({ onClose, onValidate, onCreate, signal }: Cre
             <Button
               variant="outline"
               className="flex-1 bg-gray-100 hover:bg-gray-200 border-gray-300 text-gray-900 font-semibold"
-              onClick={submitStage === "validated" ? handlePrimaryAction : handleValidate}
-              disabled={isBusy || !question.trim() || (submitStage === "validated" && !worldProof)}
+              onClick={submitStage === "validated" ? handleCreate : handleValidate}
+              disabled={isBusy || !question.trim()}
             >
               {submitStage === "validating"
                 ? "Waiting for verification..."

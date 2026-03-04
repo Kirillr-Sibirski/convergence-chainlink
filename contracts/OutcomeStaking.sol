@@ -6,24 +6,6 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-interface IAletheiaMarketView {
-    function markets(uint256 marketId)
-        external
-        view
-        returns (
-            uint256 oracleMarketId,
-            string memory question,
-            uint256 deadline,
-            address yesToken,
-            address noToken,
-            address pool,
-            uint256 totalStaked,
-            bool settled,
-            bool outcome,
-            uint256 createdAt
-        );
-}
-
 /**
  * @title OutcomeStaking
  * @notice Stake YES/NO outcome tokens to earn AEEIA rewards.
@@ -88,14 +70,6 @@ contract OutcomeStaking is Ownable, ReentrancyGuard {
         });
 
         emit PoolCreated(poolId, stakingToken, marketId, isYes, label);
-    }
-
-    function createPoolsForMarket(address marketAddress, uint256 marketId) external onlyOwner returns (uint256 yesPoolId, uint256 noPoolId) {
-        IAletheiaMarketView market = IAletheiaMarketView(marketAddress);
-        (, string memory question,, address yesToken, address noToken,,,,,) = market.markets(marketId);
-
-        yesPoolId = createPool(yesToken, string(abi.encodePacked("M", _toString(marketId), " YES: ", question)), marketId, true);
-        noPoolId = createPool(noToken, string(abi.encodePacked("M", _toString(marketId), " NO: ", question)), marketId, false);
     }
 
     function notifyRewardAmount(uint256 poolId, uint256 amount, uint256 duration) external onlyOwner {

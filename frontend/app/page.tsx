@@ -21,16 +21,16 @@ const HOW_IT_WORKS = [
       "After a market expires, the result is processed automatically through the workflow.",
   },
   {
-    title: "Trade And Earn",
+    title: "Bet And Claim",
     description:
-      "Buy and sell outcome tokens, or provide liquidity and earn from market activity.",
+      "Place ETH on YES or NO and claim winnings after final resolution.",
   },
 ];
 
 const USE_CASES = [
-  "Trade event probabilities before resolution",
-  "Hedge positions by holding opposite outcome tokens",
-  "Provide liquidity and earn from market activity",
+  "Bet on event outcomes before resolution",
+  "Track consensus-based probabilities from market flow",
+  "Claim ETH payouts after markets settle",
 ];
 
 const FLOW_STEPS = [
@@ -39,8 +39,8 @@ const FLOW_STEPS = [
     detail: "Create a binary market with a concrete deadline and measurable condition.",
   },
   {
-    step: "2. Trade And Price Discovery",
-    detail: "Users buy and sell YES/NO positions, and probability moves live with market activity.",
+    step: "2. Bet On YES Or NO",
+    detail: "Users place ETH bets on either side, and the implied probability moves with stake flow.",
   },
   {
     step: "3. Process Result And Redeem",
@@ -110,14 +110,14 @@ export default function LandingPage() {
             <div className="space-y-4">
               <p className="text-xs uppercase tracking-[0.16em] text-gray-500">Live Market Primitive</p>
               <p className="text-xl font-semibold text-gray-900 leading-snug">
-                One place to trade outcomes, add liquidity, and track results.
+                One place to create markets, place bets, and track resolutions.
               </p>
               <div className="space-y-2">
                 <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
-                  YES side momentum and buy pressure visible in real time
+                  YES side total stake updates in real time
                 </div>
                 <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-                  NO side liquidity and hedge exposure priced continuously
+                  NO side total stake and odds update continuously
                 </div>
                 <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
                   For demo mode, expired markets show the simulation command to run
@@ -201,7 +201,7 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl rounded-2xl border border-gray-200/80 bg-white/70 backdrop-blur-xl shadow-[0_18px_40px_rgba(17,24,39,0.08)] px-6 py-10 text-center space-y-4 animate-fade-up animate-glow-pulse">
           <h2 className="text-3xl font-bold tracking-tight text-gray-900">Ready To Open Your First Position?</h2>
           <p className="text-sm text-gray-600 max-w-2xl mx-auto">
-            Browse live markets, trade outcome tokens, and follow resolutions from one dashboard.
+            Browse live markets, place ETH bets, and follow CRE-powered resolutions.
           </p>
           <Button
             asChild
