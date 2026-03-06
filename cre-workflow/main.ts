@@ -55,6 +55,8 @@ const MIN_AGREEMENT = 75
 const REPORT_TYPE_RESOLUTION = 1
 const REPORT_TYPE_VALIDATION = 2
 const REPORT_TYPE_QUESTION_VALIDATION = 3
+const CRE_HTTP_CALL_BUDGET_PER_RUN = 5
+const AI_CALLS_PER_EVALUATION = 4
 
 /**
  * Fetch pending markets from the oracle contract
@@ -232,12 +234,15 @@ const fetchMultiSourceData = (
 	sources: string[],
 	question: string,
 	category: string,
+	deadline: number,
+	maxModelCalls: number,
 ): ResolutionResult => {
 	runtime.log(`Multi-AI consensus resolution starting...`)
 	runtime.log(`Question type: ${category}`)
+	runtime.log(`Using up to ${maxModelCalls} AI model call(s) for this market`)
 
 	// Use multi-AI consensus for ALL questions
-	const result = resolveWithMultiAI(runtime, question)
+	const result = resolveWithMultiAI(runtime, question, deadline, maxModelCalls)
 
 	runtime.log(`Agreement level: ${result.agreementLevel}% (${result.aiResponses.length} AI models)`)
 
@@ -528,9 +533,16 @@ const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): string =
 	// 1. Process pending creation validation requests first
 	const pendingValidation = fetchPendingValidationRequests(runtime)
 	runtime.log(`Found ${pendingValidation.length} pending validation request(s)`)
+	let remainingHttpCalls = CRE_HTTP_CALL_BUDGET_PER_RUN
 
 	let validatedCount = 0
 	for (const req of pendingValidation) {
+		if (remainingHttpCalls < AI_CALLS_PER_EVALUATION) {
+			runtime.log(
+				`Skipping remaining validation requests due to CRE HTTP call budget: remaining=${remainingHttpCalls}/${CRE_HTTP_CALL_BUDGET_PER_RUN}`,
+			)
+			break
+		}
 		try {
 			runtime.log(`Validating request ${req.id}: ${req.question}`)
 			const validation = validateQuestionWithMultiAI(runtime, req.question, Number(req.deadline))
@@ -553,6 +565,8 @@ const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): string =
 			validatedCount++
 		} catch (error) {
 			runtime.log(`Validation request ${req.id} failed: ${error}`)
+		} finally {
+			remainingHttpCalls = Math.max(0, remainingHttpCalls - AI_CALLS_PER_EVALUATION)
 		}
 	}
 
@@ -565,10 +579,26 @@ const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): string =
 	}
 
 	runtime.log(`Found ${pendingMarkets.length} pending market(s)`)
+	if (remainingHttpCalls <= 0) {
+		return `Validated ${validatedCount} request(s), resolved 0 market(s): skipped due to CRE HTTP call budget`
+	}
 
 	// 3. Process each market
 	const resolved: string[] = []
-	for (const market of pendingMarkets) {
+	for (let i = 0; i < pendingMarkets.length; i++) {
+		if (remainingHttpCalls <= 0) {
+			runtime.log('No remaining CRE HTTP calls in this run; deferring remaining markets')
+			break
+		}
+		const marketsRemaining = pendingMarkets.length - i
+		const callsForThisMarket = Math.max(
+			1,
+			Math.min(
+				AI_CALLS_PER_EVALUATION,
+				Math.floor(remainingHttpCalls / Math.max(1, marketsRemaining)),
+			),
+		)
+		const market = pendingMarkets[i]
 		try {
 			runtime.log(`Processing market ${market.id}: ${market.question}`)
 
@@ -577,7 +607,14 @@ const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): string =
 			runtime.log(`Strategy: ${strategy.category}, sources: ${strategy.sources.length}`)
 
 			// 5. Fetch from multiple sources with consensus
-			const result = fetchMultiSourceData(runtime, strategy.sources, market.question, strategy.category)
+			const result = fetchMultiSourceData(
+				runtime,
+				strategy.sources,
+				market.question,
+				strategy.category,
+				Number(market.deadline),
+				callsForThisMarket,
+			)
 
 			// 6. Validate result (confidence + agreement thresholds)
 			if (!validateResult(runtime, result)) {
@@ -592,6 +629,8 @@ const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): string =
 			runtime.log(`✅ Resolved market ${market.id}`)
 		} catch (error) {
 			runtime.log(`❌ Failed to resolve market ${market.id}: ${error}`)
+		} finally {
+			remainingHttpCalls = Math.max(0, remainingHttpCalls - AI_CALLS_PER_EVALUATION)
 		}
 	}
 

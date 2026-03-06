@@ -7,7 +7,7 @@ import { SimpleHeader } from "@/components/layout/SimpleHeader";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { Button } from "@/components/ui/button";
 import { BackgroundBeams } from "@/components/ui/background-beams";
-import { Loader2, TrendingUp } from "lucide-react";
+import { Check, Copy, Loader2, TrendingUp } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
 import { useMarkets } from "@/hooks/useMarkets";
 import { claimWinnings, getUserBet, getUserClaimablePayout, type UIMarket } from "@/lib/web3-viem";
@@ -28,6 +28,7 @@ export default function DashboardPage() {
   const [positionsLoading, setPositionsLoading] = useState(false);
   const [claimingId, setClaimingId] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [copiedCreCommand, setCopiedCreCommand] = useState(false);
 
   useEffect(() => {
     if (!account || markets.length === 0) {
@@ -69,13 +70,12 @@ export default function DashboardPage() {
     };
   }, [account, markets]);
 
-  const now = Math.floor(Date.now() / 1000);
   const contentLoading = isLoading || positionsLoading;
   const pendingCreResolution = useMemo(() => getPendingCreResolutionCount(markets), [markets]);
   const creBlocked = pendingCreResolution > 0;
   const openPositions = useMemo(
-    () => [...positions].filter((p) => !p.market.settled && p.market.deadline > now),
-    [positions, now]
+    () => [...positions].filter((p) => !p.market.settled),
+    [positions]
   );
   const resolvedPositions = useMemo(
     () => [...positions].filter((p) => p.market.settled),
@@ -94,6 +94,17 @@ export default function DashboardPage() {
       setActionError(err instanceof Error ? err.message : "Failed to claim winnings");
     } finally {
       setClaimingId(null);
+    }
+  };
+
+  const handleCopyCreCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(CRE_SIM_CMD);
+      setCopiedCreCommand(true);
+      setTimeout(() => setCopiedCreCommand(false), 1800);
+    } catch (err) {
+      console.error("Failed to copy CRE command:", err);
+      setActionError("Failed to copy command. Copy it manually from the warning text.");
     }
   };
 
@@ -137,19 +148,41 @@ export default function DashboardPage() {
                       {pendingCreResolution} expired unresolved market{pendingCreResolution !== 1 ? "s are" : " is"} blocking claims.
                     </p>
                     <p className="text-xs">Run <code>{CRE_SIM_CMD}</code>, then refresh.</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-1 bg-white/90 hover:bg-amber-100 border-amber-300 text-amber-900"
+                      onClick={handleCopyCreCommand}
+                    >
+                      {copiedCreCommand ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 mr-1" />
+                          Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5 mr-1" />
+                          Copy command
+                        </>
+                      )}
+                    </Button>
                   </div>
                 </SpotlightCard>
               )}
 
               {resolvedPositions.length > 0 && (
                 <SpotlightCard className="p-5 space-y-4">
-                  <h2 className="text-lg font-semibold text-gray-900">Resolved Bets</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">Resolved Markets</h2>
                   {actionError && <div className="text-sm text-destructive bg-destructive/10 rounded-md p-3">{actionError}</div>}
                   <div className="space-y-2">
                     {resolvedPositions.map((position) => (
                       <div key={`resolved-${position.market.id}`} className="rounded-lg border border-gray-200 bg-white/80 p-3 flex items-center justify-between gap-3">
                         <div className="min-w-0 space-y-1">
                           <p className="text-sm font-medium leading-snug line-clamp-2">{position.market.question}</p>
+                          <p className="text-[11px] inline-flex items-center rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-gray-600 w-fit">
+                            Resolved
+                          </p>
                           <p className="text-xs text-muted-foreground">
                             YES {Number(formatEther(position.yesAmount)).toFixed(4)} ETH · NO {Number(formatEther(position.noAmount)).toFixed(4)} ETH
                           </p>
@@ -166,7 +199,7 @@ export default function DashboardPage() {
                               Claiming...
                             </span>
                           ) : (
-                            `Claim ${Number(formatEther(position.claimable)).toFixed(4)} ETH`
+                            `Claim Winnings (${Number(formatEther(position.claimable)).toFixed(4)} ETH)`
                           )}
                         </Button>
                       </div>
@@ -178,46 +211,49 @@ export default function DashboardPage() {
               {openPositions.length === 0 ? (
                 <SpotlightCard className="p-8">
                   <div className="text-center space-y-4">
-                    <h3 className="text-lg font-semibold">No Open Bets</h3>
+                    <h3 className="text-lg font-semibold">No Active Markets</h3>
                     <Link href="/markets">
                       <Button>Browse Markets</Button>
                     </Link>
                   </div>
                 </SpotlightCard>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
+                  <h2 className="text-lg font-semibold text-gray-900">Active Markets</h2>
                   {openPositions.map((position) => (
-                    <Link key={position.market.id} href={`/markets/${position.market.id}`}>
-                      <SpotlightCard>
-                        <div className="relative overflow-hidden rounded-xl border border-gray-200/80 bg-white/85 p-5 pl-16 flex items-center justify-between gap-4">
-                          {(() => {
-                            const primarySide = position.yesAmount >= position.noAmount ? "YES" : "NO";
-                            const primaryAmount = primarySide === "YES" ? position.yesAmount : position.noAmount;
-                            const stripe = primarySide === "YES" ? "bg-green-600" : "bg-red-600";
+                    <Link key={position.market.id} href={`/markets/${position.market.id}`} className="block">
+                      <div className="relative overflow-hidden rounded-xl p-5 pl-10 flex items-center justify-between gap-4 bg-white/45 backdrop-blur-md border border-black/10">
+                        {(() => {
+                          const primarySide = position.yesAmount >= position.noAmount ? "YES" : "NO";
+                          const primaryAmount = primarySide === "YES" ? position.yesAmount : position.noAmount;
+                          const stripe = primarySide === "YES" ? "bg-green-500/75" : "bg-red-500/75";
+                          const glow = primarySide === "YES" ? "bg-green-400/45" : "bg-red-400/45";
 
-                            return (
-                              <>
-                                <div className={`absolute left-0 top-0 h-full w-12 ${stripe} shadow-[6px_0_18px_rgba(0,0,0,0.14)]`}>
-                                  <div className="h-full w-full flex items-center justify-center">
-                                    <span className="[writing-mode:vertical-rl] rotate-180 text-[10px] tracking-[0.18em] font-semibold text-white">
-                                      {primarySide}
-                                    </span>
-                                  </div>
-                                </div>
-                                <div className="flex-1 min-w-0 space-y-1">
-                                  <p className="font-medium text-sm leading-snug">{position.market.question}</p>
-                                  <p className="text-sm font-semibold text-gray-800">
-                                    {primarySide} · {Number(formatEther(primaryAmount)).toFixed(4)} ETH
-                                  </p>
-                                </div>
-                              </>
-                            );
-                          })()}
-                          <div className="shrink-0">
-                            <Button size="sm" variant="outline">Open</Button>
-                          </div>
+                          return (
+                            <>
+                              <div className={`absolute -left-4 top-1/2 -translate-y-1/2 h-28 w-12 rounded-full blur-2xl ${glow}`} />
+                              <div className={`absolute left-0 top-0 h-full w-3 ${stripe}`} />
+                              <div className="flex-1 min-w-0 space-y-1">
+                                <p className="font-medium text-sm leading-snug">{position.market.question}</p>
+                                <p className="text-[11px] inline-flex items-center rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-emerald-700 w-fit">
+                                  Active
+                                </p>
+                                <p className="text-sm font-semibold text-gray-800">
+                                  {primarySide} · {Number(formatEther(primaryAmount)).toFixed(4)} ETH
+                                </p>
+                              </div>
+                              <div className="absolute left-0 top-0 h-full w-3 flex items-center justify-center">
+                                <span className="[writing-mode:vertical-rl] rotate-180 text-[8px] tracking-[0.12em] font-semibold text-white">
+                                  {primarySide}
+                                </span>
+                              </div>
+                            </>
+                          );
+                        })()}
+                        <div className="shrink-0">
+                          <Button size="sm" variant="outline">Open</Button>
                         </div>
-                      </SpotlightCard>
+                      </div>
                     </Link>
                   ))}
                 </div>

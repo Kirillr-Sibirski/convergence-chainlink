@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { formatEther, parseEther } from "viem";
+import { ArrowRight } from "lucide-react";
 import { SimpleHeader } from "@/components/layout/SimpleHeader";
 import { BackgroundBeams } from "@/components/ui/background-beams";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -249,6 +250,7 @@ export default function MarketBetPage() {
                   <Card className={`${CARD_SHELL} h-full flex flex-col`}>
                     <CardContent className="pt-6 flex-1 flex flex-col items-start gap-3">
                       <p className="text-sm text-muted-foreground">Connect wallet to trade shares.</p>
+                      <p className="text-xs text-gray-500">Wallet balance will appear here after connection.</p>
                       <Button onClick={() => void connect()} disabled={isConnecting}>
                         {isConnecting ? "Connecting..." : "Connect Wallet"}
                       </Button>
@@ -364,7 +366,14 @@ export default function MarketBetPage() {
                           })
                         }
                       >
-                        {busy ? "Submitting..." : mode === "buy" ? `Buy ${side}` : `Sell ${side}`}
+                        {busy ? (
+                          "Submitting..."
+                        ) : (
+                          <span className="inline-flex items-center gap-2">
+                            {mode === "buy" ? `Buy ${side}` : `Sell ${side}`}
+                            <ArrowRight className="h-4 w-4" />
+                          </span>
+                        )}
                       </Button>
 
                       {market.settled && claimable > BigInt(0) && (
@@ -397,25 +406,22 @@ export default function MarketBetPage() {
                   ) : (
                     <div className="space-y-2">
                       {tradeHistory.map((entry) => (
-                        <div
-                          key={`${entry.txHash}-${entry.logIndex}`}
-                          className="rounded-lg border border-gray-200/80 bg-white/75 px-3 py-2.5 flex items-center justify-between gap-3"
-                        >
+                        <div key={`${entry.txHash}-${entry.logIndex}`} className="relative overflow-hidden rounded-xl bg-white/45 backdrop-blur-md px-3 py-2.5 pl-9 flex items-center justify-between gap-3">
+                          <div
+                            className={`absolute -left-4 top-1/2 -translate-y-1/2 h-24 w-10 rounded-full blur-2xl ${
+                              entry.onYes ? "bg-green-400/45" : "bg-red-400/45"
+                            }`}
+                          />
+                          <div className={`absolute left-0 top-0 h-full w-3 ${entry.onYes ? "bg-green-500/75" : "bg-red-500/75"}`} />
+                          <div className="absolute left-0 top-0 h-full w-3 flex items-center justify-center">
+                            <span className="[writing-mode:vertical-rl] rotate-180 text-[8px] tracking-[0.12em] font-semibold text-white">
+                              {entry.onYes ? "YES" : "NO"}
+                            </span>
+                          </div>
+
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-gray-900">
-                              {entry.type === "buy" ? (
-                                <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-green-700">
-                                  Buy
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center rounded-full bg-gray-900 px-2 py-0.5 text-white">
-                                  Sell
-                                </span>
-                              )}{" "}
-                              <span className={entry.onYes ? "text-green-700" : "text-red-700"}>
-                                {entry.onYes ? "YES" : "NO"}
-                              </span>{" "}
-                              · {Number(formatEther(entry.amount)).toFixed(4)} ETH
+                              {Number(formatEther(entry.amount)).toFixed(4)} ETH
                             </p>
                             <p className="text-[11px] text-muted-foreground">
                               {account && entry.trader.toLowerCase() === account.toLowerCase()
@@ -424,14 +430,26 @@ export default function MarketBetPage() {
                               · {fmtTradeTs(entry.timestamp)}
                             </p>
                           </div>
-                          <a
-                            href={`https://sepolia.etherscan.io/tx/${entry.txHash}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs text-gray-500 hover:text-gray-800 underline underline-offset-2"
-                          >
-                            Tx
-                          </a>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            {entry.type === "buy" ? (
+                              <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-green-700 text-xs font-medium">
+                                Buy
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center rounded-full bg-gray-900 px-2 py-0.5 text-white text-xs font-medium">
+                                Sell
+                              </span>
+                            )}
+                            <a
+                              href={`https://sepolia.etherscan.io/tx/${entry.txHash}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs text-gray-500 hover:text-gray-800 underline underline-offset-2"
+                            >
+                              Tx
+                            </a>
+                          </div>
                         </div>
                       ))}
                     </div>

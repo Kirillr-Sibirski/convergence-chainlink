@@ -284,6 +284,9 @@ export async function createMarketVerified(
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
 
+    if (msg.includes("0xb2592c35") || msg.toLowerCase().includes("deadline must be in future")) {
+      throw new Error("Deadline must be in the future.");
+    }
     if (msg.includes("0x5cbfd590")) {
       throw new Error("Question is not validated by CRE for this exact question and deadline yet.");
     }

@@ -49,7 +49,11 @@ function formatValidationFailureMessage(validation: {
 
 function MarketTile({ market, creBlocked }: { market: Market; creBlocked: boolean }) {
   const now = Math.floor(Date.now() / 1000);
-  const daysLeft = Math.ceil((market.deadline - now) / 86400);
+  const secondsLeft = market.deadline - now;
+  const totalHoursLeft = Math.max(0, Math.ceil(secondsLeft / 3600));
+  const daysLeft = Math.floor(totalHoursLeft / 24);
+  const hoursLeft = totalHoursLeft % 24;
+  const timeLeftLabel = daysLeft > 0 ? `${daysLeft}d ${hoursLeft}h left` : `${hoursLeft}h left`;
   const noPercent = Math.max(0, 100 - market.yesPercent);
   const expired = market.deadline <= now;
   const dateLabel = new Date(market.deadline * 1000).toLocaleDateString("en-US", {
@@ -75,7 +79,7 @@ function MarketTile({ market, creBlocked }: { market: Market; creBlocked: boolea
         <p className="font-semibold text-[15px] leading-snug text-gray-900 line-clamp-3">{market.question}</p>
         <p className="text-xs text-muted-foreground inline-flex items-center gap-1.5">
           <Clock3 className="w-3 h-3" />
-          {dateLabel} · {expired ? "expired" : `${daysLeft}d left`}
+          {dateLabel} · {expired ? "expired" : timeLeftLabel}
         </p>
       </div>
 
@@ -85,8 +89,8 @@ function MarketTile({ market, creBlocked }: { market: Market; creBlocked: boolea
           <span className="text-red-700">NO {noPercent.toFixed(1)}%</span>
         </div>
         <div className="h-2 rounded-full overflow-hidden border border-gray-200 bg-gray-100 flex">
-          <div className="bg-green-500" style={{ width: `${market.yesPercent}%` }} />
-          <div className="bg-red-500" style={{ width: `${noPercent}%` }} />
+          <div className="bg-green-500/80" style={{ width: `${market.yesPercent}%` }} />
+          <div className="bg-red-500/80" style={{ width: `${noPercent}%` }} />
         </div>
       </div>
 

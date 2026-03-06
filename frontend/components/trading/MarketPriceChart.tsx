@@ -22,8 +22,10 @@ export function MarketPriceChart({ points }: MarketPriceChartProps) {
     if (!containerRef.current) return;
 
     if (!chartRef.current) {
+      const initialWidth = Math.max(1, containerRef.current.clientWidth);
       const chart = createChart(containerRef.current, {
-        autoSize: true,
+        width: initialWidth,
+        height: 300,
         layout: {
           background: { color: "transparent" },
           textColor: "#6b7280",
@@ -77,7 +79,20 @@ export function MarketPriceChart({ points }: MarketPriceChartProps) {
     }));
     series.setData(formatted);
     chart.timeScale().fitContent();
-    chart.applyOptions({ height: 300 });
+
+    const resize = () => {
+      if (!containerRef.current || !chartRef.current) return;
+      const width = Math.max(1, containerRef.current.clientWidth);
+      chartRef.current.applyOptions({ width, height: 300 });
+    };
+
+    resize();
+    const observer = new ResizeObserver(() => resize());
+    observer.observe(containerRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
   }, [points]);
 
   useEffect(() => {
@@ -101,7 +116,7 @@ export function MarketPriceChart({ points }: MarketPriceChartProps) {
             <span className="font-semibold text-green-700">{latest.toFixed(2)}%</span>
           </div>
           <div className="w-full min-w-0 overflow-hidden rounded-lg border border-gray-200 bg-white/90 p-2">
-            <div ref={containerRef} className="w-full min-w-0" />
+            <div ref={containerRef} className="w-full min-w-0 h-[300px]" />
           </div>
         </>
       )}

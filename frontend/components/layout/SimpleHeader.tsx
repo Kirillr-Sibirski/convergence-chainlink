@@ -4,8 +4,12 @@ import { Button } from "@/components/ui/button";
 import { LayoutDashboard, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { formatEther } from "viem";
 import { useWallet } from "@/hooks/useWallet";
 import { BrandName } from "@/components/branding/BrandName";
+import { EthIcon } from "@/components/ui/eth-icon";
+import { publicClient } from "@/lib/viem-client";
 
 function shortAddress(address: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -14,6 +18,33 @@ function shortAddress(address: string) {
 export function SimpleHeader() {
   const pathname = usePathname();
   const { account, connect, isConnecting } = useWallet();
+  const [balanceEth, setBalanceEth] = useState<string | null>(null);
+  const isMarkets = pathname?.startsWith("/markets");
+  const isDashboard = pathname?.startsWith("/dashboard");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadBalance = async () => {
+      if (!account) {
+        setBalanceEth(null);
+        return;
+      }
+      try {
+        const balance = await publicClient.getBalance({ address: account as `0x${string}` });
+        if (!cancelled) {
+          setBalanceEth(Number(formatEther(balance)).toFixed(4));
+        }
+      } catch {
+        if (!cancelled) setBalanceEth(null);
+      }
+    };
+
+    void loadBalance();
+    return () => {
+      cancelled = true;
+    };
+  }, [account]);
 
   return (
     <header className="relative z-20 px-6 pt-4">
@@ -30,9 +61,9 @@ export function SimpleHeader() {
             </Link>
             <nav className="flex items-center gap-1 rounded-lg border border-gray-200/80 bg-white/60 px-1.5 py-1">
               <Button
-                variant={pathname === "/markets" ? "secondary" : "ghost"}
+                variant={isMarkets ? "secondary" : "ghost"}
                 size="sm"
-                className={pathname === "/markets" ? "bg-gray-100 border-gray-300" : ""}
+                className={isMarkets ? "bg-gray-900 text-white hover:bg-gray-800 border-gray-900" : ""}
                 asChild
               >
                 <Link href="/markets" className="flex flex-row items-center gap-1.5">
@@ -41,9 +72,9 @@ export function SimpleHeader() {
                 </Link>
               </Button>
               <Button
-                variant={pathname === "/dashboard" ? "secondary" : "ghost"}
+                variant={isDashboard ? "secondary" : "ghost"}
                 size="sm"
-                className={pathname === "/dashboard" ? "bg-gray-100 border-gray-300" : ""}
+                className={isDashboard ? "bg-gray-900 text-white hover:bg-gray-800 border-gray-900" : ""}
                 asChild
               >
                 <Link href="/dashboard" className="flex flex-row items-center gap-1.5">
@@ -56,9 +87,15 @@ export function SimpleHeader() {
 
           <div className="flex items-center gap-3">
             {account ? (
-              <Button variant="outline" size="sm" disabled className="bg-white/70 border-gray-300">
-                {shortAddress(account)}
-              </Button>
+              <>
+                <div className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white/75 px-2.5 py-1.5 text-xs text-gray-700">
+                  <EthIcon className="h-3.5 w-3.5" />
+                  <span>{balanceEth ?? "…"} ETH</span>
+                </div>
+                <Button variant="outline" size="sm" disabled className="bg-white/70 border-gray-300">
+                  {shortAddress(account)}
+                </Button>
+              </>
             ) : (
               <Button
                 variant="outline"

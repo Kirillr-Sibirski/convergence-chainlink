@@ -55,6 +55,16 @@ function nowUtcTimestamp(): number {
   return Math.floor(Date.now() / 1000);
 }
 
+function isSelectedUtcToday(date: Date | undefined): boolean {
+  if (!date) return false;
+  const now = new Date();
+  return (
+    date.getFullYear() === now.getUTCFullYear() &&
+    date.getMonth() === now.getUTCMonth() &&
+    date.getDate() === now.getUTCDate()
+  );
+}
+
 export function CreateMarketModal({ onClose, onValidate, onValidated }: CreateMarketModalProps) {
   const defaults = useMemo(() => defaultDeadlineUtc(), []);
   const modalOpenedAt = useMemo(() => Math.floor(Date.now() / 1000), []);
@@ -76,6 +86,41 @@ export function CreateMarketModal({ onClose, onValidate, onValidated }: CreateMa
     () => toDeadlineTimestamp(deadlineDate, deadlineHour, deadlineMinute),
     [deadlineDate, deadlineHour, deadlineMinute]
   );
+  const hourOptions = useMemo(() => {
+    const now = new Date();
+    const nowHour = now.getUTCHours();
+    const nowMinute = now.getUTCMinutes();
+    const isToday = isSelectedUtcToday(deadlineDate);
+    const hours: string[] = [];
+
+    for (let h = 0; h < 24; h++) {
+      if (!isToday) {
+        hours.push(`${h}`.padStart(2, "0"));
+        continue;
+      }
+      if (h < nowHour) continue;
+      if (h === nowHour && nowMinute >= 59) continue;
+      hours.push(`${h}`.padStart(2, "0"));
+    }
+
+    return hours;
+  }, [deadlineDate]);
+  const minuteOptions = useMemo(() => {
+    const now = new Date();
+    const nowHour = now.getUTCHours();
+    const nowMinute = now.getUTCMinutes();
+    const selectedHour = Number.parseInt(deadlineHour, 10);
+    const isToday = isSelectedUtcToday(deadlineDate);
+    const minutes: string[] = [];
+
+    let minMinute = 0;
+    if (isToday && selectedHour === nowHour) minMinute = Math.min(59, nowMinute + 1);
+
+    for (let m = minMinute; m < 60; m++) {
+      minutes.push(`${m}`.padStart(2, "0"));
+    }
+    return minutes;
+  }, [deadlineDate, deadlineHour]);
   const normalizedQuestion = question.trim() || "Will ETH close above $5,000 by April 1st?";
   const fallbackDeadline = deadlineTimestamp ?? Math.floor(Date.now() / 1000) + 7 * 24 * 3600;
   const creSimulateCommand = useMemo(
@@ -212,6 +257,19 @@ export function CreateMarketModal({ onClose, onValidate, onValidated }: CreateMa
   }, [errorNotice]);
 
   useEffect(() => {
+    if (hourOptions.length === 0) return;
+    if (!hourOptions.includes(deadlineHour)) {
+      setDeadlineHour(hourOptions[0]);
+      setSubmitStage("idle");
+      return;
+    }
+    if (!minuteOptions.includes(deadlineMinute) && minuteOptions.length > 0) {
+      setDeadlineMinute(minuteOptions[0]);
+      setSubmitStage("idle");
+    }
+  }, [hourOptions, minuteOptions, deadlineHour, deadlineMinute]);
+
+  useEffect(() => {
     setMounted(true);
     return () => setMounted(false);
   }, []);
@@ -289,7 +347,7 @@ export function CreateMarketModal({ onClose, onValidate, onValidated }: CreateMa
                       className="h-10 rounded-md border border-gray-300 bg-white px-2 text-sm"
                       disabled={isBusy}
                     >
-                      {Array.from({ length: 24 }, (_, i) => `${i}`.padStart(2, "0")).map((hour) => (
+                      {hourOptions.map((hour) => (
                         <option key={hour} value={hour}>
                           {hour}
                         </option>
@@ -304,9 +362,9 @@ export function CreateMarketModal({ onClose, onValidate, onValidated }: CreateMa
                         resetFlow();
                       }}
                       className="h-10 rounded-md border border-gray-300 bg-white px-2 text-sm"
-                      disabled={isBusy}
+                      disabled={isBusy || minuteOptions.length === 0}
                     >
-                      {Array.from({ length: 60 }, (_, i) => `${i}`.padStart(2, "0")).map((minute) => (
+                      {minuteOptions.map((minute) => (
                         <option key={minute} value={minute}>
                           {minute}
                         </option>
@@ -317,6 +375,9 @@ export function CreateMarketModal({ onClose, onValidate, onValidated }: CreateMa
               </PopoverContent>
             </Popover>
             <p className="text-[11px] text-muted-foreground">Time is UTC.</p>
+            {hourOptions.length === 0 && (
+              <p className="text-[11px] text-amber-700">No future UTC times left for this date. Pick a later date.</p>
+            )}
           </div>
 
           {!hasCreHttpTrigger && (
@@ -378,7 +439,7 @@ export function CreateMarketModal({ onClose, onValidate, onValidated }: CreateMa
               variant="outline"
               className="flex-1 bg-gray-100 hover:bg-gray-200 border-gray-300 text-gray-900 font-semibold"
               onClick={handlePrimaryFlow}
-              disabled={isBusy || !question.trim() || !deadlineTimestamp}
+              disabled={isBusy || !question.trim() || !deadlineTimestamp || hourOptions.length === 0}
             >
               {submitStage === "validating" ? (
                 <span className="inline-flex items-center gap-2">

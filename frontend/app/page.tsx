@@ -2,26 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { SimpleHeader } from "@/components/layout/SimpleHeader";
 import { BackgroundBeams } from "@/components/ui/background-beams";
 import { Button } from "@/components/ui/button";
 import { BrandName } from "@/components/branding/BrandName";
 import { AletheiaStlViewer } from "@/components/landing/AletheiaStlViewer";
-
-const MAIN_POINTS = [
-  {
-    title: "AI Consensus Resolution",
-    text: "4 AI models run through Chainlink CRE workflows and write the outcome onchain.",
-  },
-  {
-    title: "Permissionless Market Creation",
-    text: "Anyone can propose a binary market directly from the app.",
-  },
-  {
-    title: "AI-Gated Listings",
-    text: "Each market question must pass CRE AI validation before it can be created onchain.",
-  },
-];
 
 export default function LandingPage() {
   return (
@@ -53,7 +39,10 @@ export default function LandingPage() {
               size="lg"
               className="bg-gray-900 text-white hover:bg-gray-800 shadow-[0_10px_24px_rgba(17,24,39,0.28)] border border-gray-900"
             >
-              <Link href="/markets">Try Now</Link>
+              <Link href="/markets" className="inline-flex items-center gap-2">
+                Try Now
+                <ArrowRight className="h-4 w-4" />
+              </Link>
             </Button>
           </div>
 
@@ -64,23 +53,6 @@ export default function LandingPage() {
               <p className="mt-1 text-xs italic">Greek: truth; often personified as the goddess of truth.</p>
               <p className="mt-1 text-[11px] text-gray-400">Summer Garden, Saint Petersburg</p>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="relative z-10 min-h-[100svh] px-6 py-20 flex items-center">
-        <div className="mx-auto w-full max-w-6xl animate-fade-up">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5">
-            {MAIN_POINTS.map((item, idx) => (
-              <div
-                key={item.title}
-                className="rounded-2xl border border-gray-200/80 bg-white/70 backdrop-blur-md shadow-[0_14px_34px_rgba(15,23,42,0.08)] px-5 md:px-7 py-6 md:py-7"
-              >
-                <p className="text-[11px] tracking-[0.16em] uppercase text-gray-500">Point {idx + 1}</p>
-                <p className="text-base md:text-lg text-gray-900 mt-1">{item.title}</p>
-                <p className="text-sm text-gray-600 mt-2">{item.text}</p>
-              </div>
-            ))}
           </div>
         </div>
       </section>
