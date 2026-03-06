@@ -13,7 +13,7 @@ import {
 import { type Address, decodeFunctionResult, encodeFunctionData, zeroAddress, keccak256, toBytes, encodeAbiParameters, parseAbiParameters } from 'viem'
 import { z } from 'zod'
 import { AletheiaOracleABI } from './contracts/abi'
-import { inferDeadlineWithMultiAI, resolveWithMultiAI, validateQuestionWithMultiAI } from './sources/multi-ai-openrouter'
+import { resolveWithMultiAI, validateQuestionWithMultiAI } from './sources/multi-ai-openrouter'
 
 // Configuration schema
 const configSchema = z.object({
@@ -483,12 +483,12 @@ const onHttpTrigger = (runtime: Runtime<Config>, payload: { input: Uint8Array })
 	const question = parsed.question?.trim() || ''
 	if (!question) throw new Error('HTTP payload missing question')
 
-	let deadline =
+	const deadline =
 		typeof parsed.deadline === 'number'
 			? Math.floor(parsed.deadline)
 			: Number.parseInt(String(parsed.deadline || '0'), 10)
 	if (!Number.isFinite(deadline) || deadline <= 0) {
-		deadline = inferDeadlineWithMultiAI(runtime, question)
+		throw new Error('HTTP payload missing valid deadline')
 	}
 
 	const digest = keccak256(
@@ -496,8 +496,6 @@ const onHttpTrigger = (runtime: Runtime<Config>, payload: { input: Uint8Array })
 	)
 	const validation = validateQuestionWithMultiAI(runtime, question, deadline)
 	const approved =
-		validation.valid &&
-		validation.score >= 70 &&
 		validation.checks.legitimate &&
 		validation.checks.clearTimeline &&
 		validation.checks.resolvable &&
@@ -538,8 +536,6 @@ const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): string =
 			const validation = validateQuestionWithMultiAI(runtime, req.question, Number(req.deadline))
 
 			const approved =
-				validation.valid &&
-				validation.score >= 70 &&
 				validation.checks.legitimate &&
 				validation.checks.clearTimeline &&
 				validation.checks.resolvable &&

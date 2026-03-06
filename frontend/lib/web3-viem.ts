@@ -51,6 +51,17 @@ export interface MarketPricePoint {
   totalNo: bigint;
 }
 
+export interface MarketTradeEntry {
+  txHash: `0x${string}`;
+  blockNumber: bigint;
+  logIndex: number;
+  timestamp: number;
+  trader: `0x${string}`;
+  type: "buy" | "sell";
+  onYes: boolean;
+  amount: bigint;
+}
+
 export interface WorldIdProofInput {
   root: bigint;
   nullifierHash: bigint;
@@ -81,69 +92,6 @@ async function writeContractAndWait(request: any): Promise<WalletWriteResult> {
   const hash = await walletClient.writeContract(request);
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
   return { hash, blockNumber: receipt.blockNumber };
-}
-
-export function inferDeadlineFromQuestion(question: string): number {
-  const now = Math.floor(Date.now() / 1000);
-  const direct = Date.parse(question);
-  if (Number.isFinite(direct)) {
-    const ts = Math.floor(direct / 1000);
-    if (ts > now + 3600) return ts;
-  }
-
-  const lower = question.toLowerCase();
-  const markers = [" by ", " before ", " on ", " at ", " until ", " in "];
-  for (const marker of markers) {
-    const idx = lower.indexOf(marker);
-    if (idx < 0) continue;
-    const candidate = question
-      .slice(idx + marker.length)
-      .trim()
-      .replace(/[?.!,;:]+$/g, "");
-    const parsed = Date.parse(candidate);
-    if (Number.isFinite(parsed)) {
-      const ts = Math.floor(parsed / 1000);
-      if (ts > now + 3600) return ts;
-    }
-  }
-
-  // Accept semi-ambiguous month-only inputs (e.g. "in April")
-  // and normalize to the first day of that month at 00:00 UTC.
-  const monthMatch = lower.match(
-    /\b(january|february|march|april|may|june|july|august|september|october|november|december)\b(?:\s+(\d{4}))?/i
-  );
-  if (monthMatch) {
-    const monthName = monthMatch[1].toLowerCase();
-    const explicitYear = monthMatch[2] ? Number.parseInt(monthMatch[2], 10) : null;
-    const monthIndex: Record<string, number> = {
-      january: 0,
-      february: 1,
-      march: 2,
-      april: 3,
-      may: 4,
-      june: 5,
-      july: 6,
-      august: 7,
-      september: 8,
-      october: 9,
-      november: 10,
-      december: 11,
-    };
-
-    const currentYear = new Date().getUTCFullYear();
-    const chosenMonth = monthIndex[monthName];
-    let year = explicitYear ?? currentYear;
-    let ts = Math.floor(Date.UTC(year, chosenMonth, 1, 0, 0, 0) / 1000);
-
-    if (!explicitYear && ts <= now + 3600) {
-      year += 1;
-      ts = Math.floor(Date.UTC(year, chosenMonth, 1, 0, 0, 0) / 1000);
-    }
-
-    return ts;
-  }
-
-  return now + 7 * 24 * 3600;
 }
 
 export async function fetchMarkets(): Promise<UIMarket[]> {
@@ -229,6 +177,66 @@ export async function getQuestionValidationStatus(
   };
 }
 
+export async function getLatestQuestionValidationTimestamp(
+  question: string,
+  deadlineTimestamp: number
+): Promise<number | null> {
+  const digest = keccak256(
+    encodeAbiParameters(parseAbiParameters("string question, uint256 deadline"), [
+      question,
+      BigInt(deadlineTimestamp),
+    ])
+  );
+
+  // Alchemy free tier caps eth_getLogs range to small windows, so scan in tiny chunks.
+  const latestBlock = await publicClient.getBlockNumber();
+  const maxLookbackBlocks = BigInt(2000);
+  const minBlock = latestBlock > maxLookbackBlocks ? latestBlock - maxLookbackBlocks : BigInt(0);
+  const maxRangeDiff = BigInt(9); // inclusive range of 10 blocks
+
+  const event = {
+    type: "event" as const,
+    name: "QuestionValidated" as const,
+    inputs: [
+      { indexed: true, name: "questionDigest", type: "bytes32" as const },
+      { indexed: false, name: "approved", type: "bool" as const },
+      { indexed: false, name: "score", type: "uint8" as const },
+      { indexed: false, name: "legitimate", type: "bool" as const },
+      { indexed: false, name: "clearTimeline", type: "bool" as const },
+      { indexed: false, name: "resolvable", type: "bool" as const },
+      { indexed: false, name: "binary", type: "bool" as const },
+      { indexed: false, name: "proofHash", type: "bytes32" as const },
+      { indexed: false, name: "processedAt", type: "uint256" as const },
+    ],
+  };
+
+  let toBlock = latestBlock;
+  while (toBlock >= minBlock) {
+    const fromBlock = toBlock > maxRangeDiff ? toBlock - maxRangeDiff : BigInt(0);
+    const boundedFrom = fromBlock < minBlock ? minBlock : fromBlock;
+
+    const logs = await publicClient.getLogs({
+      address: CONTRACTS.ORACLE_ADDRESS,
+      event,
+      args: { questionDigest: digest },
+      fromBlock: boundedFrom,
+      toBlock,
+    });
+
+    if (logs.length > 0) {
+      const lastLog = logs[logs.length - 1];
+      if (!lastLog.blockNumber) return null;
+      const block = await publicClient.getBlock({ blockNumber: lastLog.blockNumber });
+      return Number(block.timestamp);
+    }
+
+    if (boundedFrom === BigInt(0) || boundedFrom <= minBlock) break;
+    toBlock = boundedFrom - BigInt(1);
+  }
+
+  return null;
+}
+
 export async function waitForQuestionValidation(
   question: string,
   deadlineTimestamp: number,
@@ -247,22 +255,41 @@ export async function waitForQuestionValidation(
 
 export async function createMarketVerified(
   question: string,
-  deadlineTimestamp: number,
-  worldIdProof: WorldIdProofInput
+  deadlineTimestamp: number
 ): Promise<WalletWriteResult> {
   await ensureSepoliaNetwork();
   const walletClient = getWalletClient();
   const [account] = await walletClient.requestAddresses();
+  const emptyProof: readonly [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint] = [
+    BigInt(0),
+    BigInt(0),
+    BigInt(0),
+    BigInt(0),
+    BigInt(0),
+    BigInt(0),
+    BigInt(0),
+    BigInt(0),
+  ];
 
-  const { request } = await publicClient.simulateContract({
-    account,
-    address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
-    abi: ALETHEIA_MARKET_ABI,
-    functionName: "createMarketVerified",
-    args: [question, BigInt(deadlineTimestamp), worldIdProof.root, worldIdProof.nullifierHash, worldIdProof.proof],
-  });
+  try {
+    const { request } = await publicClient.simulateContract({
+      account,
+      address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
+      abi: ALETHEIA_MARKET_ABI,
+      functionName: "createMarketVerified",
+      args: [question, BigInt(deadlineTimestamp), BigInt(0), BigInt(0), emptyProof],
+    });
 
-  return writeContractAndWait(request);
+    return writeContractAndWait(request);
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+
+    if (msg.includes("0x5cbfd590")) {
+      throw new Error("Question is not validated by CRE for this exact question and deadline yet.");
+    }
+
+    throw error;
+  }
 }
 
 export async function placeBet(
@@ -356,61 +383,96 @@ export function formatEthShort(value: bigint): string {
   return Number(formatEther(value)).toFixed(4);
 }
 
+async function getLogsChunked<TEvent extends { type: "event"; name: string; inputs: readonly any[] }>(params: {
+  address: `0x${string}`;
+  event: TEvent;
+  args?: Record<string, unknown>;
+  fromBlock: bigint;
+  toBlock: bigint;
+  maxRange?: bigint;
+}) {
+  const { address, event, args, fromBlock, toBlock, maxRange = BigInt(49999) } = params;
+  const logs: any[] = [];
+  let start = fromBlock;
+
+  while (start <= toBlock) {
+    const end = start + maxRange > toBlock ? toBlock : start + maxRange;
+    const chunk = await publicClient.getLogs({
+      address,
+      event,
+      args: args as any,
+      fromBlock: start,
+      toBlock: end,
+    });
+    logs.push(...chunk);
+    if (end === toBlock) break;
+    start = end + BigInt(1);
+  }
+
+  return logs;
+}
+
 export async function fetchMarketPriceHistory(marketId: number): Promise<MarketPricePoint[]> {
   const latest = await publicClient.getBlockNumber();
   const fallbackFrom = latest > BigInt(250000) ? latest - BigInt(250000) : BigInt(0);
 
-  const createdLogs = await publicClient.getLogs({
+  const marketCreatedEvent = {
+    type: "event" as const,
+    name: "MarketCreated" as const,
+    inputs: [
+      { indexed: true, name: "marketId", type: "uint256" as const },
+      { indexed: true, name: "oracleMarketId", type: "uint256" as const },
+      { indexed: false, name: "question", type: "string" as const },
+      { indexed: false, name: "deadline", type: "uint256" as const },
+    ],
+  };
+
+  const betPlacedEvent = {
+    type: "event" as const,
+    name: "BetPlaced" as const,
+    inputs: [
+      { indexed: true, name: "marketId", type: "uint256" as const },
+      { indexed: true, name: "user", type: "address" as const },
+      { indexed: false, name: "onYes", type: "bool" as const },
+      { indexed: false, name: "amount", type: "uint256" as const },
+    ],
+  };
+
+  const sharesSoldEvent = {
+    type: "event" as const,
+    name: "SharesSold" as const,
+    inputs: [
+      { indexed: true, name: "marketId", type: "uint256" as const },
+      { indexed: true, name: "user", type: "address" as const },
+      { indexed: false, name: "onYes", type: "bool" as const },
+      { indexed: false, name: "amount", type: "uint256" as const },
+    ],
+  };
+
+  const createdLogs = await getLogsChunked({
     address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
-    event: {
-      type: "event",
-      name: "MarketCreated",
-      inputs: [
-        { indexed: true, name: "marketId", type: "uint256" },
-        { indexed: true, name: "oracleMarketId", type: "uint256" },
-        { indexed: false, name: "question", type: "string" },
-        { indexed: false, name: "deadline", type: "uint256" },
-      ],
-    },
+    event: marketCreatedEvent,
     args: { marketId: BigInt(marketId) },
     fromBlock: fallbackFrom,
-    toBlock: "latest",
+    toBlock: latest,
   });
 
   const startBlock = createdLogs[0]?.blockNumber ?? fallbackFrom;
 
   const [betLogs, sellLogs] = await Promise.all([
-    publicClient.getLogs({
+    getLogsChunked({
       address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
-      event: {
-        type: "event",
-        name: "BetPlaced",
-        inputs: [
-          { indexed: true, name: "marketId", type: "uint256" },
-          { indexed: true, name: "user", type: "address" },
-          { indexed: false, name: "onYes", type: "bool" },
-          { indexed: false, name: "amount", type: "uint256" },
-        ],
-      },
+      event: betPlacedEvent,
       args: { marketId: BigInt(marketId) },
       fromBlock: startBlock,
-      toBlock: "latest",
+      toBlock: latest,
     }),
-    publicClient.getLogs({
+    getLogsChunked({
       address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
-      event: {
-        type: "event",
-        name: "SharesSold",
-        inputs: [
-          { indexed: true, name: "marketId", type: "uint256" },
-          { indexed: true, name: "user", type: "address" },
-          { indexed: false, name: "onYes", type: "bool" },
-          { indexed: false, name: "amount", type: "uint256" },
-        ],
-      },
+      event: sharesSoldEvent,
       args: { marketId: BigInt(marketId) },
       fromBlock: startBlock,
-      toBlock: "latest",
+      toBlock: latest,
     }),
   ]);
 
@@ -460,4 +522,99 @@ export async function fetchMarketPriceHistory(marketId: number): Promise<MarketP
   }
 
   return points;
+}
+
+export async function fetchMarketTradeHistory(marketId: number, limit = 80): Promise<MarketTradeEntry[]> {
+  const latest = await publicClient.getBlockNumber();
+  const fallbackFrom = latest > BigInt(250000) ? latest - BigInt(250000) : BigInt(0);
+
+  const marketCreatedEvent = {
+    type: "event" as const,
+    name: "MarketCreated" as const,
+    inputs: [
+      { indexed: true, name: "marketId", type: "uint256" as const },
+      { indexed: true, name: "oracleMarketId", type: "uint256" as const },
+      { indexed: false, name: "question", type: "string" as const },
+      { indexed: false, name: "deadline", type: "uint256" as const },
+    ],
+  };
+
+  const betPlacedEvent = {
+    type: "event" as const,
+    name: "BetPlaced" as const,
+    inputs: [
+      { indexed: true, name: "marketId", type: "uint256" as const },
+      { indexed: true, name: "user", type: "address" as const },
+      { indexed: false, name: "onYes", type: "bool" as const },
+      { indexed: false, name: "amount", type: "uint256" as const },
+    ],
+  };
+
+  const sharesSoldEvent = {
+    type: "event" as const,
+    name: "SharesSold" as const,
+    inputs: [
+      { indexed: true, name: "marketId", type: "uint256" as const },
+      { indexed: true, name: "user", type: "address" as const },
+      { indexed: false, name: "onYes", type: "bool" as const },
+      { indexed: false, name: "amount", type: "uint256" as const },
+    ],
+  };
+
+  const createdLogs = await getLogsChunked({
+    address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
+    event: marketCreatedEvent,
+    args: { marketId: BigInt(marketId) },
+    fromBlock: fallbackFrom,
+    toBlock: latest,
+  });
+
+  const startBlock = createdLogs[0]?.blockNumber ?? fallbackFrom;
+
+  const [betLogs, sellLogs] = await Promise.all([
+    getLogsChunked({
+      address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
+      event: betPlacedEvent,
+      args: { marketId: BigInt(marketId) },
+      fromBlock: startBlock,
+      toBlock: latest,
+    }),
+    getLogsChunked({
+      address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
+      event: sharesSoldEvent,
+      args: { marketId: BigInt(marketId) },
+      fromBlock: startBlock,
+      toBlock: latest,
+    }),
+  ]);
+
+  const ordered = [
+    ...betLogs.map((l) => ({ type: "buy" as const, log: l })),
+    ...sellLogs.map((l) => ({ type: "sell" as const, log: l })),
+  ].sort((a, b) => {
+    if (a.log.blockNumber === b.log.blockNumber) {
+      return Number((b.log.logIndex ?? 0) - (a.log.logIndex ?? 0));
+    }
+    return Number(b.log.blockNumber - a.log.blockNumber);
+  });
+
+  const sliced = ordered.slice(0, Math.max(1, limit));
+  if (sliced.length === 0) return [];
+
+  const blockSet = new Set<bigint>(sliced.map((e) => e.log.blockNumber));
+  const blockEntries = await Promise.all(
+    Array.from(blockSet).map(async (bn) => [bn, await publicClient.getBlock({ blockNumber: bn })] as const)
+  );
+  const blockTs = new Map<bigint, number>(blockEntries.map(([bn, b]) => [bn, Number(b.timestamp)]));
+
+  return sliced.map((entry) => ({
+    txHash: entry.log.transactionHash,
+    blockNumber: entry.log.blockNumber,
+    logIndex: entry.log.logIndex ?? 0,
+    timestamp: blockTs.get(entry.log.blockNumber) ?? Math.floor(Date.now() / 1000),
+    trader: entry.log.args.user as `0x${string}`,
+    type: entry.type,
+    onYes: Boolean(entry.log.args.onYes),
+    amount: entry.log.args.amount as bigint,
+  }));
 }

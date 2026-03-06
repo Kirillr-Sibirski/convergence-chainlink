@@ -1,63 +1,103 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { IDKitWidget, type ISuccessResult, VerificationLevel } from "@worldcoin/idkit";
+import { createPortal } from "react-dom";
+import { CalendarDays, Check, Copy, FlaskConical, Loader2, PlusCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { X, Check, Copy, FlaskConical, Info } from "lucide-react";
-import { decodeAbiParameters } from "viem";
-import { createPortal } from "react-dom";
-import { inferDeadlineFromQuestion, type WorldIdProofInput } from "@/lib/web3-viem";
+import { Calendar } from "@/components/ui/calendar";
 import { buildCreValidateCmd } from "@/lib/cre-gate";
 
 interface CreateMarketModalProps {
   onClose: () => void;
-  onValidate: (question: string) => Promise<void>;
-  onCreate: (question: string, worldProof: WorldIdProofInput) => Promise<void>;
-  walletAddress: string;
+  onValidate: (question: string, deadline: number, requireFreshAfter: number) => Promise<void>;
+  onValidated: (question: string, deadline: number) => Promise<void>;
 }
 
-type SubmitStage = "idle" | "validating" | "validated" | "worldVerified" | "submitting";
+type SubmitStage = "idle" | "validating" | "awaiting-cre" | "ready" | "creating";
+const MANUAL_CRE_PENDING_ERROR = "CRE_MANUAL_SIMULATION_PENDING";
 
-function toWorldProof(result: ISuccessResult): WorldIdProofInput {
-  const decoded = decodeAbiParameters([{ type: "uint256[8]" }], result.proof as `0x${string}`)[0];
-  return {
-    root: BigInt(result.merkle_root),
-    nullifierHash: BigInt(result.nullifier_hash),
-    proof: decoded,
-  };
+function defaultDeadlineUtc() {
+  const date = new Date();
+  date.setDate(date.getDate() + 7);
+  date.setHours(0, 0, 0, 0);
+  return { date, hour: "00", minute: "00" };
 }
 
-export function CreateMarketModal({ onClose, onValidate, onCreate, walletAddress }: CreateMarketModalProps) {
+function formatUtcDate(date: Date): string {
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  });
+}
+
+function formatUtcDateTime(date: Date, hour: string, minute: string): string {
+  return `${formatUtcDate(date)} ${hour}:${minute} UTC`;
+}
+
+function startOfUtcDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+}
+
+function toDeadlineTimestamp(date: Date | undefined, hour: string, minute: string): number | null {
+  if (!date) return null;
+  const h = Number.parseInt(hour, 10);
+  const m = Number.parseInt(minute, 10);
+  if (!Number.isFinite(h) || !Number.isFinite(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
+  return Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), h, m, 0) / 1000);
+}
+
+function nowUtcTimestamp(): number {
+  return Math.floor(Date.now() / 1000);
+}
+
+export function CreateMarketModal({ onClose, onValidate, onValidated }: CreateMarketModalProps) {
+  const defaults = useMemo(() => defaultDeadlineUtc(), []);
+  const modalOpenedAt = useMemo(() => Math.floor(Date.now() / 1000), []);
   const [mounted, setMounted] = useState(false);
   const [question, setQuestion] = useState("");
+  const [deadlineDate, setDeadlineDate] = useState<Date | undefined>(defaults.date);
+  const [deadlineHour, setDeadlineHour] = useState(defaults.hour);
+  const [deadlineMinute, setDeadlineMinute] = useState(defaults.minute);
   const [submitStage, setSubmitStage] = useState<SubmitStage>("idle");
-  const [worldProof, setWorldProof] = useState<WorldIdProofInput | null>(null);
-  const [error, setError] = useState("");
+  const [pendingPayload, setPendingPayload] = useState<{ question: string; deadline: number } | null>(null);
+  const [autoCreateAttempted, setAutoCreateAttempted] = useState(false);
+  const [errorNotice, setErrorNotice] = useState("");
   const [copied, setCopied] = useState(false);
-  const [validationInfo, setValidationInfo] = useState<string>(
-    "Step 1: Validate with CRE. Step 2: Verify with World ID. Step 3: Create market onchain."
-  );
 
-  const isBusy = submitStage === "validating" || submitStage === "submitting";
+  const isBusy = submitStage === "validating" || submitStage === "awaiting-cre" || submitStage === "creating";
+  const isFinalizingTx = submitStage === "creating";
   const hasCreHttpTrigger = Boolean(process.env.NEXT_PUBLIC_CRE_HTTP_TRIGGER_URL);
+  const deadlineTimestamp = useMemo(
+    () => toDeadlineTimestamp(deadlineDate, deadlineHour, deadlineMinute),
+    [deadlineDate, deadlineHour, deadlineMinute]
+  );
   const normalizedQuestion = question.trim() || "Will ETH close above $5,000 by April 1st?";
-  const fallbackDeadline = useMemo(() => inferDeadlineFromQuestion(normalizedQuestion), [normalizedQuestion]);
+  const fallbackDeadline = deadlineTimestamp ?? Math.floor(Date.now() / 1000) + 7 * 24 * 3600;
   const creSimulateCommand = useMemo(
     () => buildCreValidateCmd(normalizedQuestion, fallbackDeadline),
     [normalizedQuestion, fallbackDeadline]
   );
 
+  const resetFlow = () => {
+    setErrorNotice("");
+    setCopied(false);
+    setAutoCreateAttempted(false);
+    setSubmitStage("idle");
+    setPendingPayload(null);
+  };
+
+  const showError = (message: string) => {
+    setErrorNotice(message);
+  };
+
   const onQuestionChange = (value: string) => {
     setQuestion(value);
-    setError("");
-    setCopied(false);
-    setSubmitStage("idle");
-    setWorldProof(null);
-    setValidationInfo("Step 1: Validate with CRE. Step 2: Verify with World ID. Step 3: Create market onchain.");
+    resetFlow();
   };
 
   const handleCopyCommand = async () => {
@@ -66,51 +106,110 @@ export function CreateMarketModal({ onClose, onValidate, onCreate, walletAddress
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
-      setError("Clipboard copy failed. Copy the command manually.");
+      setErrorNotice("Clipboard copy failed. Copy the command manually.");
     }
   };
 
-  const handleValidate = async () => {
-    if (!question.trim()) return setError("Please enter a question");
-
+  const runCreateTransaction = async (
+    payload: { question: string; deadline: number },
+    autoTriggered: boolean
+  ) => {
     try {
-      setSubmitStage("validating");
-      setError("");
-      setValidationInfo("Waiting for verification from CRE...");
-      await onValidate(question);
-      setSubmitStage("validated");
-      setValidationInfo("Question verified by CRE. Continue with World ID verification.");
-    } catch (err) {
-      console.error("Failed to validate market question:", err);
-      setSubmitStage("idle");
-      const message = err instanceof Error ? err.message : "Failed to validate question";
-      if (message.includes("CRE workflow is not yet deployed")) {
-        setError("Manual CRE simulation is required in beta mode. Run the command below, then click Validate Question.");
-      } else {
-        setError(message);
-      }
-      setValidationInfo("Question is not verified yet.");
-    }
-  };
-
-  const handleCreate = async () => {
-    if (!question.trim()) return setError("Please enter a question");
-    if (submitStage !== "worldVerified" || !worldProof) return setError("Verify with World ID first.");
-
-    try {
-      setSubmitStage("submitting");
-      await onCreate(question, worldProof);
+      setSubmitStage("creating");
+      await onValidated(payload.question, payload.deadline);
       onClose();
     } catch (err) {
       console.error("Failed to create market:", err);
-      setError(err instanceof Error ? err.message : "Failed to create market");
-      setSubmitStage("worldVerified");
+      setSubmitStage("ready");
+      if (autoTriggered) {
+        showError("Could not open wallet automatically. Click Step 2/2: Create Market.");
+      } else {
+        showError(err instanceof Error ? err.message : "Failed to create market");
+      }
     }
   };
 
-  const worldAppId = process.env.NEXT_PUBLIC_WORLD_ID_APP_ID as `app_${string}` | undefined;
-  const worldAction = process.env.NEXT_PUBLIC_WORLD_ID_ACTION ?? "create-market";
-  const canUseWorldId = Boolean(worldAppId && walletAddress);
+  const handlePrimaryFlow = async () => {
+    const normalized = question.trim();
+    if (!normalized) return showError("Please enter a question");
+    if (!deadlineTimestamp) return showError("Please select a valid deadline date and UTC time.");
+    if (deadlineTimestamp <= nowUtcTimestamp()) return showError("Deadline must be in the future.");
+    if (submitStage === "ready" && pendingPayload) {
+      await runCreateTransaction(pendingPayload, false);
+      return;
+    }
+    if (submitStage !== "idle") return;
+
+    try {
+      setSubmitStage("validating");
+      await onValidate(normalized, deadlineTimestamp, modalOpenedAt);
+      setPendingPayload({ question: normalized, deadline: deadlineTimestamp });
+      setAutoCreateAttempted(false);
+      setSubmitStage("ready");
+      setErrorNotice("");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to validate question";
+      if (message.includes(MANUAL_CRE_PENDING_ERROR)) {
+        setPendingPayload({ question: normalized, deadline: deadlineTimestamp });
+        setAutoCreateAttempted(false);
+        setSubmitStage("awaiting-cre");
+        setErrorNotice("");
+      } else {
+        console.error("Failed to validate market question:", err);
+        setSubmitStage("idle");
+        showError(message);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (submitStage !== "awaiting-cre" || !pendingPayload) return;
+
+    let cancelled = false;
+
+    const pollValidation = async () => {
+      try {
+        await onValidate(pendingPayload.question, pendingPayload.deadline, modalOpenedAt);
+        if (cancelled) return;
+        setAutoCreateAttempted(false);
+        setSubmitStage("ready");
+      } catch (err) {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : "Failed to verify question";
+        if (
+          message.includes(MANUAL_CRE_PENDING_ERROR) ||
+          message.includes("Validation report not found onchain yet")
+        ) {
+          return;
+        }
+
+        setSubmitStage("idle");
+        showError(message);
+      }
+    };
+
+    void pollValidation();
+    const intervalId = window.setInterval(() => {
+      void pollValidation();
+    }, 4000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [submitStage, pendingPayload, onValidate, modalOpenedAt]);
+
+  useEffect(() => {
+    if (submitStage !== "ready" || !pendingPayload || autoCreateAttempted) return;
+    setAutoCreateAttempted(true);
+    void runCreateTransaction(pendingPayload, true);
+  }, [submitStage, pendingPayload, autoCreateAttempted]);
+
+  useEffect(() => {
+    if (!errorNotice) return;
+    const t = setTimeout(() => setErrorNotice(""), 3500);
+    return () => clearTimeout(t);
+  }, [errorNotice]);
 
   useEffect(() => {
     setMounted(true);
@@ -122,39 +221,22 @@ export function CreateMarketModal({ onClose, onValidate, onCreate, walletAddress
   return createPortal(
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
       <Card className="w-full max-w-lg bg-white border shadow-xl rounded-xl">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <div className="flex items-center gap-2">
-            <CardTitle>Create New Market</CardTitle>
-            <Popover>
-              <PopoverTrigger asChild>
-                <button className="text-gray-400 hover:text-gray-600 transition-colors">
-                  <Info className="h-4 w-4" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent className="w-72 text-sm" align="start">
-                <p className="font-medium mb-2">How this works</p>
-                <ul className="space-y-1.5 text-muted-foreground text-xs">
-                  <li>• Ask a clear yes/no question with a time target</li>
-                  <li>• CRE AI extracts the deadline from your question</li>
-                  <li>• CRE must approve your question first</li>
-                  <li>• Verify your identity with World ID</li>
-                  <li>• Each wallet can create one market per 24 hours</li>
-                  <li>• If no live HTTP trigger is set, simulate CRE workflow manually</li>
-                  <li>• Then create the market with one transaction</li>
-                </ul>
-              </PopoverContent>
-            </Popover>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-gray-200">
+          <div className="flex items-center gap-2.5">
+            <PlusCircle className="h-5 w-5 text-gray-700" />
+            <CardTitle className="text-2xl md:text-[1.75rem] leading-none">Create New Market</CardTitle>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
+          <Button variant="ghost" size="icon" onClick={onClose} disabled={isFinalizingTx}>
             <X className="h-4 w-4" />
           </Button>
         </CardHeader>
+
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="question">Question</Label>
             <Input
               id="question"
-              placeholder="Will ETH close above $5,000 by Dec 31, 2026?"
+              placeholder="Will ETH close above $5,000?"
               value={question}
               onChange={(e) => onQuestionChange(e.target.value)}
               maxLength={200}
@@ -162,7 +244,80 @@ export function CreateMarketModal({ onClose, onValidate, onCreate, walletAddress
             />
           </div>
 
-          <div className="text-xs text-amber-700 bg-amber-100 rounded-md p-3">{validationInfo}</div>
+          <div className="space-y-2">
+            <Label htmlFor="deadline">Market Resolution Time</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  id="deadline"
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-start text-left bg-white hover:bg-gray-50"
+                  disabled={isBusy}
+                >
+                  <CalendarDays className="h-4 w-4 mr-2 text-gray-500" />
+                  {deadlineDate ? formatUtcDateTime(deadlineDate, deadlineHour, deadlineMinute) : "Pick date and time"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                className="z-[260] w-[320px] p-3 bg-white border border-gray-200 shadow-xl"
+                align="start"
+              >
+                <Calendar
+                  mode="single"
+                  selected={deadlineDate}
+                  onSelect={(value) => {
+                    setDeadlineDate(value);
+                    resetFlow();
+                  }}
+                  disabled={(date) => date < startOfUtcDay(new Date())}
+                  initialFocus
+                  className="rounded-md border border-gray-200 bg-white"
+                />
+                <div className="mt-3 border-t border-gray-200 pt-3">
+                  <Label htmlFor="deadline-time" className="text-xs text-gray-600">
+                    Time (UTC)
+                  </Label>
+                  <div id="deadline-time" className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                    <select
+                      aria-label="Hour"
+                      value={deadlineHour}
+                      onChange={(e) => {
+                        setDeadlineHour(e.target.value);
+                        resetFlow();
+                      }}
+                      className="h-10 rounded-md border border-gray-300 bg-white px-2 text-sm"
+                      disabled={isBusy}
+                    >
+                      {Array.from({ length: 24 }, (_, i) => `${i}`.padStart(2, "0")).map((hour) => (
+                        <option key={hour} value={hour}>
+                          {hour}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-sm text-gray-500">:</span>
+                    <select
+                      aria-label="Minute"
+                      value={deadlineMinute}
+                      onChange={(e) => {
+                        setDeadlineMinute(e.target.value);
+                        resetFlow();
+                      }}
+                      className="h-10 rounded-md border border-gray-300 bg-white px-2 text-sm"
+                      disabled={isBusy}
+                    >
+                      {Array.from({ length: 60 }, (_, i) => `${i}`.padStart(2, "0")).map((minute) => (
+                        <option key={minute} value={minute}>
+                          {minute}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+            <p className="text-[11px] text-muted-foreground">Time is UTC.</p>
+          </div>
 
           {!hasCreHttpTrigger && (
             <div className="rounded-md border border-sky-200 bg-sky-50 p-3 space-y-2">
@@ -172,13 +327,13 @@ export function CreateMarketModal({ onClose, onValidate, onCreate, walletAddress
               </p>
               <p className="text-xs text-sky-800">
                 CRE workflow is not yet deployed in this environment. For beta testing, simulate the CRE workflow for
-                this question, then click Validate Question again.
+                this question. This modal will auto-detect completion and unlock market creation.
               </p>
               <p className="text-[11px] text-sky-700">Run this command from the `cre-workflow` directory.</p>
               <div className="rounded border border-slate-800 bg-slate-950 p-2">
                 <pre className="overflow-x-auto">
                   <code className="font-mono text-[11px] leading-relaxed text-slate-100 break-all whitespace-pre-wrap">
-                  {creSimulateCommand}
+                    {creSimulateCommand}
                   </code>
                 </pre>
               </div>
@@ -204,70 +359,47 @@ export function CreateMarketModal({ onClose, onValidate, onCreate, walletAddress
             </div>
           )}
 
-          {submitStage === "validated" && (
-            <div className="rounded-md border border-gray-200 bg-gray-50 p-3 space-y-2">
-              <p className="text-xs text-gray-700">World ID verification is required before creating a market.</p>
-              {!canUseWorldId ? (
-                <p className="text-xs text-destructive">
-                  Missing World ID config. Set NEXT_PUBLIC_WORLD_ID_APP_ID and NEXT_PUBLIC_WORLD_ID_ACTION.
-                </p>
-              ) : (
-                <IDKitWidget
-                  app_id={worldAppId!}
-                  action={worldAction}
-                  signal={walletAddress}
-                  verification_level={VerificationLevel.Orb}
-                  onSuccess={(result: ISuccessResult) => {
-                    try {
-                      const proof = toWorldProof(result);
-                      setWorldProof(proof);
-                      setSubmitStage("worldVerified");
-                      setValidationInfo("World ID verified. You can create the market now.");
-                      setError("");
-                    } catch (e) {
-                      setError(e instanceof Error ? e.message : "Failed to parse World ID proof");
-                    }
-                  }}
-                  handleVerify={async () => {}}
-                  onError={(e: { code: string }) => {
-                    setError(`World ID verification failed: ${e.code}`);
-                  }}
-                >
-                  {({ open }: { open: () => void }) => (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full bg-white hover:bg-gray-100"
-                      onClick={open}
-                      disabled={isBusy}
-                    >
-                      Verify with World ID
-                    </Button>
-                  )}
-                </IDKitWidget>
-              )}
+          {errorNotice && (
+            <div className="fixed top-4 right-4 z-[260] rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm px-4 py-2 shadow-lg max-w-sm">
+              {errorNotice}
             </div>
           )}
 
-          {error && <div className="text-sm text-destructive bg-destructive/10 rounded-md p-3">{error}</div>}
-
           <div className="flex gap-3 pt-2">
-            <Button variant="outline" className="flex-1 bg-white hover:bg-gray-50" onClick={onClose} disabled={isBusy}>
+            <Button
+              variant="outline"
+              className="flex-1 bg-white hover:bg-gray-50"
+              onClick={onClose}
+              disabled={isFinalizingTx}
+            >
               Cancel
             </Button>
             <Button
               variant="outline"
               className="flex-1 bg-gray-100 hover:bg-gray-200 border-gray-300 text-gray-900 font-semibold"
-              onClick={submitStage === "worldVerified" ? handleCreate : handleValidate}
-              disabled={isBusy || !question.trim()}
+              onClick={handlePrimaryFlow}
+              disabled={isBusy || !question.trim() || !deadlineTimestamp}
             >
-              {submitStage === "validating"
-                ? "Waiting for verification..."
-                : submitStage === "submitting"
-                ? "Creating Market..."
-                : submitStage === "worldVerified"
-                ? "Create Market"
-                : "Validate Question"}
+              {submitStage === "validating" ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Step 1/2: Verifying...
+                </span>
+              ) : submitStage === "awaiting-cre" ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Waiting for CRE...
+                </span>
+              ) : submitStage === "ready" ? (
+                "Step 2/2: Create Market"
+              ) : submitStage === "creating" ? (
+                <span className="inline-flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Step 2/2: Creating market...
+                </span>
+              ) : (
+                "Step 1/2: Verify with CRE"
+              )}
             </Button>
           </div>
         </CardContent>

@@ -28,11 +28,9 @@ interface ValidationAIResponse {
 	model: string
 }
 
-interface DeadlineAIResponse {
-	deadlineUnix: number
-	confidence: number
-	reasoning: string
-	model: string
+function stringifyError(error: unknown): string {
+	if (error instanceof Error) return error.message
+	return String(error)
 }
 
 function parseModelJsonContent(rawText: string): any {
@@ -108,21 +106,11 @@ Return ONLY minified JSON:
 Rules:
 - valid=true only if score>=70 and all checks are true.
 - legitimate: normal, non-malicious market question.
-- clearTimeline: explicit date/time window exists.
+- clearTimeline: TRUE when either (a) the question itself has a clear date/time OR (b) a separate Market Resolution Time field is provided by the system.
+- IMPORTANT: the deadline is provided separately by the system. Do NOT fail timeline clarity only because the question text itself does not include a date.
 - resolvable: public sources/APIs can verify outcome.
 - binary: objective yes/no outcome.
 - reject vague, subjective, non-verifiable, or future-only speculation without measurable criteria.`
-
-const DEADLINE_PROMPT = `Extract the market deadline from the question.
-
-Return ONLY minified JSON:
-{"deadlineUnix":number,"confidence":number,"reasoning":string}
-
-Rules:
-- deadlineUnix must be a UTC unix timestamp in seconds.
-- If month-only is given (e.g. "in April"), use first day of that month at 00:00:00 UTC.
-- If year is omitted, infer the nearest future date that matches the text.
-- If no clear deadline exists, return deadlineUnix:0 and confidence:0.`
 
 /**
  * Query AI model via OpenRouter
@@ -365,7 +353,7 @@ function askAIValidation(
 			},
 			{
 				role: 'user',
-				content: `Validate this prediction market question:\n${question}\n\nResolved deadline (UTC unix): ${deadline}`,
+				content: `Validate this prediction market question:\n${question}\n\nMarket Resolution Time (authoritative deadline, UTC unix): ${deadline}\n\nScoring note: this deadline is provided by a separate field, so treat timeline clarity as satisfied by this value even if the question text omits a date.`,
 			},
 		],
 		temperature: 0,
@@ -433,92 +421,63 @@ function askAIValidation(
 	return sendRequester(runtime.config).result()
 }
 
-function askAIDeadline(
-	runtime: Runtime<any>,
-	question: string,
-	modelName: string,
-	displayName: string,
-): DeadlineAIResponse {
-	const apiKey = runtime.getSecret({ id: 'OPENROUTER_API_KEY' }).result()
-	const httpClient = new cre.capabilities.HTTPClient()
-
-	const requestData = {
-		model: modelName,
-		messages: [
-			{ role: 'system', content: DEADLINE_PROMPT },
-			{ role: 'user', content: `Question: ${question}` },
-		],
-		temperature: 0,
-		max_tokens: 300,
-	}
-
-	const bodyBytes = new TextEncoder().encode(JSON.stringify(requestData))
-	const body = Buffer.from(bodyBytes).toString('base64')
-
-	const req = {
-		url: 'https://openrouter.ai/api/v1/chat/completions',
-		method: 'POST' as const,
-		body,
-		headers: {
-			'Content-Type': 'application/json',
-			Authorization: `Bearer ${apiKey.value}`,
-			'HTTP-Referer': 'https://github.com/Kirillr-Sibirski/convergence-chainlink',
-			'X-Title': 'Aletheia Deadline Extraction',
-		},
-		cacheSettings: { maxAgeMs: 60000 },
-	}
-
-	const sendRequester = httpClient.sendRequest(
-		runtime,
-		(sendReq: HTTPSendRequester, _config: any) => {
-			const resp = sendReq.sendRequest(req).result()
-			const bodyText = new TextDecoder().decode(resp.body)
-			if (!ok(resp)) {
-				throw new Error(`${displayName} deadline API error: ${resp.statusCode} - ${bodyText}`)
-			}
-
-			const apiResponse = JSON.parse(bodyText)
-			const text = apiResponse?.choices?.[0]?.message?.content
-			if (!text) throw new Error(`Malformed ${displayName} deadline response`)
-
-			const parsed = parseModelJsonContent(text)
-			return {
-				deadlineUnix: Number(parsed.deadlineUnix || 0),
-				confidence: Number(parsed.confidence || 0),
-				reasoning: String(parsed.reasoning || ''),
-				model: displayName,
-			}
-		},
-		consensusIdenticalAggregation<DeadlineAIResponse>(),
-	)
-
-	return sendRequester(runtime.config).result()
-}
 
 export function validateQuestionWithMultiAI(runtime: Runtime<any>, question: string, deadline?: number): ValidationConsensusResult {
 	const effectiveDeadline = Number.isFinite(deadline) && (deadline ?? 0) > 0 ? Math.floor(deadline as number) : 0
 	const responses: ValidationAIResponse[] = []
+	const lowerQuestion = question.toLowerCase()
+	const hasComparator = /\b(above|below|over|under|at least|at most|greater than|less than)\b|[<>]=?/.test(
+		lowerQuestion,
+	)
+	const hasNumericTarget = /\$?\s*\d+(?:[.,]\d+)?/.test(lowerQuestion)
+	const hasMarketAsset =
+		/\b(eth|ethereum|btc|bitcoin|sol|solana|xrp|ada|bnb|link|doge|gold|oil|nasdaq|s&p|sp500)\b/.test(
+			lowerQuestion,
+		)
+	const deterministicBinary = /^(will|is|does|did|can|has|have)\b/.test(lowerQuestion.trim())
+	const deterministicResolvable = deterministicBinary && hasComparator && hasNumericTarget && hasMarketAsset
 
-	try {
-		responses.push(askAIValidation(runtime, question, effectiveDeadline, 'google/gemini-2.0-flash-001', 'Gemini 2.0 Flash'))
-	} catch (error) {
-		runtime.log(`[Gemini] Validation failed: ${error}`)
+	const logValidationSuccess = (result: ValidationAIResponse) => {
+		const passed =
+			result.checks.legitimate &&
+			result.checks.clearTimeline &&
+			result.checks.resolvable &&
+			result.checks.binary &&
+			result.valid
+		runtime.log(
+			`[${result.model}] Validation ${passed ? 'passed' : 'failed'}: score=${result.score} legitimate=${result.checks.legitimate} timeline=${result.checks.clearTimeline} resolvable=${result.checks.resolvable} binary=${result.checks.binary}`,
+		)
+		if (result.issues.length > 0) {
+			runtime.log(`[${result.model}] Issues: ${result.issues.join(' | ')}`)
+		}
 	}
-	try {
-		responses.push(askAIValidation(runtime, question, effectiveDeadline, 'anthropic/claude-3.5-sonnet', 'Claude 3.5 Sonnet'))
-	} catch (error) {
-		runtime.log(`[Claude] Validation failed: ${error}`)
+
+	const runValidationModel = (
+		modelName: string,
+		modelId: string,
+	): ValidationAIResponse | null => {
+		const startedAt = Date.now()
+		try {
+			const result = askAIValidation(runtime, question, effectiveDeadline, modelId, modelName)
+			const elapsedMs = Date.now() - startedAt
+			logValidationSuccess(result)
+			runtime.log(`[${modelName}] Validation runtime=${elapsedMs}ms`)
+			return result
+		} catch (error) {
+			const elapsedMs = Date.now() - startedAt
+			runtime.log(`[${modelName}] Validation failed after ${elapsedMs}ms: ${stringifyError(error)}`)
+			return null
+		}
 	}
-	try {
-		responses.push(askAIValidation(runtime, question, effectiveDeadline, 'openai/gpt-4o-mini', 'GPT-4o Mini'))
-	} catch (error) {
-		runtime.log(`[GPT] Validation failed: ${error}`)
-	}
-	try {
-		responses.push(askAIValidation(runtime, question, effectiveDeadline, 'x-ai/grok-3-mini-beta', 'Grok 3 Mini'))
-	} catch (error) {
-		runtime.log(`[Grok] Validation failed: ${error}`)
-	}
+
+	const gemini = runValidationModel('Gemini 2.0 Flash', 'google/gemini-2.0-flash-001')
+	if (gemini) responses.push(gemini)
+	const claude = runValidationModel('Claude 3.5 Sonnet', 'anthropic/claude-3.5-sonnet')
+	if (claude) responses.push(claude)
+	const gpt = runValidationModel('GPT-4o Mini', 'openai/gpt-4o-mini')
+	if (gpt) responses.push(gpt)
+	const grok = runValidationModel('Grok 3 Mini', 'x-ai/grok-3-mini-beta')
+	if (grok) responses.push(grok)
 
 	if (responses.length === 0) {
 		return {
@@ -532,23 +491,29 @@ export function validateQuestionWithMultiAI(runtime: Runtime<any>, question: str
 	}
 
 	const avgScore = Math.round(responses.reduce((sum, r) => sum + r.score, 0) / responses.length)
-	const passCount = responses.filter((r) => r.valid).length
-	const threshold = Math.ceil(responses.length * 0.6)
 
 	const checks = {
 		legitimate: responses.filter((r) => r.checks.legitimate).length >= Math.ceil(responses.length / 2),
-		clearTimeline: responses.filter((r) => r.checks.clearTimeline).length >= Math.ceil(responses.length / 2),
-		resolvable: responses.filter((r) => r.checks.resolvable).length >= Math.ceil(responses.length / 2),
-		binary: responses.filter((r) => r.checks.binary).length >= Math.ceil(responses.length / 2),
+		clearTimeline:
+			effectiveDeadline > 0 ||
+			responses.filter((r) => r.checks.clearTimeline).length >= Math.ceil(responses.length / 2),
+		resolvable:
+			deterministicResolvable ||
+			responses.filter((r) => r.checks.resolvable).length >= Math.ceil(responses.length / 2),
+		binary:
+			deterministicBinary ||
+			responses.filter((r) => r.checks.binary).length >= Math.ceil(responses.length / 2),
 	}
 
 	const valid =
-		passCount >= threshold &&
-		avgScore >= 70 &&
 		checks.legitimate &&
 		checks.clearTimeline &&
 		checks.resolvable &&
 		checks.binary
+
+	runtime.log(
+		`[Consensus] Question validation ${valid ? 'passed' : 'failed'}: score=${avgScore}, models=${responses.length}, legitimate=${checks.legitimate}, timeline=${checks.clearTimeline}, resolvable=${checks.resolvable}, binary=${checks.binary}`,
+	)
 
 	return {
 		valid,
@@ -560,34 +525,4 @@ export function validateQuestionWithMultiAI(runtime: Runtime<any>, question: str
 		checks,
 		modelsUsed: responses.map((r) => r.model),
 	}
-}
-
-export function inferDeadlineWithMultiAI(runtime: Runtime<any>, question: string): number {
-	const responses: DeadlineAIResponse[] = []
-
-	try {
-		responses.push(askAIDeadline(runtime, question, 'google/gemini-2.0-flash-001', 'Gemini 2.0 Flash'))
-	} catch (error) {
-		runtime.log(`[Gemini] Deadline extraction failed: ${error}`)
-	}
-	try {
-		responses.push(askAIDeadline(runtime, question, 'anthropic/claude-3.5-sonnet', 'Claude 3.5 Sonnet'))
-	} catch (error) {
-		runtime.log(`[Claude] Deadline extraction failed: ${error}`)
-	}
-	try {
-		responses.push(askAIDeadline(runtime, question, 'openai/gpt-4o-mini', 'GPT-4o Mini'))
-	} catch (error) {
-		runtime.log(`[GPT] Deadline extraction failed: ${error}`)
-	}
-
-	const valid = responses.filter((r) => Number.isFinite(r.deadlineUnix) && r.deadlineUnix > 0)
-	if (valid.length === 0) {
-		throw new Error('Could not infer deadline from question')
-	}
-
-	const sorted = valid.map((r) => Math.floor(r.deadlineUnix)).sort((a, b) => a - b)
-	const median = sorted[Math.floor(sorted.length / 2)]
-	runtime.log(`Inferred deadline: ${median} (${new Date(median * 1000).toISOString()})`)
-	return median
 }

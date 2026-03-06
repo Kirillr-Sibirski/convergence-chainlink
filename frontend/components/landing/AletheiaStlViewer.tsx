@@ -31,14 +31,29 @@ export function AletheiaStlViewer({
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(host.clientWidth || 520, host.clientHeight || 620);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     host.appendChild(renderer.domElement);
 
-    const key = new THREE.DirectionalLight(0xffffff, 1.4);
-    key.position.set(8, 14, 10);
+    const key = new THREE.DirectionalLight(0xffffff, 1.55);
+    // Main light from above with a slight side angle.
+    key.position.set(5.5, 18, 8);
+    key.target.position.set(0, -1.8, 0);
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.camera.near = 0.5;
+    key.shadow.camera.far = 80;
+    key.shadow.camera.left = -12;
+    key.shadow.camera.right = 12;
+    key.shadow.camera.top = 12;
+    key.shadow.camera.bottom = -12;
+    key.shadow.bias = -0.00012;
+    key.shadow.radius = 2.8;
     scene.add(key);
+    scene.add(key.target);
 
-    const fill = new THREE.DirectionalLight(0xe7ebff, 0.7);
-    fill.position.set(-8, 6, 8);
+    const fill = new THREE.DirectionalLight(0xf1f3f8, 0.45);
+    fill.position.set(-7, 7, 6);
     scene.add(fill);
 
     const rim = new THREE.DirectionalLight(0xffffff, 0.5);
@@ -50,6 +65,12 @@ export function AletheiaStlViewer({
 
     const group = new THREE.Group();
     scene.add(group);
+
+    const shadowPlane = new THREE.Mesh(new THREE.PlaneGeometry(26, 14), new THREE.ShadowMaterial({ opacity: 0.3 }));
+    shadowPlane.rotation.x = -Math.PI / 2;
+    shadowPlane.position.set(0, -2.38, 0);
+    shadowPlane.receiveShadow = true;
+    scene.add(shadowPlane);
 
     let statue: THREE.Mesh | null = null;
     let raf = 0;
@@ -103,6 +124,8 @@ export function AletheiaStlViewer({
 
         statue = new THREE.Mesh(geometry, mat);
         statue.scale.setScalar(scale);
+        statue.castShadow = true;
+        statue.receiveShadow = false;
         // STL is Z-up; rotate to Y-up so it stands upright.
         statue.position.y = -2.2;
         group.add(statue);

@@ -1,65 +1,110 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useRef } from "react";
+import { AreaSeries, createChart, type IChartApi, type ISeriesApi, type Time, type UTCTimestamp } from "lightweight-charts";
 import type { MarketPricePoint } from "@/lib/web3-viem";
 
 interface MarketPriceChartProps {
   points: MarketPricePoint[];
 }
 
-function formatTs(ts: number) {
-  return new Date(ts * 1000).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+function toUtc(ts: number): UTCTimestamp {
+  return Math.floor(ts) as UTCTimestamp;
 }
 
 export function MarketPriceChart({ points }: MarketPriceChartProps) {
-  const chart = useMemo(() => {
-    const width = 640;
-    const height = 220;
-    const pad = 24;
-    const values = points.map((p) => p.yesPercent);
-    const minX = 0;
-    const maxX = Math.max(1, points.length - 1);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<"Area", Time> | null>(null);
+  const latest = points.length > 0 ? points[points.length - 1].yesPercent : 50;
 
-    const toX = (i: number) => pad + ((width - pad * 2) * (i - minX)) / (maxX - minX);
-    const toY = (v: number) => height - pad - ((height - pad * 2) * v) / 100;
+  useEffect(() => {
+    if (!containerRef.current) return;
 
-    const line = points.map((p, i) => `${i === 0 ? "M" : "L"} ${toX(i)} ${toY(p.yesPercent)}`).join(" ");
-    const area = `${line} L ${toX(points.length - 1)} ${height - pad} L ${toX(0)} ${height - pad} Z`;
+    if (!chartRef.current) {
+      const chart = createChart(containerRef.current, {
+        autoSize: true,
+        layout: {
+          background: { color: "transparent" },
+          textColor: "#6b7280",
+          fontFamily: "var(--font-geist-sans, sans-serif)",
+        },
+        rightPriceScale: {
+          borderColor: "#e5e7eb",
+        },
+        timeScale: {
+          borderColor: "#e5e7eb",
+          timeVisible: true,
+          secondsVisible: false,
+        },
+        grid: {
+          vertLines: { color: "#f3f4f6" },
+          horzLines: { color: "#f3f4f6" },
+        },
+        localization: {
+          priceFormatter: (v: number) => `${v.toFixed(2)}%`,
+        },
+        handleScroll: {
+          mouseWheel: true,
+          pressedMouseMove: true,
+          horzTouchDrag: true,
+          vertTouchDrag: false,
+        },
+        handleScale: {
+          axisPressedMouseMove: true,
+          mouseWheel: true,
+          pinch: true,
+        },
+      });
+      const areaSeries = chart.addSeries(AreaSeries, {
+        lineColor: "#16a34a",
+        lineWidth: 2,
+        topColor: "rgba(34, 197, 94, 0.35)",
+        bottomColor: "rgba(34, 197, 94, 0.04)",
+      });
 
-    return {
-      width,
-      height,
-      line,
-      area,
-      latest: values[values.length - 1] ?? 50,
-      firstLabel: points[0] ? formatTs(points[0].timestamp) : "-",
-      lastLabel: points[points.length - 1] ? formatTs(points[points.length - 1].timestamp) : "-",
-    };
+      chartRef.current = chart;
+      seriesRef.current = areaSeries;
+    }
+
+    const chart = chartRef.current;
+    const series = seriesRef.current;
+    if (!chart || !series) return;
+
+    const formatted = points.map((p) => ({
+      time: toUtc(p.timestamp),
+      value: p.yesPercent,
+    }));
+    series.setData(formatted);
+    chart.timeScale().fitContent();
+    chart.applyOptions({ height: 300 });
   }, [points]);
 
-  if (points.length === 0) {
-    return <p className="text-sm text-muted-foreground">No price history yet.</p>;
-  }
+  useEffect(() => {
+    return () => {
+      if (chartRef.current) {
+        chartRef.current.remove();
+        chartRef.current = null;
+      }
+      seriesRef.current = null;
+    };
+  }, []);
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-muted-foreground">YES price history</span>
-        <span className="font-semibold text-green-700">{chart.latest.toFixed(2)}%</span>
-      </div>
-      <div className="rounded-lg border border-gray-200 bg-white/90 p-2">
-        <svg viewBox={`0 0 ${chart.width} ${chart.height}`} className="w-full h-44">
-          <line x1="24" y1="24" x2="24" y2={chart.height - 24} stroke="#d1d5db" strokeWidth="1" />
-          <line x1="24" y1={chart.height - 24} x2={chart.width - 24} y2={chart.height - 24} stroke="#d1d5db" strokeWidth="1" />
-          <path d={chart.area} fill="rgba(34,197,94,0.12)" />
-          <path d={chart.line} fill="none" stroke="#16a34a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </div>
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>{chart.firstLabel}</span>
-        <span>{chart.lastLabel}</span>
-      </div>
+      {points.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No price history yet.</p>
+      ) : (
+        <>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">YES price history</span>
+            <span className="font-semibold text-green-700">{latest.toFixed(2)}%</span>
+          </div>
+          <div className="w-full min-w-0 overflow-hidden rounded-lg border border-gray-200 bg-white/90 p-2">
+            <div ref={containerRef} className="w-full min-w-0" />
+          </div>
+        </>
+      )}
     </div>
   );
 }
-

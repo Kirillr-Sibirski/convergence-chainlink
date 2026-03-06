@@ -189,14 +189,33 @@ export default function DashboardPage() {
                   {openPositions.map((position) => (
                     <Link key={position.market.id} href={`/markets/${position.market.id}`}>
                       <SpotlightCard>
-                        <div className="p-5 flex items-center justify-between gap-4">
-                          <div className="flex-1 min-w-0 space-y-1">
-                            <p className="font-medium text-sm leading-snug">{position.market.question}</p>
-                            <p className="text-xs text-muted-foreground">
-                              YES {Number(formatEther(position.yesAmount)).toFixed(4)} ETH · NO {Number(formatEther(position.noAmount)).toFixed(4)} ETH
-                            </p>
+                        <div className="relative overflow-hidden rounded-xl border border-gray-200/80 bg-white/85 p-5 pl-16 flex items-center justify-between gap-4">
+                          {(() => {
+                            const primarySide = position.yesAmount >= position.noAmount ? "YES" : "NO";
+                            const primaryAmount = primarySide === "YES" ? position.yesAmount : position.noAmount;
+                            const stripe = primarySide === "YES" ? "bg-green-600" : "bg-red-600";
+
+                            return (
+                              <>
+                                <div className={`absolute left-0 top-0 h-full w-12 ${stripe} shadow-[6px_0_18px_rgba(0,0,0,0.14)]`}>
+                                  <div className="h-full w-full flex items-center justify-center">
+                                    <span className="[writing-mode:vertical-rl] rotate-180 text-[10px] tracking-[0.18em] font-semibold text-white">
+                                      {primarySide}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="flex-1 min-w-0 space-y-1">
+                                  <p className="font-medium text-sm leading-snug">{position.market.question}</p>
+                                  <p className="text-sm font-semibold text-gray-800">
+                                    {primarySide} · {Number(formatEther(primaryAmount)).toFixed(4)} ETH
+                                  </p>
+                                </div>
+                              </>
+                            );
+                          })()}
+                          <div className="shrink-0">
+                            <Button size="sm" variant="outline">Open</Button>
                           </div>
-                          <Button size="sm" variant="outline">Open</Button>
                         </div>
                       </SpotlightCard>
                     </Link>

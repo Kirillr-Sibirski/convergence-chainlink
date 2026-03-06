@@ -2,22 +2,23 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AlertCircle, Clock3, Loader2, Plus, Search, TrendingUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { CreateMarketModal } from "@/components/trading/CreateMarketModal";
+import { NotificationCenter, type NotificationItem } from "@/components/ui/notification-center";
 import { WalletRequiredDialog } from "@/components/wallet/WalletRequiredDialog";
 import { useWallet } from "@/hooks/useWallet";
 import type { Market } from "@/hooks/useMarkets";
 import {
   createMarketVerified,
+  getLatestQuestionValidationTimestamp,
   getQuestionValidationStatus,
-  inferDeadlineFromQuestion,
-  type WorldIdProofInput,
   waitForQuestionValidation,
 } from "@/lib/web3-viem";
-import { buildCreValidateCmd, CRE_SIM_CMD, getPendingCreResolutionCount, triggerCreQuestionValidation } from "@/lib/cre-gate";
+import { CRE_SIM_CMD, getPendingCreResolutionCount, triggerCreQuestionValidation } from "@/lib/cre-gate";
 
 const SORT_OPTIONS = [
   { label: "Most Volume", value: "volume" },
@@ -26,11 +27,24 @@ const SORT_OPTIONS = [
 ] as const;
 
 type SortOption = (typeof SORT_OPTIONS)[number]["value"];
+const MANUAL_CRE_PENDING_ERROR = "CRE_MANUAL_SIMULATION_PENDING";
 
 function formatVolumeEth(value: bigint) {
   const n = Number(value) / 1e18;
   if (n >= 1000) return `${n.toFixed(1)} ETH`;
   return `${n.toFixed(3)} ETH`;
+}
+
+function formatValidationFailureMessage(validation: {
+  score: number;
+  checks: { legitimate: boolean; clearTimeline: boolean; resolvable: boolean; binary: boolean };
+}) {
+  const failedChecks = Object.entries(validation.checks)
+    .filter(([, ok]) => !ok)
+    .map(([name]) => name);
+
+  const checksPart = failedChecks.length > 0 ? `failed checks: ${failedChecks.join(", ")}` : "failed model consensus";
+  return `Question rejected by CRE (${checksPart}, score ${validation.score}).`;
 }
 
 function MarketTile({ market, creBlocked }: { market: Market; creBlocked: boolean }) {
@@ -99,12 +113,21 @@ interface MarketGridProps {
 }
 
 export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridProps) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("volume");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showWalletDialog, setShowWalletDialog] = useState(false);
-  const [validatedDeadlines, setValidatedDeadlines] = useState<Record<string, number>>({});
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const { account } = useWallet();
+
+  const pushNotification = (item: Omit<NotificationItem, "id">) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setNotifications((prev) => [...prev, { id, ...item }]);
+    setTimeout(() => {
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+    }, 5000);
+  };
 
   const filtered = useMemo(() => {
     const now = Math.floor(Date.now() / 1000);
@@ -127,54 +150,61 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
     return false;
   };
 
-  const handleValidateMarket = async (question: string) => {
+  const handleValidateMarket = async (question: string, deadline: number, requireFreshAfter: number) => {
     if (!ensureWallet()) throw new Error("Please connect your wallet first");
 
-    const fallbackDeadline = inferDeadlineFromQuestion(question);
-    const existing = await getQuestionValidationStatus(question, fallbackDeadline);
+    const triggerUrlConfigured = Boolean(process.env.NEXT_PUBLIC_CRE_HTTP_TRIGGER_URL);
+    const existing = await getQuestionValidationStatus(question, deadline);
     if (existing.processed) {
-      if (!existing.approved) throw new Error("Question validation failed CRE checks.");
-      setValidatedDeadlines((prev) => ({
-        ...prev,
-        [question]: fallbackDeadline,
-      }));
+      if (!existing.approved) throw new Error(formatValidationFailureMessage(existing));
+      if (!triggerUrlConfigured) {
+        const latestValidationAt = await getLatestQuestionValidationTimestamp(question, deadline);
+        if (!latestValidationAt || latestValidationAt < requireFreshAfter) {
+          throw new Error(MANUAL_CRE_PENDING_ERROR);
+        }
+      }
       return;
     }
 
-    const trigger = await triggerCreQuestionValidation(question);
+    const trigger = await triggerCreQuestionValidation(question, deadline);
     if (trigger.mode === "manual") {
-      throw new Error(
-        `CRE workflow is not yet deployed. Simulate CRE workflow with: ${buildCreValidateCmd(
-          question,
-          fallbackDeadline
-        )}. After simulation, click Validate Question again.`
-      );
+      throw new Error(MANUAL_CRE_PENDING_ERROR);
     }
 
-    const validation = await waitForQuestionValidation(question, trigger.deadline);
-    if (!validation.approved) throw new Error("Question validation failed CRE checks.");
+    const validation = await waitForQuestionValidation(question, deadline);
+    if (!validation.approved) throw new Error(formatValidationFailureMessage(validation));
 
-    setValidatedDeadlines((prev) => ({
-      ...prev,
-      [question]: trigger.deadline,
-    }));
   };
 
-  const handleCreateMarket = async (question: string, worldProof: WorldIdProofInput) => {
+  const handleCreateMarket = async (question: string, deadline: number) => {
     if (!ensureWallet()) throw new Error("Please connect your wallet first");
-
-    const deadline = validatedDeadlines[question];
-    if (!deadline) {
-      throw new Error("Validate question first so CRE can extract the deadline.");
-    }
 
     const validation = await getQuestionValidationStatus(question, deadline);
     if (!validation.processed || !validation.approved) {
       throw new Error("Question is not verified yet. Click Validate Question and wait for CRE verification.");
     }
 
-    await createMarketVerified(question, deadline, worldProof);
+    await createMarketVerified(question, deadline);
     if (onRefresh) await onRefresh();
+  };
+
+  const handleValidatedHandoff = async (question: string, deadline: number) => {
+    try {
+      await handleCreateMarket(question, deadline);
+      setShowCreateModal(false);
+      router.push("/markets");
+      pushNotification({
+        variant: "success",
+        title: "Market created successfully",
+        description: question,
+      });
+    } catch (createError) {
+      pushNotification({
+        variant: "error",
+        title: "Failed to create market",
+        description: createError instanceof Error ? createError.message : "Unknown error",
+      });
+    }
   };
 
   return (
@@ -267,11 +297,14 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
         <CreateMarketModal
           onClose={() => setShowCreateModal(false)}
           onValidate={handleValidateMarket}
-          onCreate={handleCreateMarket}
-          walletAddress={account!}
+          onValidated={handleValidatedHandoff}
         />
       )}
       {showWalletDialog && <WalletRequiredDialog onClose={() => setShowWalletDialog(false)} />}
+      <NotificationCenter
+        items={notifications}
+        onDismiss={(id) => setNotifications((prev) => prev.filter((n) => n.id !== id))}
+      />
     </div>
   );
 }

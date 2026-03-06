@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { X, Wallet } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
 
@@ -31,32 +32,34 @@ export function WalletRequiredDialog({ onClose }: WalletRequiredDialogProps) {
   if (!mounted) return null;
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
-      <div className="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-sm p-6 space-y-5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Wallet className="w-4 h-4 text-gray-700" />
-            <h2 className="text-base font-semibold">Connect Wallet</h2>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
+      <Card className="w-full max-w-sm bg-white border shadow-xl rounded-xl">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-gray-200">
+          <div className="flex items-center gap-2.5">
+            <Wallet className="w-5 h-5 text-gray-700" />
+            <CardTitle className="text-2xl leading-none">Connect Wallet</CardTitle>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7">
-            <X className="h-3.5 w-3.5" />
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-4 w-4" />
           </Button>
-        </div>
+        </CardHeader>
 
-        <p className="text-sm text-muted-foreground">
-          You need a connected wallet to create and trade markets.
-        </p>
+        <CardContent className="space-y-5">
+          <p className="text-sm text-muted-foreground">
+            You need a connected wallet to create and trade markets.
+          </p>
 
-        <div className="flex justify-center">
-          <Button onClick={() => void handleConnect()} disabled={isConnecting}>
-            {isConnecting ? "Connecting..." : "Connect Wallet"}
-          </Button>
-        </div>
+          <div className="flex justify-center">
+            <Button onClick={() => void handleConnect()} disabled={isConnecting}>
+              {isConnecting ? "Connecting..." : "Connect Wallet"}
+            </Button>
+          </div>
 
-        <p className="text-xs text-center text-muted-foreground">
-          Make sure your wallet is on Sepolia testnet.
-        </p>
-      </div>
+          <p className="text-xs text-center text-muted-foreground">
+            Make sure your wallet is on Sepolia testnet.
+          </p>
+        </CardContent>
+      </Card>
     </div>,
     document.body
   );
