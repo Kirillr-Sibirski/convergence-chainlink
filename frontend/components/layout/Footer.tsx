@@ -20,7 +20,7 @@ export function Footer() {
             rel="noreferrer"
             className="underline underline-offset-2 hover:text-gray-800"
           >
-            convergence-chainlink
+            GitHub
           </a>
         </div>
       </div>

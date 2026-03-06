@@ -318,7 +318,7 @@ export function CreateMarketModal({ onClose, onValidate, onValidated }: CreateMa
                 </Button>
               </PopoverTrigger>
               <PopoverContent
-                className="z-[260] w-[320px] p-3 bg-white border border-gray-200 shadow-xl"
+                className="z-[260] w-[min(320px,calc(100vw-2rem))] p-3 bg-white border border-gray-200 shadow-xl"
                 align="start"
               >
                 <Calendar
@@ -426,10 +426,10 @@ export function CreateMarketModal({ onClose, onValidate, onValidated }: CreateMa
             </div>
           )}
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <Button
               variant="outline"
-              className="flex-1 bg-white hover:bg-gray-50"
+              className="flex-1 w-full bg-white hover:bg-gray-50"
               onClick={onClose}
               disabled={isFinalizingTx}
             >
@@ -437,7 +437,7 @@ export function CreateMarketModal({ onClose, onValidate, onValidated }: CreateMa
             </Button>
             <Button
               variant="outline"
-              className="flex-1 bg-gray-100 hover:bg-gray-200 border-gray-300 text-gray-900 font-semibold"
+              className="flex-1 w-full bg-gray-100 hover:bg-gray-200 border-gray-300 text-gray-900 font-semibold"
               onClick={handlePrimaryFlow}
               disabled={isBusy || !question.trim() || !deadlineTimestamp || hourOptions.length === 0}
             >

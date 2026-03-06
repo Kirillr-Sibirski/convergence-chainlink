@@ -3,9 +3,10 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Clock3, Loader2, Plus, Search, TrendingUp } from "lucide-react";
+import { AlertCircle, Clock3, Plus, Search, TrendingUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { CreateMarketModal } from "@/components/trading/CreateMarketModal";
 import { NotificationCenter, type NotificationItem } from "@/components/ui/notification-center";
@@ -64,7 +65,7 @@ function MarketTile({ market, creBlocked }: { market: Market; creBlocked: boolea
   });
 
   return (
-    <SpotlightCard className="relative overflow-hidden p-5 pl-10 flex flex-col gap-3 bg-white/75 border-gray-200/80 backdrop-blur-xl shadow-[0_16px_38px_rgba(15,23,42,0.08)]">
+    <SpotlightCard className="relative overflow-hidden p-5 pl-10 flex flex-col gap-2 bg-white/75 border-gray-200/80 backdrop-blur-xl shadow-[0_16px_38px_rgba(15,23,42,0.08)]">
       <div className="absolute -left-4 top-1/2 -translate-y-1/2 h-28 w-12 rounded-full blur-2xl bg-gray-400/35" />
       <div className="absolute left-0 top-0 h-full w-3 bg-gray-500/70" />
       <div className="absolute left-0 top-0 h-full w-3 flex items-center justify-center">
@@ -83,8 +84,8 @@ function MarketTile({ market, creBlocked }: { market: Market; creBlocked: boolea
         </span>
       </div>
 
-      <div className="flex-1 space-y-1 -mt-0.5">
-        <p className="font-semibold text-[15px] leading-snug text-gray-900 line-clamp-3">{market.question}</p>
+      <div className="flex-1 space-y-1 -mt-1">
+        <p className="font-semibold text-[15px] leading-snug text-gray-900 line-clamp-2">{market.question}</p>
         <p className="text-xs text-muted-foreground inline-flex items-center gap-1.5">
           <Clock3 className="w-3 h-3" />
           {dateLabel} · {expired ? "expired" : timeLeftLabel}
@@ -114,6 +115,34 @@ function MarketTile({ market, creBlocked }: { market: Market; creBlocked: boolea
         </p>
       )}
     </SpotlightCard>
+  );
+}
+
+function MarketTileSkeleton() {
+  return (
+    <div className="relative overflow-hidden rounded-xl p-5 pl-10 border border-gray-200/80 bg-white/65 backdrop-blur-xl shadow-[0_16px_38px_rgba(15,23,42,0.08)]">
+      <div className="absolute -left-4 top-1/2 -translate-y-1/2 h-28 w-12 rounded-full blur-2xl bg-gray-300/35" />
+      <div className="absolute left-0 top-0 h-full w-3 bg-gray-400/60" />
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <Skeleton className="h-5 w-16 rounded-full" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-[88%]" />
+          <Skeleton className="h-4 w-[70%]" />
+          <Skeleton className="h-3 w-[52%]" />
+        </div>
+        <div className="space-y-2">
+          <div className="flex justify-between">
+            <Skeleton className="h-3 w-14" />
+            <Skeleton className="h-3 w-14" />
+          </div>
+          <Skeleton className="h-2 w-full rounded-full" />
+        </div>
+        <Skeleton className="h-9 w-full rounded-md" />
+      </div>
+    </div>
   );
 }
 
@@ -222,7 +251,7 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
   return (
     <div className="space-y-5">
       <div className="rounded-xl border border-gray-200/80 bg-white/65 backdrop-blur-xl p-3 shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <Input
@@ -234,7 +263,7 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
           </div>
           <Button
             variant="outline"
-            className="gap-1.5 shrink-0 bg-gray-100 hover:bg-gray-200 border-gray-300"
+            className="gap-1.5 shrink-0 w-full sm:w-auto bg-gray-100 hover:bg-gray-200 border-gray-300"
             disabled={creBlocked}
             onClick={() => {
               if (!account) setShowWalletDialog(true);
@@ -245,12 +274,12 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
             Create Market
           </Button>
         </div>
-        <div className="mt-2 flex items-center gap-1">
+        <div className="mt-2 flex items-center gap-1 overflow-x-auto pb-1">
           {SORT_OPTIONS.map((opt) => (
             <button
               key={opt.value}
               onClick={() => setSort(opt.value)}
-              className={`px-2 py-1 text-[11px] rounded-md border transition-colors ${
+              className={`px-2 py-1 text-[11px] rounded-md border transition-colors whitespace-nowrap ${
                 sort === opt.value
                   ? "bg-gray-100 text-gray-900 border-gray-300 font-medium"
                   : "text-gray-500 border-transparent hover:border-gray-200 hover:text-gray-700"
@@ -282,9 +311,10 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
       )}
 
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Loading markets...</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <MarketTileSkeleton key={`market-skeleton-${i}`} />
+          ))}
         </div>
       ) : error ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">

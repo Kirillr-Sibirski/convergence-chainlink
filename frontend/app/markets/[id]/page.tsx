@@ -10,6 +10,8 @@ import { BackgroundBeams } from "@/components/ui/background-beams";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { EthIcon } from "@/components/ui/eth-icon";
+import { Skeleton } from "@/components/ui/skeleton";
 import { MarketPriceChart } from "@/components/trading/MarketPriceChart";
 import { useWallet } from "@/hooks/useWallet";
 import { publicClient } from "@/lib/viem-client";
@@ -174,24 +176,74 @@ export default function MarketBetPage() {
       <SimpleHeader />
       <main className="relative z-10 px-4 py-8">
         <div className="container mx-auto max-w-6xl space-y-5">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Place Bet</h1>
-              {account && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Balance: {Number(formatEther(walletBalance)).toFixed(4)} ETH
-                </p>
-              )}
             </div>
             <Link href="/markets">
-              <Button variant="outline">Back to Markets</Button>
+              <Button variant="outline" className="w-full sm:w-auto">Back to Markets</Button>
             </Link>
           </div>
 
           {loading ? (
-            <Card className={CARD_SHELL}>
-              <CardContent className="pt-6 text-sm text-muted-foreground">Loading market...</CardContent>
-            </Card>
+            <div className="space-y-5">
+              <Card className={CARD_SHELL}>
+                <CardHeader className="space-y-2">
+                  <Skeleton className="h-5 w-[72%]" />
+                  <Skeleton className="h-4 w-[54%]" />
+                </CardHeader>
+                <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="space-y-2">
+                    <Skeleton className="h-3 w-16" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                  <div className="space-y-2">
+                    <Skeleton className="h-3 w-14" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                  <div className="space-y-2">
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div className="grid lg:grid-cols-[1.45fr_1fr] gap-5 items-stretch">
+                <Card className={`${CARD_SHELL} h-full`}>
+                  <CardHeader className="space-y-2">
+                    <Skeleton className="h-5 w-28" />
+                    <Skeleton className="h-4 w-48" />
+                  </CardHeader>
+                  <CardContent>
+                    <Skeleton className="h-[300px] w-full rounded-lg" />
+                  </CardContent>
+                </Card>
+
+                <Card className={`${CARD_SHELL} h-full`}>
+                  <CardHeader>
+                    <Skeleton className="h-5 w-28" />
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Skeleton className="h-10 w-full rounded-lg" />
+                    <Skeleton className="h-10 w-full rounded-lg" />
+                    <Skeleton className="h-10 w-full rounded-lg" />
+                    <Skeleton className="h-10 w-full rounded-md" />
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card className={CARD_SHELL}>
+                <CardHeader className="space-y-2">
+                  <Skeleton className="h-5 w-28" />
+                  <Skeleton className="h-4 w-44" />
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={`trade-history-skeleton-${i}`} className="h-14 w-full rounded-xl" />
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
           ) : !market ? (
             <Card className={CARD_SHELL}>
               <CardContent className="pt-6 text-sm text-destructive">Market not found.</CardContent>
@@ -216,21 +268,21 @@ export default function MarketBetPage() {
                 <CardHeader>
                   <CardTitle className="text-base">{market.question}</CardTitle>
                   <CardDescription>
-                    Market #{market.id} · {market.settled ? "Settled" : "Open"} · Close: {deadlineLabel}
+                    Resolution Time: {deadlineLabel}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-2 text-[12px]">
                   <div>
+                    <p className="text-muted-foreground">Total Volume</p>
+                    <p className="font-medium text-gray-700">{Number(formatEther(market.totalVolume)).toFixed(4)} ETH</p>
+                  </div>
+                  <div className="rounded-xl bg-white/45 backdrop-blur-md border border-black/10 px-3 py-2">
                     <p className="text-muted-foreground">YES Pool</p>
                     <p className="font-medium text-gray-700">{Number(formatEther(market.totalYes)).toFixed(4)} ETH</p>
                   </div>
-                  <div>
+                  <div className="rounded-xl bg-white/45 backdrop-blur-md border border-black/10 px-3 py-2">
                     <p className="text-muted-foreground">NO Pool</p>
                     <p className="font-medium text-gray-700">{Number(formatEther(market.totalNo)).toFixed(4)} ETH</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Total Volume</p>
-                    <p className="font-medium text-gray-700">{Number(formatEther(market.totalVolume)).toFixed(4)} ETH</p>
                   </div>
                 </CardContent>
               </Card>
@@ -295,29 +347,43 @@ export default function MarketBetPage() {
 
                         <div className="space-y-1">
                           <p className="text-[11px] tracking-[0.08em] uppercase text-gray-500">Outcome</p>
-                          <div className="grid grid-cols-2 rounded-lg bg-gray-100 p-1">
-                            <button
-                              type="button"
-                              disabled={creBlocked}
-                              onClick={() => setSide("YES")}
-                              className={`h-9 rounded-md text-sm font-medium transition ${
-                                side === "YES"
-                                  ? "bg-green-600 text-white shadow-sm"
-                                  : "text-green-700 hover:bg-green-50"
-                              }`}
-                            >
-                              YES
-                            </button>
-                            <button
-                              type="button"
-                              disabled={creBlocked}
-                              onClick={() => setSide("NO")}
-                              className={`h-9 rounded-md text-sm font-medium transition ${
-                                side === "NO" ? "bg-red-600 text-white shadow-sm" : "text-red-700 hover:bg-red-50"
-                              }`}
-                            >
-                              NO
-                            </button>
+                          <div className="grid grid-cols-2 gap-1 rounded-lg bg-gray-100 p-1">
+                            <div className="relative">
+                              <div
+                                className={`pointer-events-none absolute inset-0 rounded-md blur-md transition-opacity ${
+                                  side === "YES" ? "bg-green-400/40 opacity-100" : "bg-green-400/20 opacity-70"
+                                }`}
+                              />
+                              <button
+                                type="button"
+                                disabled={creBlocked}
+                                onClick={() => setSide("YES")}
+                                className={`relative z-10 h-9 w-full rounded-md text-sm font-medium transition ${
+                                  side === "YES"
+                                    ? "bg-green-600 text-white shadow-sm"
+                                    : "text-green-700 hover:bg-green-50"
+                                }`}
+                              >
+                                YES
+                              </button>
+                            </div>
+                            <div className="relative">
+                              <div
+                                className={`pointer-events-none absolute inset-0 rounded-md blur-md transition-opacity ${
+                                  side === "NO" ? "bg-red-400/40 opacity-100" : "bg-red-400/20 opacity-70"
+                                }`}
+                              />
+                              <button
+                                type="button"
+                                disabled={creBlocked}
+                                onClick={() => setSide("NO")}
+                                className={`relative z-10 h-9 w-full rounded-md text-sm font-medium transition ${
+                                  side === "NO" ? "bg-red-600 text-white shadow-sm" : "text-red-700 hover:bg-red-50"
+                                }`}
+                              >
+                                NO
+                              </button>
+                            </div>
                           </div>
                         </div>
 
@@ -332,14 +398,17 @@ export default function MarketBetPage() {
                               disabled={creBlocked}
                               onChange={(e) => setAmount(e.target.value)}
                               placeholder="0.0100"
-                              className="pr-24 bg-white"
+                              className="pr-28 bg-white"
                             />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">ETH</span>
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 text-xs text-gray-500">
+                              <EthIcon className="h-3 w-3" />
+                              ETH
+                            </span>
                             <button
                               type="button"
                               onClick={() => setAmount(formatEthInput(activeMaxWei))}
                               disabled={activeMaxWei === BigInt(0) || creBlocked}
-                              className="absolute right-12 top-1/2 -translate-y-1/2 text-[10px] font-semibold px-1.5 py-0.5 rounded border border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                              className="absolute right-16 top-1/2 -translate-y-1/2 text-[10px] font-semibold px-1.5 py-0.5 rounded border border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
                             >
                               MAX
                             </button>
@@ -406,7 +475,7 @@ export default function MarketBetPage() {
                   ) : (
                     <div className="space-y-2">
                       {tradeHistory.map((entry) => (
-                        <div key={`${entry.txHash}-${entry.logIndex}`} className="relative overflow-hidden rounded-xl bg-white/45 backdrop-blur-md px-3 py-2.5 pl-9 flex items-center justify-between gap-3">
+                        <div key={`${entry.txHash}-${entry.logIndex}`} className="relative overflow-hidden rounded-xl bg-white/45 backdrop-blur-md px-3 py-2.5 pl-9 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3">
                           <div
                             className={`absolute -left-4 top-1/2 -translate-y-1/2 h-24 w-10 rounded-full blur-2xl ${
                               entry.onYes ? "bg-green-400/45" : "bg-red-400/45"
@@ -419,7 +488,7 @@ export default function MarketBetPage() {
                             </span>
                           </div>
 
-                          <div className="min-w-0">
+                          <div className="min-w-0 w-full sm:w-auto">
                             <p className="text-sm font-medium text-gray-900">
                               {Number(formatEther(entry.amount)).toFixed(4)} ETH
                             </p>
@@ -431,7 +500,7 @@ export default function MarketBetPage() {
                             </p>
                           </div>
 
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
                             {entry.type === "buy" ? (
                               <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-green-700 text-xs font-medium">
                                 Buy

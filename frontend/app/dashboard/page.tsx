@@ -7,6 +7,7 @@ import { SimpleHeader } from "@/components/layout/SimpleHeader";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { Button } from "@/components/ui/button";
 import { BackgroundBeams } from "@/components/ui/background-beams";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Check, Copy, Loader2, TrendingUp } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
 import { useMarkets } from "@/hooks/useMarkets";
@@ -135,7 +136,28 @@ export default function DashboardPage() {
               </div>
             </SpotlightCard>
           ) : contentLoading ? (
-            <SpotlightCard className="p-8 text-sm text-muted-foreground">Loading your bets...</SpotlightCard>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Skeleton className="h-6 w-40" />
+                <Skeleton className="h-4 w-64" />
+              </div>
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={`dashboard-skeleton-${i}`}
+                    className="relative overflow-hidden rounded-xl p-5 pl-10 bg-white/45 backdrop-blur-md border border-black/10"
+                  >
+                    <div className="absolute -left-4 top-1/2 -translate-y-1/2 h-28 w-12 rounded-full blur-2xl bg-gray-300/35" />
+                    <div className="absolute left-0 top-0 h-full w-3 bg-gray-400/60" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-[78%]" />
+                      <Skeleton className="h-3 w-24 rounded-full" />
+                      <Skeleton className="h-3 w-32" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : error ? (
             <SpotlightCard className="p-8 text-sm text-destructive">{error}</SpotlightCard>
           ) : (
@@ -188,7 +210,7 @@ export default function DashboardPage() {
                         return (
                           <div
                             key={`resolved-${position.market.id}`}
-                            className="relative overflow-hidden rounded-xl p-5 pl-10 flex items-center justify-between gap-4 bg-white/45 backdrop-blur-md border border-black/10"
+                            className="relative overflow-hidden rounded-xl p-5 pl-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 bg-white/45 backdrop-blur-md border border-black/10"
                           >
                             <div className={`absolute -left-4 top-1/2 -translate-y-1/2 h-28 w-12 rounded-full blur-2xl ${resultGlow}`} />
                             <div className={`absolute left-0 top-0 h-full w-3 ${resultStripe}`} />
@@ -198,24 +220,34 @@ export default function DashboardPage() {
                               </span>
                             </div>
 
-                            <div className="min-w-0 space-y-1">
+                            <div className="min-w-0 w-full sm:w-auto space-y-1">
                               <p className="font-medium text-sm leading-snug line-clamp-2">{position.market.question}</p>
-                              <div className="flex items-center gap-2">
-                                <p className="text-[11px] inline-flex items-center rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-gray-600 w-fit">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-[11px] inline-flex items-center rounded-full border border-gray-300 bg-white/70 px-2 py-0.5 text-gray-600 w-fit">
                                   Resolved
+                                </p>
+                                <p
+                                  className={`text-[11px] inline-flex items-center rounded-full px-2 py-0.5 w-fit font-medium ${
+                                    hasWinningShares
+                                      ? "border border-green-300 bg-green-50 text-green-700"
+                                      : "border border-red-300 bg-red-50 text-red-700"
+                                  }`}
+                                >
+                                  {resultLabel}
                                 </p>
                               </div>
                               <p className="text-xs text-muted-foreground">
-                                Won ETH: {Number(formatEther(position.claimable)).toFixed(4)}
+                                Payout: {Number(formatEther(position.claimable)).toFixed(4)} ETH
                               </p>
                             </div>
                             {position.canClaim ? (
                               <Button
                                 size="sm"
                                 variant="outline"
+                                className="w-full sm:w-auto"
                                 disabled={claimingId === position.market.id || creBlocked}
                                 onClick={() => void handleClaim(position.market.id)}
-                                >
+                              >
                                   {claimingId === position.market.id ? (
                                     <span className="inline-flex items-center gap-1">
                                       <Loader2 className="w-3 h-3 animate-spin" />
@@ -225,9 +257,7 @@ export default function DashboardPage() {
                                     "Claim Winnings"
                                   )}
                               </Button>
-                            ) : (
-                              <p className="text-xs text-gray-500">No claim available</p>
-                            )}
+                            ) : null}
                           </div>
                         );
                       })()
@@ -250,7 +280,7 @@ export default function DashboardPage() {
                   <h2 className="text-lg font-semibold text-gray-900">Active Markets</h2>
                   {openPositions.map((position) => (
                     <Link key={position.market.id} href={`/markets/${position.market.id}`} className="block">
-                      <div className="relative overflow-hidden rounded-xl p-5 pl-10 flex items-center justify-between gap-4 bg-white/45 backdrop-blur-md border border-black/10">
+                      <div className="relative overflow-hidden rounded-xl p-5 pl-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 bg-white/45 backdrop-blur-md border border-black/10">
                         {(() => {
                           const primarySide = position.yesAmount >= position.noAmount ? "YES" : "NO";
                           const primaryAmount = primarySide === "YES" ? position.yesAmount : position.noAmount;
@@ -261,13 +291,24 @@ export default function DashboardPage() {
                             <>
                               <div className={`absolute -left-4 top-1/2 -translate-y-1/2 h-28 w-12 rounded-full blur-2xl ${glow}`} />
                               <div className={`absolute left-0 top-0 h-full w-3 ${stripe}`} />
-                              <div className="flex-1 min-w-0 space-y-1">
+                              <div className="flex-1 min-w-0 w-full sm:w-auto space-y-1">
                                 <p className="font-medium text-sm leading-snug">{position.market.question}</p>
-                                <p className="text-[11px] inline-flex items-center rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-emerald-700 w-fit">
-                                  Active
-                                </p>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-[11px] inline-flex items-center rounded-full border border-gray-300 bg-white/70 px-2 py-0.5 text-gray-600 w-fit">
+                                    Active
+                                  </p>
+                                  <p
+                                    className={`text-[11px] inline-flex items-center rounded-full px-2 py-0.5 w-fit font-medium ${
+                                      primarySide === "YES"
+                                        ? "border border-green-300 bg-green-50 text-green-700"
+                                        : "border border-red-300 bg-red-50 text-red-700"
+                                    }`}
+                                  >
+                                    {primarySide}
+                                  </p>
+                                </div>
                                 <p className="text-sm font-semibold text-gray-800">
-                                  {primarySide} · {Number(formatEther(primaryAmount)).toFixed(4)} ETH
+                                  Position: {Number(formatEther(primaryAmount)).toFixed(4)} ETH
                                 </p>
                               </div>
                               <div className="absolute left-0 top-0 h-full w-3 flex items-center justify-center">
@@ -278,8 +319,8 @@ export default function DashboardPage() {
                             </>
                           );
                         })()}
-                        <div className="shrink-0">
-                          <Button size="sm" variant="outline">Open</Button>
+                        <div className="shrink-0 w-full sm:w-auto">
+                          <Button size="sm" variant="outline" className="w-full sm:w-auto">Open</Button>
                         </div>
                       </div>
                     </Link>

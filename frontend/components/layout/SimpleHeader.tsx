@@ -47,10 +47,10 @@ export function SimpleHeader() {
   }, [account]);
 
   return (
-    <header className="relative z-20 px-6 pt-4">
-      <div className="mx-auto max-w-6xl rounded-xl border border-gray-200/70 bg-white/35 backdrop-blur-xl shadow-[0_12px_28px_rgba(15,23,42,0.08)] px-4 py-3">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+    <header className="relative z-20 px-3 sm:px-6 pt-3 sm:pt-4">
+      <div className="mx-auto max-w-6xl rounded-xl border border-gray-200/70 bg-white/35 backdrop-blur-xl shadow-[0_12px_28px_rgba(15,23,42,0.08)] px-3 sm:px-4 py-2.5 sm:py-3">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-4">
             <Link href="/" className="group">
               <div className="leading-tight">
                 <p className="text-lg font-semibold tracking-tight text-gray-900"><BrandName highlightVowels /></p>
@@ -59,14 +59,14 @@ export function SimpleHeader() {
                 </p>
               </div>
             </Link>
-            <nav className="flex items-center gap-1 rounded-lg border border-gray-200/80 bg-white/60 px-1.5 py-1">
+            <nav className="flex w-full sm:w-auto items-center gap-1 rounded-lg border border-gray-200/80 bg-white/60 px-1.5 py-1 overflow-x-auto">
               <Button
                 variant={isMarkets ? "secondary" : "ghost"}
                 size="sm"
                 className={isMarkets ? "bg-gray-900 text-white hover:bg-gray-800 border-gray-900" : ""}
                 asChild
               >
-                <Link href="/markets" className="flex flex-row items-center gap-1.5">
+                <Link href="/markets" className="flex flex-row items-center gap-1.5 whitespace-nowrap">
                   <TrendingUp className="w-4 h-4" />
                   Markets
                 </Link>
@@ -77,7 +77,7 @@ export function SimpleHeader() {
                 className={isDashboard ? "bg-gray-900 text-white hover:bg-gray-800 border-gray-900" : ""}
                 asChild
               >
-                <Link href="/dashboard" className="flex flex-row items-center gap-1.5">
+                <Link href="/dashboard" className="flex flex-row items-center gap-1.5 whitespace-nowrap">
                   <LayoutDashboard className="w-4 h-4" />
                   My Bets
                 </Link>
@@ -85,14 +85,14 @@ export function SimpleHeader() {
             </nav>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex w-full sm:w-auto items-center justify-end gap-2 sm:gap-3">
             {account ? (
               <>
-                <div className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white/75 px-2.5 py-1.5 text-xs text-gray-700">
+                <div className="hidden min-[430px]:inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white/75 px-2.5 py-1.5 text-xs text-gray-700">
                   <EthIcon className="h-3.5 w-3.5" />
                   <span>{balanceEth ?? "…"} ETH</span>
                 </div>
-                <Button variant="outline" size="sm" disabled className="bg-white/70 border-gray-300">
+                <Button variant="outline" size="sm" disabled className="bg-white/70 border-gray-300 text-xs px-2.5">
                   {shortAddress(account)}
                 </Button>
               </>
@@ -100,7 +100,7 @@ export function SimpleHeader() {
               <Button
                 variant="outline"
                 size="sm"
-                className="bg-white/70 border-gray-300 hover:bg-white"
+                className="w-full sm:w-auto bg-white/70 border-gray-300 hover:bg-white"
                 onClick={() => void connect()}
                 disabled={isConnecting}
               >
