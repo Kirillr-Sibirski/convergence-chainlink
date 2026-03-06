@@ -79,7 +79,7 @@ export default function DashboardPage() {
     [positions]
   );
   const resolvedPositions = useMemo(
-    () => [...positions].filter((p) => p.market.settled),
+    () => [...positions].filter((p) => p.market.settled && p.canClaim && p.claimable > BigInt(0)),
     [positions]
   );
 
