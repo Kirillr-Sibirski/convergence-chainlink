@@ -172,40 +172,68 @@ export default function DashboardPage() {
               )}
 
               {resolvedPositions.length > 0 && (
-                <SpotlightCard className="p-5 space-y-4">
+                <div className="space-y-4">
                   <h2 className="text-lg font-semibold text-gray-900">Resolved Markets</h2>
                   {actionError && <div className="text-sm text-destructive bg-destructive/10 rounded-md p-3">{actionError}</div>}
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {resolvedPositions.map((position) => (
-                      <div key={`resolved-${position.market.id}`} className="rounded-lg border border-gray-200 bg-white/80 p-3 flex items-center justify-between gap-3">
-                        <div className="min-w-0 space-y-1">
-                          <p className="text-sm font-medium leading-snug line-clamp-2">{position.market.question}</p>
-                          <p className="text-[11px] inline-flex items-center rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-gray-600 w-fit">
-                            Resolved
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            YES {Number(formatEther(position.yesAmount)).toFixed(4)} ETH · NO {Number(formatEther(position.noAmount)).toFixed(4)} ETH
-                          </p>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={!position.canClaim || claimingId === position.market.id || creBlocked}
-                          onClick={() => void handleClaim(position.market.id)}
-                        >
-                          {claimingId === position.market.id ? (
-                            <span className="inline-flex items-center gap-1">
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                              Claiming...
-                            </span>
-                          ) : (
-                            `Claim Winnings (${Number(formatEther(position.claimable)).toFixed(4)} ETH)`
-                          )}
-                        </Button>
-                      </div>
+                      (() => {
+                        const hasWinningShares = position.market.outcome
+                          ? position.yesAmount > BigInt(0)
+                          : position.noAmount > BigInt(0);
+                        const resultLabel = hasWinningShares ? "Won" : "Lost";
+                        const resultStripe = hasWinningShares ? "bg-green-500/75" : "bg-red-500/75";
+                        const resultGlow = hasWinningShares ? "bg-green-400/45" : "bg-red-400/45";
+
+                        return (
+                          <div
+                            key={`resolved-${position.market.id}`}
+                            className="relative overflow-hidden rounded-xl p-5 pl-10 flex items-center justify-between gap-4 bg-white/45 backdrop-blur-md border border-black/10"
+                          >
+                            <div className={`absolute -left-4 top-1/2 -translate-y-1/2 h-28 w-12 rounded-full blur-2xl ${resultGlow}`} />
+                            <div className={`absolute left-0 top-0 h-full w-3 ${resultStripe}`} />
+                            <div className="absolute left-0 top-0 h-full w-3 flex items-center justify-center">
+                              <span className="[writing-mode:vertical-rl] rotate-180 text-[8px] tracking-[0.12em] font-semibold text-white">
+                                {resultLabel.toUpperCase()}
+                              </span>
+                            </div>
+
+                            <div className="min-w-0 space-y-1">
+                              <p className="font-medium text-sm leading-snug line-clamp-2">{position.market.question}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="text-[11px] inline-flex items-center rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-gray-600 w-fit">
+                                  Resolved
+                                </p>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                Won ETH: {Number(formatEther(position.claimable)).toFixed(4)}
+                              </p>
+                            </div>
+                            {position.canClaim ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={claimingId === position.market.id || creBlocked}
+                                onClick={() => void handleClaim(position.market.id)}
+                                >
+                                  {claimingId === position.market.id ? (
+                                    <span className="inline-flex items-center gap-1">
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                      Claiming...
+                                    </span>
+                                  ) : (
+                                    "Claim Winnings"
+                                  )}
+                              </Button>
+                            ) : (
+                              <p className="text-xs text-gray-500">No claim available</p>
+                            )}
+                          </div>
+                        );
+                      })()
                     ))}
                   </div>
-                </SpotlightCard>
+                </div>
               )}
 
               {openPositions.length === 0 ? (

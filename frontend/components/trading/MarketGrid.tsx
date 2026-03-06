@@ -56,6 +56,7 @@ function MarketTile({ market, creBlocked }: { market: Market; creBlocked: boolea
   const timeLeftLabel = daysLeft > 0 ? `${daysLeft}d ${hoursLeft}h left` : `${hoursLeft}h left`;
   const noPercent = Math.max(0, 100 - market.yesPercent);
   const expired = market.deadline <= now;
+  const marketStateLabel = expired ? "EXPIRED" : "OPEN";
   const dateLabel = new Date(market.deadline * 1000).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
@@ -63,19 +64,26 @@ function MarketTile({ market, creBlocked }: { market: Market; creBlocked: boolea
   });
 
   return (
-    <SpotlightCard className="p-5 flex flex-col gap-4 bg-white/75 border-gray-200/80 backdrop-blur-xl shadow-[0_16px_38px_rgba(15,23,42,0.08)]">
-      <div className="flex items-center justify-between gap-2">
-        <span
-          className={`text-xs font-medium px-2 py-0.5 rounded-full border ${
-            expired ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-gray-100 text-gray-600 border-gray-200"
-          }`}
-        >
-          {expired ? "Expired" : "Open"}
+    <SpotlightCard className="relative overflow-hidden p-5 pl-10 flex flex-col gap-3 bg-white/75 border-gray-200/80 backdrop-blur-xl shadow-[0_16px_38px_rgba(15,23,42,0.08)]">
+      <div className="absolute -left-4 top-1/2 -translate-y-1/2 h-28 w-12 rounded-full blur-2xl bg-gray-400/35" />
+      <div className="absolute left-0 top-0 h-full w-3 bg-gray-500/70" />
+      <div className="absolute left-0 top-0 h-full w-3 flex items-center justify-center">
+        <span className="[writing-mode:vertical-rl] rotate-180 text-[8px] tracking-[0.12em] font-semibold text-white">
+          {marketStateLabel}
         </span>
-        <span className="text-xs text-muted-foreground tabular-nums shrink-0">{formatVolumeEth(market.totalVolume)}</span>
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        {expired && (
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full border bg-amber-50 text-amber-700 border-amber-200">
+            Expired
+          </span>
+        )}
+        <span className="ml-auto text-xs text-muted-foreground tabular-nums shrink-0">
+          Volume: {formatVolumeEth(market.totalVolume)}
+        </span>
       </div>
 
-      <div className="flex-1 space-y-2">
+      <div className="flex-1 space-y-1 -mt-0.5">
         <p className="font-semibold text-[15px] leading-snug text-gray-900 line-clamp-3">{market.question}</p>
         <p className="text-xs text-muted-foreground inline-flex items-center gap-1.5">
           <Clock3 className="w-3 h-3" />
