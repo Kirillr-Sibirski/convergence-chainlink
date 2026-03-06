@@ -29,16 +29,22 @@ contract DeployOracleScript is Script {
 
         vm.stopBroadcast();
 
+        string memory deploymentTag = "tenderly";
+        if (vm.envExists("DEPLOYMENT_TAG")) {
+            deploymentTag = vm.envString("DEPLOYMENT_TAG");
+        }
+
         // Save deployment info
         string memory deploymentInfo = string(abi.encodePacked(
             "{\n",
             '  "oracle": "', vm.toString(address(oracle)), '",\n',
             '  "forwarder": "', vm.toString(forwarderAddress), '",\n',
-            '  "network": "sepolia"\n',
+            '  "network": "', deploymentTag, '"\n',
             "}"
         ));
 
-        vm.writeFile("deployments/sepolia-oracle.json", deploymentInfo);
-        console.log("Deployment info saved to: deployments/sepolia-oracle.json");
+        string memory outputPath = string(abi.encodePacked("deployments/", deploymentTag, "-oracle.json"));
+        vm.writeFile(outputPath, deploymentInfo);
+        console.log("Deployment info saved to:", outputPath);
     }
 }

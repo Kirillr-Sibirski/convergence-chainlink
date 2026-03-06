@@ -479,6 +479,7 @@ contract AletheiaOracle is ReceiverTemplate {
         require(!markets[marketId].resolved, "Market already resolved");
         require(block.timestamp >= markets[marketId].deadline, "Deadline not passed");
         require(confidence <= 100, "Confidence must be <= 100");
+        require(confidence >= MINIMUM_CONFIDENCE, "Confidence below minimum");
 
         markets[marketId].resolved = true;
         markets[marketId].outcome = outcome;

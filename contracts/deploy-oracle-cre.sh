@@ -15,4 +15,4 @@ forge script script/DeployOracle.s.sol \
   --private-key "${PRIVATE_KEY}" \
   --broadcast
 
-echo "Done. Deployment file: contracts/deployments/sepolia-oracle.json"
+echo "Done."

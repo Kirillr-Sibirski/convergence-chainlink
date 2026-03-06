@@ -167,7 +167,7 @@ export function CreateMarketModal({ onClose, onValidate, onValidated }: CreateMa
       console.error("Failed to create market:", err);
       setSubmitStage("ready");
       if (autoTriggered) {
-        showError("Could not open wallet automatically. Click Step 2/2: Create Market.");
+        showError("Could not open wallet automatically. Click Step 2/3: Verify World ID.");
       } else {
         showError(err instanceof Error ? err.message : "Failed to create market");
       }
@@ -300,6 +300,10 @@ export function CreateMarketModal({ onClose, onValidate, onValidated }: CreateMa
               maxLength={200}
               disabled={isBusy}
             />
+            <p className="text-[11px] text-muted-foreground">
+              Orb verification is required. Policy preview: one market per wallet every 24 hours (not enforced in
+              beta).
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -444,7 +448,7 @@ export function CreateMarketModal({ onClose, onValidate, onValidated }: CreateMa
               {submitStage === "validating" ? (
                 <span className="inline-flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Step 1/2: Verifying...
+                  Step 1/3: Verifying with CRE...
                 </span>
               ) : submitStage === "awaiting-cre" ? (
                 <span className="inline-flex items-center gap-2">
@@ -452,14 +456,14 @@ export function CreateMarketModal({ onClose, onValidate, onValidated }: CreateMa
                   Waiting for CRE...
                 </span>
               ) : submitStage === "ready" ? (
-                "Step 2/2: Create Market"
+                "Step 2/3: Verify World ID"
               ) : submitStage === "creating" ? (
                 <span className="inline-flex items-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Step 2/2: Creating market...
+                  Step 3/3: Finalizing market creation...
                 </span>
               ) : (
-                "Step 1/2: Verify with CRE"
+                "Step 1/3: Verify with CRE"
               )}
             </Button>
           </div>

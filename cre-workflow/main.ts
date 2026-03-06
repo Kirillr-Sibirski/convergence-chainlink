@@ -1,11 +1,14 @@
 import {
 	bytesToHex,
+	consensusIdenticalAggregation,
 	type CronPayload,
 	cre,
 	encodeCallMsg,
 	getNetwork,
 	hexToBase64,
+	type HTTPSendRequester,
 	LAST_FINALIZED_BLOCK_NUMBER,
+	ok,
 	Runner,
 	type Runtime,
 	TxStatus,
@@ -20,6 +23,7 @@ const configSchema = z.object({
 	cronSchedule: z.string(), // e.g., "*/10 * * * *" for every 10 minutes
 	oracleAddress: z.string(), // AletheiaOracle.sol contract address
 	chainSelectorName: z.string(), // e.g., "ethereum-testnet-sepolia"
+	isTestnet: z.boolean().default(true),
 	gasLimit: z.string(),
 })
 
@@ -58,6 +62,21 @@ const REPORT_TYPE_QUESTION_VALIDATION = 3
 const CRE_HTTP_CALL_BUDGET_PER_RUN = 5
 const AI_CALLS_PER_EVALUATION = 4
 
+interface HttpQuestionValidationPayload {
+	type?: 'questionValidation'
+	question?: string
+	deadline?: string | number
+}
+
+interface HttpWorldIdVerifyPayload {
+	type: 'worldIdVerify'
+	rpId?: string
+	action?: string
+	idkitResponse?: Record<string, unknown>
+}
+
+type HttpTriggerPayload = HttpQuestionValidationPayload | HttpWorldIdVerifyPayload
+
 /**
  * Fetch pending markets from the oracle contract
  * Markets that have passed their deadline but are not yet resolved
@@ -66,7 +85,7 @@ const fetchPendingMarkets = (runtime: Runtime<Config>): Market[] => {
 	const network = getNetwork({
 		chainFamily: 'evm',
 		chainSelectorName: runtime.config.chainSelectorName,
-		isTestnet: true,
+		isTestnet: runtime.config.isTestnet,
 	})
 
 	if (!network) {
@@ -116,7 +135,7 @@ const fetchPendingValidationRequests = (runtime: Runtime<Config>): ValidationReq
 	const network = getNetwork({
 		chainFamily: 'evm',
 		chainSelectorName: runtime.config.chainSelectorName,
-		isTestnet: true,
+		isTestnet: runtime.config.isTestnet,
 	})
 
 	if (!network) {
@@ -286,7 +305,7 @@ const writeResolution = (
 	const network = getNetwork({
 		chainFamily: 'evm',
 		chainSelectorName: runtime.config.chainSelectorName,
-		isTestnet: true,
+		isTestnet: runtime.config.isTestnet,
 	})
 
 	if (!network) {
@@ -358,7 +377,7 @@ const writeValidationResult = (
 	const network = getNetwork({
 		chainFamily: 'evm',
 		chainSelectorName: runtime.config.chainSelectorName,
-		isTestnet: true,
+		isTestnet: runtime.config.isTestnet,
 	})
 
 	if (!network) {
@@ -433,7 +452,7 @@ const writeQuestionValidationResult = (
 	const network = getNetwork({
 		chainFamily: 'evm',
 		chainSelectorName: runtime.config.chainSelectorName,
-		isTestnet: true,
+		isTestnet: runtime.config.isTestnet,
 	})
 	if (!network) throw new Error(`Network not found: ${runtime.config.chainSelectorName}`)
 
@@ -482,9 +501,93 @@ const writeQuestionValidationResult = (
 	return bytesToHex(resp.txHash || new Uint8Array(32))
 }
 
-const onHttpTrigger = (runtime: Runtime<Config>, payload: { input: Uint8Array }): string => {
-	const raw = new TextDecoder().decode(payload.input)
-	const parsed = JSON.parse(raw) as { question?: string; deadline?: string | number }
+function extractErrorMessage(payload: Record<string, unknown>): string {
+	if (typeof payload.detail === 'string' && payload.detail.trim()) return payload.detail
+	if (typeof payload.error === 'string' && payload.error.trim()) return payload.error
+	if (typeof payload.message === 'string' && payload.message.trim()) return payload.message
+	return ''
+}
+
+function verifyWorldIdViaCRE(
+	runtime: Runtime<Config>,
+	rpId: string,
+	idkitResponse: Record<string, unknown>,
+): Record<string, unknown> {
+	const httpClient = new cre.capabilities.HTTPClient()
+	const verifyUrl = `https://developer.world.org/api/v4/verify/${rpId}`
+	const bodyBytes = new TextEncoder().encode(JSON.stringify(idkitResponse))
+	const body = Buffer.from(bodyBytes).toString('base64')
+
+	const req = {
+		url: verifyUrl,
+		method: 'POST' as const,
+		body,
+		headers: {
+			'Content-Type': 'application/json',
+		},
+		cacheSettings: {
+			maxAgeMs: 0,
+		},
+	}
+
+	const sendRequester = httpClient.sendRequest(
+		runtime,
+		(sendReq: HTTPSendRequester, _config: any) => {
+			const resp = sendReq.sendRequest(req).result()
+			const bodyText = new TextDecoder().decode(resp.body)
+			const parsed = bodyText ? (JSON.parse(bodyText) as Record<string, unknown>) : {}
+
+			if (!ok(resp)) {
+				const errMessage = extractErrorMessage(parsed) || bodyText || `HTTP ${resp.statusCode}`
+				throw new Error(`World ID verify API error: ${errMessage}`)
+			}
+
+			return parsed
+		},
+		consensusIdenticalAggregation<Record<string, unknown>>(),
+	)
+
+	return sendRequester(runtime.config).result()
+}
+
+const onHttpWorldIdTrigger = (runtime: Runtime<Config>, parsed: HttpWorldIdVerifyPayload): string => {
+	const rpId = String(parsed.rpId || '').trim()
+	if (!rpId) throw new Error('HTTP payload missing rpId for World ID verification')
+
+	const idkitResponse = parsed.idkitResponse
+	if (!idkitResponse || typeof idkitResponse !== 'object') {
+		throw new Error('HTTP payload missing idkitResponse for World ID verification')
+	}
+
+	const expectedAction = String(parsed.action || '')
+		.trim()
+		.toLowerCase()
+	const receivedAction = String((idkitResponse.action as string | undefined) || '')
+		.trim()
+		.toLowerCase()
+	if (expectedAction && receivedAction && expectedAction !== receivedAction) {
+		runtime.log(`World ID action mismatch: expected=${expectedAction} received=${receivedAction}`)
+		return JSON.stringify({
+			type: 'worldIdVerify',
+			verified: false,
+			error: `Action mismatch. Expected "${expectedAction}" but received "${receivedAction}".`,
+		})
+	}
+
+	const worldVerifyResult = verifyWorldIdViaCRE(runtime, rpId, idkitResponse)
+	const verified =
+		worldVerifyResult.success === true ||
+		worldVerifyResult.verified === true
+
+	runtime.log(`World ID verification completed via CRE: verified=${verified}`)
+	return JSON.stringify({
+		type: 'worldIdVerify',
+		verified,
+		detail: worldVerifyResult,
+	})
+}
+
+const onHttpQuestionValidationTrigger = (runtime: Runtime<Config>, parsed: HttpQuestionValidationPayload): string => {
 	const question = parsed.question?.trim() || ''
 	if (!question) throw new Error('HTTP payload missing question')
 
@@ -516,6 +619,17 @@ const onHttpTrigger = (runtime: Runtime<Config>, payload: { input: Uint8Array })
 	)
 	runtime.log(`Question validation written: digest=${digest}, deadline=${deadline}, approved=${approved}, tx=${txHash}`)
 	return JSON.stringify({ digest, deadline, approved, score: validation.score, txHash })
+}
+
+const onHttpTrigger = (runtime: Runtime<Config>, payload: { input: Uint8Array }): string => {
+	const raw = new TextDecoder().decode(payload.input)
+	const parsed = JSON.parse(raw) as HttpTriggerPayload
+
+	if ((parsed as HttpWorldIdVerifyPayload).type === 'worldIdVerify') {
+		return onHttpWorldIdTrigger(runtime, parsed as HttpWorldIdVerifyPayload)
+	}
+
+	return onHttpQuestionValidationTrigger(runtime, parsed as HttpQuestionValidationPayload)
 }
 
 /**

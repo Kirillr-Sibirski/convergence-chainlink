@@ -5,11 +5,11 @@ import { LayoutDashboard, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { formatEther } from "viem";
 import { useWallet } from "@/hooks/useWallet";
 import { BrandName } from "@/components/branding/BrandName";
-import { EthIcon } from "@/components/ui/eth-icon";
-import { publicClient } from "@/lib/viem-client";
+import { UsdcIcon } from "@/components/ui/usdc-icon";
+import { CONTRACTS } from "@/lib/contracts";
+import { formatCollateral, getCollateralBalance } from "@/lib/web3-viem";
 
 function shortAddress(address: string) {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -18,7 +18,7 @@ function shortAddress(address: string) {
 export function SimpleHeader() {
   const pathname = usePathname();
   const { account, connect, isConnecting } = useWallet();
-  const [balanceEth, setBalanceEth] = useState<string | null>(null);
+  const [balanceCollateral, setBalanceCollateral] = useState<string | null>(null);
   const isMarkets = pathname?.startsWith("/markets");
   const isDashboard = pathname?.startsWith("/dashboard");
 
@@ -27,16 +27,16 @@ export function SimpleHeader() {
 
     const loadBalance = async () => {
       if (!account) {
-        setBalanceEth(null);
+        setBalanceCollateral(null);
         return;
       }
       try {
-        const balance = await publicClient.getBalance({ address: account as `0x${string}` });
+        const balance = await getCollateralBalance(account as `0x${string}`);
         if (!cancelled) {
-          setBalanceEth(Number(formatEther(balance)).toFixed(4));
+          setBalanceCollateral(formatCollateral(balance, 4));
         }
       } catch {
-        if (!cancelled) setBalanceEth(null);
+        if (!cancelled) setBalanceCollateral(null);
       }
     };
 
@@ -89,8 +89,8 @@ export function SimpleHeader() {
             {account ? (
               <>
                 <div className="hidden min-[430px]:inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white/75 px-2.5 py-1.5 text-xs text-gray-700">
-                  <EthIcon className="h-3.5 w-3.5" />
-                  <span>{balanceEth ?? "…"} ETH</span>
+                  <UsdcIcon className="h-3.5 w-3.5" />
+                  <span>{balanceCollateral ?? "…"} {CONTRACTS.COLLATERAL_SYMBOL}</span>
                 </div>
                 <Button variant="outline" size="sm" disabled className="bg-white/70 border-gray-300 text-xs px-2.5">
                   {shortAddress(account)}

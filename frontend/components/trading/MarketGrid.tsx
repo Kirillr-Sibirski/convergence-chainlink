@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Clock3, Plus, Search, TrendingUp } from "lucide-react";
@@ -9,12 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { CreateMarketModal } from "@/components/trading/CreateMarketModal";
+import { WorldIdAutoFlow, type WorldIdOnchainProof, type WorldIdPendingFlow } from "@/components/trading/WorldIdAutoFlow";
 import { NotificationCenter, type NotificationItem } from "@/components/ui/notification-center";
 import { WalletRequiredDialog } from "@/components/wallet/WalletRequiredDialog";
 import { useWallet } from "@/hooks/useWallet";
 import type { Market } from "@/hooks/useMarkets";
+import { CONTRACTS } from "@/lib/contracts";
 import {
   createMarketVerified,
+  getLatestMarketCreationTimestampByCreator,
   getLatestQuestionValidationTimestamp,
   getQuestionValidationStatus,
   waitForQuestionValidation,
@@ -29,11 +32,12 @@ const SORT_OPTIONS = [
 
 type SortOption = (typeof SORT_OPTIONS)[number]["value"];
 const MANUAL_CRE_PENDING_ERROR = "CRE_MANUAL_SIMULATION_PENDING";
+const ZERO_HASH = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
 function formatVolumeEth(value: bigint) {
-  const n = Number(value) / 1e18;
-  if (n >= 1000) return `${n.toFixed(1)} ETH`;
-  return `${n.toFixed(3)} ETH`;
+  const n = Number(value) / 10 ** CONTRACTS.COLLATERAL_DECIMALS;
+  if (n >= 1000) return `${n.toFixed(1)} ${CONTRACTS.COLLATERAL_SYMBOL}`;
+  return `${n.toFixed(3)} ${CONTRACTS.COLLATERAL_SYMBOL}`;
 }
 
 function formatValidationFailureMessage(validation: {
@@ -159,7 +163,12 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
   const [sort, setSort] = useState<SortOption>("volume");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showWalletDialog, setShowWalletDialog] = useState(false);
+  const [pendingWorldFlow, setPendingWorldFlow] = useState<WorldIdPendingFlow | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const worldFlowPromiseRef = useRef<{ resolve: (proof: WorldIdOnchainProof) => void; reject: (error: Error) => void } | null>(
+    null
+  );
+  const creationCooldownWarningRef = useRef<string | null>(null);
   const { account } = useWallet();
 
   const pushNotification = (item: Omit<NotificationItem, "id">) => {
@@ -191,13 +200,67 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
     return false;
   };
 
+  const rejectWorldFlow = (message: string) => {
+    const pending = worldFlowPromiseRef.current;
+    worldFlowPromiseRef.current = null;
+    setPendingWorldFlow(null);
+    if (pending) {
+      pending.reject(new Error(message));
+    }
+  };
+
+  const resolveWorldFlow = (proof: WorldIdOnchainProof) => {
+    const pending = worldFlowPromiseRef.current;
+    worldFlowPromiseRef.current = null;
+    setPendingWorldFlow(null);
+    if (pending) {
+      pending.resolve(proof);
+    }
+  };
+
+  const requestWorldIdVerification = (question: string, deadline: number) =>
+    new Promise<WorldIdOnchainProof>((resolve, reject) => {
+      worldFlowPromiseRef.current = { resolve, reject };
+      setPendingWorldFlow({ question, deadline });
+    });
+
   const handleValidateMarket = async (question: string, deadline: number, requireFreshAfter: number) => {
     if (!ensureWallet()) throw new Error("Please connect your wallet first");
+
+    const latestCreationByUser = await getLatestMarketCreationTimestampByCreator(account as `0x${string}`);
+    if (latestCreationByUser) {
+      const now = Math.floor(Date.now() / 1000);
+      const secondsSince = now - latestCreationByUser;
+      if (secondsSince < 24 * 60 * 60) {
+        const unlockAt = new Date((latestCreationByUser + 24 * 60 * 60) * 1000).toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+          timeZone: "UTC",
+        });
+        const warningKey = `${(account ?? "").toLowerCase()}:${latestCreationByUser}`;
+        if (creationCooldownWarningRef.current !== warningKey) {
+          creationCooldownWarningRef.current = warningKey;
+          pushNotification({
+            variant: "error",
+            title: "One-market-per-day check (warning only)",
+            description: `This wallet created a market in the last 24h. Next eligible time: ${unlockAt} UTC. Enforcement is not on yet.`,
+          });
+        }
+      }
+    } else {
+      creationCooldownWarningRef.current = null;
+    }
 
     const triggerUrlConfigured = Boolean(process.env.NEXT_PUBLIC_CRE_HTTP_TRIGGER_URL);
     const existing = await getQuestionValidationStatus(question, deadline);
     if (existing.processed) {
       if (!existing.approved) throw new Error(formatValidationFailureMessage(existing));
+      if (existing.proofHash === ZERO_HASH) {
+        throw new Error("CRE validation proof hash is missing onchain. Re-run CRE validation.");
+      }
       if (!triggerUrlConfigured) {
         const latestValidationAt = await getLatestQuestionValidationTimestamp(question, deadline);
         if (!latestValidationAt || latestValidationAt < requireFreshAfter) {
@@ -217,21 +280,22 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
 
   };
 
-  const handleCreateMarket = async (question: string, deadline: number) => {
+  const handleCreateMarket = async (question: string, deadline: number, worldIdProof: WorldIdOnchainProof) => {
     if (!ensureWallet()) throw new Error("Please connect your wallet first");
 
     const validation = await getQuestionValidationStatus(question, deadline);
-    if (!validation.processed || !validation.approved) {
+    if (!validation.processed || !validation.approved || validation.proofHash === ZERO_HASH) {
       throw new Error("Question is not verified yet. Click Validate Question and wait for CRE verification.");
     }
 
-    await createMarketVerified(question, deadline);
+    await createMarketVerified(question, deadline, worldIdProof);
     if (onRefresh) await onRefresh();
   };
 
   const handleValidatedHandoff = async (question: string, deadline: number) => {
     try {
-      await handleCreateMarket(question, deadline);
+      const worldIdProof = await requestWorldIdVerification(question, deadline);
+      await handleCreateMarket(question, deadline, worldIdProof);
       setShowCreateModal(false);
       router.push("/markets");
       pushNotification({
@@ -240,11 +304,13 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
         description: question,
       });
     } catch (createError) {
+      const description = createError instanceof Error ? createError.message : "Unknown error";
       pushNotification({
         variant: "error",
         title: "Failed to create market",
-        description: createError instanceof Error ? createError.message : "Unknown error",
+        description,
       });
+      throw createError instanceof Error ? createError : new Error(description);
     }
   };
 
@@ -320,7 +386,9 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <AlertCircle className="w-8 h-8 text-destructive" />
           <p className="text-sm text-destructive">{error}</p>
-          <p className="text-xs text-muted-foreground">Make sure you're connected to Sepolia testnet</p>
+          <p className="text-xs text-muted-foreground">
+            Make sure you're connected to {CONTRACTS.NETWORK_NAME}
+          </p>
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground">
@@ -342,6 +410,19 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
           onValidated={handleValidatedHandoff}
         />
       )}
+      <WorldIdAutoFlow
+        flow={pendingWorldFlow}
+        walletAddress={account ?? ""}
+        onVerified={async (_flow, proof) => {
+          resolveWorldFlow(proof);
+        }}
+        onCancelled={() => {
+          rejectWorldFlow("World ID verification was cancelled.");
+        }}
+        onError={(message) => {
+          rejectWorldFlow(message);
+        }}
+      />
       {showWalletDialog && <WalletRequiredDialog onClose={() => setShowWalletDialog(false)} />}
       <NotificationCenter
         items={notifications}

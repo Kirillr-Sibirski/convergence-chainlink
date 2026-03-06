@@ -3,23 +3,25 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { formatEther, parseEther } from "viem";
+import { formatUnits, parseUnits } from "viem";
 import { ArrowRight } from "lucide-react";
 import { SimpleHeader } from "@/components/layout/SimpleHeader";
 import { BackgroundBeams } from "@/components/ui/background-beams";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { EthIcon } from "@/components/ui/eth-icon";
+import { UsdcIcon } from "@/components/ui/usdc-icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MarketPriceChart } from "@/components/trading/MarketPriceChart";
 import { useWallet } from "@/hooks/useWallet";
-import { publicClient } from "@/lib/viem-client";
+import { CONTRACTS } from "@/lib/contracts";
 import {
   claimWinnings,
+  formatCollateral,
   fetchMarkets,
   fetchMarketPriceHistory,
   fetchMarketTradeHistory,
+  getCollateralBalance,
   getUserBet,
   getUserClaimablePayout,
   type MarketTradeEntry,
@@ -32,18 +34,24 @@ import { CRE_SIM_CMD, getPendingCreResolutionCount } from "@/lib/cre-gate";
 
 type Side = "YES" | "NO";
 type Mode = "buy" | "sell";
-const GAS_BUFFER_WEI = parseEther("0.001");
 const CARD_SHELL = "border-gray-200/80 bg-white/72 backdrop-blur-xl shadow-[0_16px_34px_rgba(15,23,42,0.08)]";
+const EXPLORER_TX_BASE_URL =
+  process.env.NEXT_PUBLIC_EXPLORER_TX_BASE_URL?.trim() ||
+  (() => {
+    const base = process.env.NEXT_PUBLIC_BLOCK_EXPLORER_URL?.trim();
+    if (!base) return "";
+    return `${base.replace(/\/$/, "")}/tx/`;
+  })();
 
-function formatEthInput(value: bigint): string {
-  const raw = formatEther(value);
+function formatCollateralInput(value: bigint): string {
+  const raw = formatUnits(value, CONTRACTS.COLLATERAL_DECIMALS);
   return raw.replace(/\.?0+$/, "");
 }
 
-function parseAmountWei(amount: string): bigint | null {
+function parseAmountUnits(amount: string): bigint | null {
   try {
     if (!amount || Number(amount) <= 0) return null;
-    return parseEther(amount);
+    return parseUnits(amount, CONTRACTS.COLLATERAL_DECIMALS);
   } catch {
     return null;
   }
@@ -60,6 +68,16 @@ function fmtTradeTs(ts: number) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function isUserRejectedErrorMessage(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("user reject") ||
+    normalized.includes("user denied") ||
+    normalized.includes("user cancel") ||
+    normalized.includes("rejected the request")
+  );
 }
 
 export default function MarketBetPage() {
@@ -79,6 +97,7 @@ export default function MarketBetPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorVariant, setErrorVariant] = useState<"error" | "info">("error");
   const [pendingCreResolution, setPendingCreResolution] = useState(0);
 
   const load = useCallback(async () => {
@@ -108,7 +127,7 @@ export default function MarketBetPage() {
       }
 
       if (current && account) {
-        const balance = await publicClient.getBalance({ address: account as `0x${string}` });
+        const balance = await getCollateralBalance(account as `0x${string}`);
         const bet = await getUserBet(current.id, account as `0x${string}`);
         const [canClaim, payout] = await getUserClaimablePayout(current.id, account as `0x${string}`);
         setWalletBalance(balance);
@@ -123,6 +142,7 @@ export default function MarketBetPage() {
       }
     } catch (err) {
       console.error(err);
+      setErrorVariant("error");
       setError(err instanceof Error ? err.message : "Failed to load market");
     } finally {
       setLoading(false);
@@ -133,15 +153,24 @@ export default function MarketBetPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!error) return;
+    const timeoutMs = errorVariant === "info" ? 2600 : 5200;
+    const id = window.setTimeout(() => {
+      setError(null);
+    }, timeoutMs);
+    return () => window.clearTimeout(id);
+  }, [error, errorVariant]);
+
   const now = Math.floor(Date.now() / 1000);
   const expired = useMemo(() => !!market && market.deadline <= now, [market, now]);
   const creBlocked = pendingCreResolution > 0;
   const canBet = !!market && !market.settled && !expired && !creBlocked;
   const selectedBalance = side === "YES" ? yesBet : noBet;
-  const maxBuyWei = walletBalance > GAS_BUFFER_WEI ? walletBalance - GAS_BUFFER_WEI : BigInt(0);
+  const maxBuyWei = walletBalance;
   const maxSellWei = selectedBalance;
   const activeMaxWei = mode === "buy" ? maxBuyWei : maxSellWei;
-  const amountWei = parseAmountWei(amount);
+  const amountWei = parseAmountUnits(amount);
   const deadlineLabel = market
     ? new Date(market.deadline * 1000).toLocaleString("en-US", {
         month: "short",
@@ -163,7 +192,14 @@ export default function MarketBetPage() {
         await load();
       } catch (err) {
         console.error(err);
-        setError(err instanceof Error ? err.message : "Transaction failed");
+        const message = err instanceof Error ? err.message : "Transaction failed";
+        if (isUserRejectedErrorMessage(message)) {
+          setErrorVariant("info");
+          setError("Transaction cancelled in wallet. No changes were made.");
+        } else {
+          setErrorVariant("error");
+          setError(message);
+        }
       } finally {
         setBusy(false);
       }
@@ -274,15 +310,21 @@ export default function MarketBetPage() {
                 <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-2 text-[12px]">
                   <div>
                     <p className="text-muted-foreground">Total Volume</p>
-                    <p className="font-medium text-gray-700">{Number(formatEther(market.totalVolume)).toFixed(4)} ETH</p>
+                    <p className="font-medium text-gray-700">
+                      {formatCollateral(market.totalVolume)} {CONTRACTS.COLLATERAL_SYMBOL}
+                    </p>
                   </div>
                   <div className="rounded-xl bg-white/45 backdrop-blur-md border border-black/10 px-3 py-2">
                     <p className="text-muted-foreground">YES Pool</p>
-                    <p className="font-medium text-gray-700">{Number(formatEther(market.totalYes)).toFixed(4)} ETH</p>
+                    <p className="font-medium text-gray-700">
+                      {formatCollateral(market.totalYes)} {CONTRACTS.COLLATERAL_SYMBOL}
+                    </p>
                   </div>
                   <div className="rounded-xl bg-white/45 backdrop-blur-md border border-black/10 px-3 py-2">
                     <p className="text-muted-foreground">NO Pool</p>
-                    <p className="font-medium text-gray-700">{Number(formatEther(market.totalNo)).toFixed(4)} ETH</p>
+                    <p className="font-medium text-gray-700">
+                      {formatCollateral(market.totalNo)} {CONTRACTS.COLLATERAL_SYMBOL}
+                    </p>
                   </div>
                 </CardContent>
               </Card>
@@ -401,12 +443,12 @@ export default function MarketBetPage() {
                               className="pr-28 bg-white"
                             />
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 inline-flex items-center gap-1 text-xs text-gray-500">
-                              <EthIcon className="h-3 w-3" />
-                              ETH
+                              <UsdcIcon className="h-3 w-3" />
+                              {CONTRACTS.COLLATERAL_SYMBOL}
                             </span>
                             <button
                               type="button"
-                              onClick={() => setAmount(formatEthInput(activeMaxWei))}
+                              onClick={() => setAmount(formatCollateralInput(activeMaxWei))}
                               disabled={activeMaxWei === BigInt(0) || creBlocked}
                               className="absolute right-16 top-1/2 -translate-y-1/2 text-[10px] font-semibold px-1.5 py-0.5 rounded border border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
                             >
@@ -456,7 +498,9 @@ export default function MarketBetPage() {
                             })
                           }
                         >
-                          {busy ? "Claiming..." : `Claim ${Number(formatEther(claimable)).toFixed(4)} ETH`}
+                          {busy
+                            ? "Claiming..."
+                            : `Claim ${formatCollateral(claimable)} ${CONTRACTS.COLLATERAL_SYMBOL}`}
                         </Button>
                       )}
                     </CardContent>
@@ -490,7 +534,7 @@ export default function MarketBetPage() {
 
                           <div className="min-w-0 w-full sm:w-auto">
                             <p className="text-sm font-medium text-gray-900">
-                              {Number(formatEther(entry.amount)).toFixed(4)} ETH
+                              {formatCollateral(entry.amount)} {CONTRACTS.COLLATERAL_SYMBOL}
                             </p>
                             <p className="text-[11px] text-muted-foreground">
                               {account && entry.trader.toLowerCase() === account.toLowerCase()
@@ -510,14 +554,16 @@ export default function MarketBetPage() {
                                 Sell
                               </span>
                             )}
-                            <a
-                              href={`https://sepolia.etherscan.io/tx/${entry.txHash}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-xs text-gray-500 hover:text-gray-800 underline underline-offset-2"
-                            >
-                              Tx
-                            </a>
+                            {EXPLORER_TX_BASE_URL ? (
+                              <a
+                                href={`${EXPLORER_TX_BASE_URL}${entry.txHash}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs text-gray-500 hover:text-gray-800 underline underline-offset-2"
+                              >
+                                Tx
+                              </a>
+                            ) : null}
                           </div>
                         </div>
                       ))}
@@ -529,9 +575,15 @@ export default function MarketBetPage() {
           )}
 
           {error && (
-            <Card className={CARD_SHELL}>
-              <CardContent className="pt-6 text-sm text-destructive">{error}</CardContent>
-            </Card>
+            <div
+              className={`fixed top-4 right-4 z-[320] max-w-sm rounded-lg border px-4 py-2 text-sm shadow-lg ${
+                errorVariant === "info"
+                  ? "border-gray-300 bg-white text-gray-800"
+                  : "border-red-200 bg-red-50 text-red-700"
+              }`}
+            >
+              {error}
+            </div>
           )}
         </div>
       </main>

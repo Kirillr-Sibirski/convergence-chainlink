@@ -1,12 +1,37 @@
 export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
 
+function envAddress(name: string, fallback: `0x${string}`): `0x${string}` {
+  const value = process.env[name]?.trim();
+  if (value && /^0x[a-fA-F0-9]{40}$/.test(value)) {
+    return value as `0x${string}`;
+  }
+  return fallback;
+}
+
+function envNumber(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 export const CONTRACTS = {
-  ORACLE_ADDRESS: "0x7c15bd1d23630f413afbae8d5f88ea1088013bb5" as const,
-  PREDICTION_MARKET_ADDRESS: "0x29c53c50dfe93d6b4eb2e4dc1c41499bb6d7a024" as const,
+  ORACLE_ADDRESS: envAddress("NEXT_PUBLIC_ORACLE_ADDRESS", "0x623f9f72342a3c2518c880d8372de90eaef200cd"),
+  PREDICTION_MARKET_ADDRESS: envAddress(
+    "NEXT_PUBLIC_PREDICTION_MARKET_ADDRESS",
+    "0xb38f8a149f95850cb5eff5fce5621d36b8f8bbd0"
+  ),
+  COLLATERAL_TOKEN_ADDRESS: envAddress(
+    "NEXT_PUBLIC_COLLATERAL_TOKEN_ADDRESS",
+    "0x7df5e8cc9e847afa8ec91d896c1fbad0fcb86c07"
+  ),
+  COLLATERAL_SYMBOL: process.env.NEXT_PUBLIC_COLLATERAL_SYMBOL?.trim() || "USDC",
+  COLLATERAL_DECIMALS: envNumber("NEXT_PUBLIC_COLLATERAL_DECIMALS", 18),
+  NETWORK_NAME: process.env.NEXT_PUBLIC_NETWORK_NAME?.trim() || "Tenderly Virtual TestNet",
   FACTORY_ADDRESS: ZERO_ADDRESS,
   AEEIA_TOKEN_ADDRESS: ZERO_ADDRESS,
   STAKING_ADDRESS: ZERO_ADDRESS,
-  CHAIN_ID: 11155111,
+  CHAIN_ID: envNumber("NEXT_PUBLIC_CHAIN_ID", 9991),
 } as const;
 
 export const ORACLE_ABI = [
@@ -46,6 +71,7 @@ export const ALETHEIA_MARKET_ABI = [
       { internalType: "string", name: "question", type: "string" },
       { internalType: "uint256", name: "deadline", type: "uint256" },
       { internalType: "uint256", name: "root", type: "uint256" },
+      { internalType: "uint256", name: "signalHash", type: "uint256" },
       { internalType: "uint256", name: "nullifierHash", type: "uint256" },
       { internalType: "uint256[8]", name: "proof", type: "uint256[8]" },
     ],
@@ -65,10 +91,11 @@ export const ALETHEIA_MARKET_ABI = [
     inputs: [
       { internalType: "uint256", name: "marketId", type: "uint256" },
       { internalType: "bool", name: "onYes", type: "bool" },
+      { internalType: "uint256", name: "amount", type: "uint256" },
     ],
     name: "placeBet",
     outputs: [],
-    stateMutability: "payable",
+    stateMutability: "nonpayable",
     type: "function",
   },
   {
@@ -80,6 +107,13 @@ export const ALETHEIA_MARKET_ABI = [
     name: "sellShares",
     outputs: [],
     stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "collateralToken",
+    outputs: [{ internalType: "contract IERC20", name: "", type: "address" }],
+    stateMutability: "view",
     type: "function",
   },
   {
@@ -174,5 +208,49 @@ export const ALETHEIA_MARKET_ABI = [
     ],
     name: "MarketCreated",
     type: "event",
+  },
+] as const;
+
+export const ERC20_ABI = [
+  {
+    inputs: [
+      { internalType: "address", name: "owner", type: "address" },
+      { internalType: "address", name: "spender", type: "address" },
+    ],
+    name: "allowance",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "spender", type: "address" },
+      { internalType: "uint256", name: "amount", type: "uint256" },
+    ],
+    name: "approve",
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address", name: "account", type: "address" }],
+    name: "balanceOf",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "decimals",
+    outputs: [{ internalType: "uint8", name: "", type: "uint8" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "symbol",
+    outputs: [{ internalType: "string", name: "", type: "string" }],
+    stateMutability: "view",
+    type: "function",
   },
 ] as const;

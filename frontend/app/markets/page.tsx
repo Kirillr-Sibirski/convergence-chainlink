@@ -17,7 +17,7 @@ export default function MarketsPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Markets</h1>
             <p className="text-sm text-gray-500">
-              Create markets, place ETH bets, and track results.
+              Create markets, place bets, and track results.
             </p>
           </div>
 

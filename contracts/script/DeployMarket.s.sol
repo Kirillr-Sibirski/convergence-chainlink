@@ -21,9 +21,11 @@ contract DeployMarketScript is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address worldIdAddress = vm.envAddress("WORLD_ID_ROUTER_ADDRESS");
+        address collateralTokenAddress = vm.envAddress("COLLATERAL_TOKEN_ADDRESS");
         string memory worldIdAppId = vm.envString("WORLD_ID_APP_ID");
         string memory worldIdAction = vm.envString("WORLD_ID_ACTION");
         require(worldIdAddress != address(0), "WORLD_ID_ROUTER_ADDRESS not set");
+        require(collateralTokenAddress != address(0), "COLLATERAL_TOKEN_ADDRESS not set");
         address oracleAddress = _loadOracleAddress();
 
         require(oracleAddress != address(0), "Oracle address not found");
@@ -32,7 +34,9 @@ contract DeployMarketScript is Script {
 
         console.log("Deploying AletheiaMarket...");
         console.log("Oracle address:", oracleAddress);
-        AletheiaMarket market = new AletheiaMarket(oracleAddress, worldIdAddress, worldIdAppId, worldIdAction);
+        console.log("Collateral token:", collateralTokenAddress);
+        AletheiaMarket market =
+            new AletheiaMarket(oracleAddress, collateralTokenAddress, worldIdAddress, worldIdAppId, worldIdAction);
         console.log("AletheiaMarket deployed at:", address(market));
 
         // Wire oracle -> market callback for CRE-driven auto-settlement
@@ -46,5 +50,6 @@ contract DeployMarketScript is Script {
         console.log("Contract addresses:");
         console.log("  Oracle:", oracleAddress);
         console.log("  Market:", address(market));
+        console.log("  Collateral:", collateralTokenAddress);
     }
 }

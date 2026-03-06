@@ -3,8 +3,7 @@ set -euo pipefail
 
 # Deploy AletheiaMarket and wire Oracle callback.
 # Prereqs:
-# - contracts/deployments/sepolia-factory.json exists
-# - contracts/deployments/sepolia-oracle.json exists
+# - oracle already deployed and set in ORACLE_ADDRESS
 # Usage:
 #   PRIVATE_KEY=0x... RPC_URL=https://... ./contracts/deploy-prediction-market.sh
 
@@ -17,4 +16,4 @@ forge script script/DeployMarket.s.sol \
   --private-key "${PRIVATE_KEY}" \
   --broadcast
 
-echo "Done. Deployment file: contracts/deployments/sepolia-market.json"
+echo "Done."

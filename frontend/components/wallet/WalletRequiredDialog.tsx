@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { X, Wallet } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
+import { CONTRACTS } from "@/lib/contracts";
 
 interface WalletRequiredDialogProps {
   onClose: () => void;
@@ -56,7 +57,7 @@ export function WalletRequiredDialog({ onClose }: WalletRequiredDialogProps) {
           </div>
 
           <p className="text-xs text-center text-muted-foreground">
-            Make sure your wallet is on Sepolia testnet.
+            Make sure your wallet is on {CONTRACTS.NETWORK_NAME}.
           </p>
         </CardContent>
       </Card>

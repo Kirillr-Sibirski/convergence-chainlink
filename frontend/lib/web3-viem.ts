@@ -1,8 +1,15 @@
 "use client";
 
-import { encodeAbiParameters, formatEther, keccak256, parseAbiParameters, parseEther } from "viem";
-import { ALETHEIA_MARKET_ABI, CONTRACTS, ORACLE_ABI } from "./contracts";
-import { ensureSepoliaNetwork, getWalletClient, publicClient } from "./viem-client";
+import {
+  encodeAbiParameters,
+  formatUnits,
+  keccak256,
+  maxUint256,
+  parseAbiParameters,
+  parseUnits,
+} from "viem";
+import { ALETHEIA_MARKET_ABI, CONTRACTS, ERC20_ABI, ORACLE_ABI } from "./contracts";
+import { ensureSupportedNetwork, getWalletClient, publicClient } from "./viem-client";
 
 export interface UIMarket {
   id: number;
@@ -25,6 +32,7 @@ export interface QuestionValidationStatus {
   processed: boolean;
   approved: boolean;
   score: number;
+  proofHash: `0x${string}`;
   checks: {
     legitimate: boolean;
     clearTimeline: boolean;
@@ -62,14 +70,8 @@ export interface MarketTradeEntry {
   amount: bigint;
 }
 
-export interface WorldIdProofInput {
-  root: bigint;
-  nullifierHash: bigint;
-  proof: readonly [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint];
-}
-
 export async function connectWallet(): Promise<`0x${string}`> {
-  await ensureSepoliaNetwork();
+  await ensureSupportedNetwork();
   const walletClient = getWalletClient();
   const [account] = await walletClient.requestAddresses();
   return account;
@@ -87,11 +89,67 @@ function toPercent(yes: bigint, no: bigint): number {
   return Math.round(Number((yes * BigInt(10000)) / total) / 100);
 }
 
+function isUserRejectedError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("user rejected") ||
+    normalized.includes("user denied") ||
+    normalized.includes("user cancel") ||
+    normalized.includes("rejected the request")
+  );
+}
+
 async function writeContractAndWait(request: any): Promise<WalletWriteResult> {
-  const walletClient = getWalletClient();
-  const hash = await walletClient.writeContract(request);
-  const receipt = await publicClient.waitForTransactionReceipt({ hash });
-  return { hash, blockNumber: receipt.blockNumber };
+  try {
+    const walletClient = getWalletClient();
+    const hash = await walletClient.writeContract(request);
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    return { hash, blockNumber: receipt.blockNumber };
+  } catch (error) {
+    if (isUserRejectedError(error)) {
+      throw new Error("Transaction cancelled in wallet.");
+    }
+    throw error;
+  }
+}
+
+export async function getCollateralDecimals(): Promise<number> {
+  if (CONTRACTS.COLLATERAL_TOKEN_ADDRESS === "0x0000000000000000000000000000000000000000") {
+    return CONTRACTS.COLLATERAL_DECIMALS;
+  }
+
+  try {
+    const decimals = (await publicClient.readContract({
+      address: CONTRACTS.COLLATERAL_TOKEN_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: "decimals",
+    })) as number;
+    return Number(decimals);
+  } catch {
+    return CONTRACTS.COLLATERAL_DECIMALS;
+  }
+}
+
+export async function getCollateralBalance(address: `0x${string}`): Promise<bigint> {
+  if (CONTRACTS.COLLATERAL_TOKEN_ADDRESS === "0x0000000000000000000000000000000000000000") {
+    return BigInt(0);
+  }
+
+  return (await publicClient.readContract({
+    address: CONTRACTS.COLLATERAL_TOKEN_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: "balanceOf",
+    args: [address],
+  })) as bigint;
+}
+
+export function formatCollateral(value: bigint, fractionDigits = 4): string {
+  return Number(formatUnits(value, CONTRACTS.COLLATERAL_DECIMALS)).toFixed(fractionDigits);
+}
+
+function parseCollateral(value: string): bigint {
+  return parseUnits(value, CONTRACTS.COLLATERAL_DECIMALS);
 }
 
 export async function fetchMarkets(): Promise<UIMarket[]> {
@@ -168,6 +226,7 @@ export async function getQuestionValidationStatus(
     processed: result[0],
     approved: result[1],
     score: Number(result[2]),
+    proofHash: result[7],
     checks: {
       legitimate: result[3],
       clearTimeline: result[4],
@@ -253,23 +312,67 @@ export async function waitForQuestionValidation(
   throw new Error("Validation report not found onchain yet. CRE verification is still pending.");
 }
 
+export async function getLatestMarketCreationTimestampByCreator(
+  creator: `0x${string}`,
+  lookbackBlocks: bigint = BigInt(20000)
+): Promise<number | null> {
+  const latest = await publicClient.getBlockNumber();
+  const fromBlock = latest > lookbackBlocks ? latest - lookbackBlocks : BigInt(0);
+  const marketCreatedEvent = {
+    type: "event" as const,
+    name: "MarketCreated" as const,
+    inputs: [
+      { indexed: true, name: "marketId", type: "uint256" as const },
+      { indexed: true, name: "oracleMarketId", type: "uint256" as const },
+      { indexed: false, name: "question", type: "string" as const },
+      { indexed: false, name: "deadline", type: "uint256" as const },
+    ],
+  };
+
+  const logs = await getLogsChunked({
+    address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
+    event: marketCreatedEvent,
+    fromBlock,
+    toBlock: latest,
+  });
+
+  if (logs.length === 0) return null;
+
+  const normalizedCreator = creator.toLowerCase();
+  const ordered = [...logs].sort((a, b) => {
+    if (a.blockNumber === b.blockNumber) {
+      return Number((b.logIndex ?? 0) - (a.logIndex ?? 0));
+    }
+    return a.blockNumber > b.blockNumber ? -1 : 1;
+  });
+
+  for (const log of ordered) {
+    const txHash = log.transactionHash as `0x${string}` | undefined;
+    if (!txHash) continue;
+
+    const tx = await publicClient.getTransaction({ hash: txHash });
+    if (tx.from.toLowerCase() !== normalizedCreator) continue;
+
+    const block = await publicClient.getBlock({ blockNumber: log.blockNumber });
+    return Number(block.timestamp);
+  }
+
+  return null;
+}
+
 export async function createMarketVerified(
   question: string,
-  deadlineTimestamp: number
+  deadlineTimestamp: number,
+  worldIdProof: {
+    root: bigint;
+    signalHash: bigint;
+    nullifierHash: bigint;
+    proof: readonly [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint];
+  }
 ): Promise<WalletWriteResult> {
-  await ensureSepoliaNetwork();
+  await ensureSupportedNetwork();
   const walletClient = getWalletClient();
   const [account] = await walletClient.requestAddresses();
-  const emptyProof: readonly [bigint, bigint, bigint, bigint, bigint, bigint, bigint, bigint] = [
-    BigInt(0),
-    BigInt(0),
-    BigInt(0),
-    BigInt(0),
-    BigInt(0),
-    BigInt(0),
-    BigInt(0),
-    BigInt(0),
-  ];
 
   try {
     const { request } = await publicClient.simulateContract({
@@ -277,7 +380,14 @@ export async function createMarketVerified(
       address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
       abi: ALETHEIA_MARKET_ABI,
       functionName: "createMarketVerified",
-      args: [question, BigInt(deadlineTimestamp), BigInt(0), BigInt(0), emptyProof],
+      args: [
+        question,
+        BigInt(deadlineTimestamp),
+        worldIdProof.root,
+        worldIdProof.signalHash,
+        worldIdProof.nullifierHash,
+        worldIdProof.proof,
+      ],
     });
 
     return writeContractAndWait(request);
@@ -290,6 +400,21 @@ export async function createMarketVerified(
     if (msg.includes("0x5cbfd590")) {
       throw new Error("Question is not validated by CRE for this exact question and deadline yet.");
     }
+    if (
+      msg.includes("InvalidNullifier") ||
+      msg.includes("0x84ba9c7f") ||
+      msg.toLowerCase().includes("invalid nullifier")
+    ) {
+      throw new Error("This World ID proof was already used. Please generate a fresh verification proof.");
+    }
+    if (msg.includes("0xddae3b71") || msg.toLowerCase().includes("nonexistentroot")) {
+      throw new Error("World ID proof root is not recognized for this environment. Re-run World ID verification.");
+    }
+    if (msg.includes("0x685f494e") || msg.toLowerCase().includes("invalidworldidproof")) {
+      throw new Error(
+        "World ID proof was rejected onchain for the current verifier configuration. Re-run World ID in staging and try again."
+      );
+    }
 
     throw error;
   }
@@ -298,22 +423,39 @@ export async function createMarketVerified(
 export async function placeBet(
   marketId: number,
   onYes: boolean,
-  amountEth: string
+  amountCollateral: string
 ): Promise<WalletWriteResult> {
-  const amount = parseEther(amountEth);
+  const amount = parseCollateral(amountCollateral);
   if (amount <= BigInt(0)) throw new Error("Bet amount must be greater than 0");
 
-  await ensureSepoliaNetwork();
+  await ensureSupportedNetwork();
   const walletClient = getWalletClient();
   const [account] = await walletClient.requestAddresses();
+
+  const allowance = (await publicClient.readContract({
+    address: CONTRACTS.COLLATERAL_TOKEN_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: "allowance",
+    args: [account, CONTRACTS.PREDICTION_MARKET_ADDRESS],
+  })) as bigint;
+
+  if (allowance < amount) {
+    const { request: approveRequest } = await publicClient.simulateContract({
+      account,
+      address: CONTRACTS.COLLATERAL_TOKEN_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: "approve",
+      args: [CONTRACTS.PREDICTION_MARKET_ADDRESS, maxUint256],
+    });
+    await writeContractAndWait(approveRequest);
+  }
 
   const { request } = await publicClient.simulateContract({
     account,
     address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
     abi: ALETHEIA_MARKET_ABI,
     functionName: "placeBet",
-    args: [BigInt(marketId), onYes],
-    value: amount,
+    args: [BigInt(marketId), onYes, amount],
   });
 
   return writeContractAndWait(request);
@@ -322,12 +464,12 @@ export async function placeBet(
 export async function sellShares(
   marketId: number,
   onYes: boolean,
-  amountEth: string
+  amountCollateral: string
 ): Promise<WalletWriteResult> {
-  const amount = parseEther(amountEth);
+  const amount = parseCollateral(amountCollateral);
   if (amount <= BigInt(0)) throw new Error("Sell amount must be greater than 0");
 
-  await ensureSepoliaNetwork();
+  await ensureSupportedNetwork();
   const walletClient = getWalletClient();
   const [account] = await walletClient.requestAddresses();
 
@@ -343,7 +485,7 @@ export async function sellShares(
 }
 
 export async function claimWinnings(marketId: number): Promise<WalletWriteResult> {
-  await ensureSepoliaNetwork();
+  await ensureSupportedNetwork();
   const walletClient = getWalletClient();
   const [account] = await walletClient.requestAddresses();
 
@@ -382,8 +524,8 @@ export async function getUserClaimablePayout(marketId: number, user: `0x${string
   })) as [boolean, bigint];
 }
 
-export function formatEthShort(value: bigint): string {
-  return Number(formatEther(value)).toFixed(4);
+export function formatCollateralShort(value: bigint): string {
+  return Number(formatUnits(value, CONTRACTS.COLLATERAL_DECIMALS)).toFixed(4);
 }
 
 async function getLogsChunked<TEvent extends { type: "event"; name: string; inputs: readonly any[] }>(params: {

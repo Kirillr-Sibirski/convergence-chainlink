@@ -2,12 +2,12 @@
 
 local-simulation:
   rpcs:
-    - chain-name: ethereum-testnet-sepolia
-      url: https://ethereum-sepolia-rpc.publicnode.com
+    - chain-name: ethereum-mainnet
+      url: https://virtual.mainnet.eu.rpc.tenderly.co/a925c6c9-c7d7-4a9e-aa15-84f53ad13dce
 
 staging:
   cre-cli:
     don-family: "zone-a"
   rpcs:
-    - chain-name: ethereum-testnet-sepolia
-      url: https://ethereum-sepolia-rpc.publicnode.com
+    - chain-name: ethereum-mainnet
+      url: https://virtual.mainnet.eu.rpc.tenderly.co/a925c6c9-c7d7-4a9e-aa15-84f53ad13dce

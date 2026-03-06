@@ -2,14 +2,26 @@
 pragma solidity ^0.8.20;
 
 import "./AletheiaOracle.sol";
+import "./IWorldID.sol";
+import "./ByteHasher.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title AletheiaMarket
- * @notice Simple ETH-based binary prediction market resolved by Chainlink CRE oracle.
+ * @notice Simple ERC20-collateralized binary prediction market resolved by Chainlink CRE oracle.
  */
 contract AletheiaMarket {
+    using SafeERC20 for IERC20;
+    using ByteHasher for bytes;
+
     AletheiaOracle public oracle;
+    IWorldID public worldId;
+    IERC20 public collateralToken;
+    uint256 public worldIdExternalNullifierHash;
+    bool public strictWorldIdVerification;
     mapping(uint256 => uint256) public oracleToMarketId;
+    mapping(uint256 => bool) public usedWorldIdNullifierHashes;
 
     struct Market {
         uint256 oracleMarketId;
@@ -51,16 +63,27 @@ contract AletheiaMarket {
     error DeadlineMustBeFuture();
     error OnlyOracle();
     error QuestionNotValidated();
+    error InvalidValidationProof();
     error InsufficientShares();
-    // NOTE: World ID and per-wallet daily creation limits are temporarily disabled for testing.
+    error InvalidNullifier();
+    error InvalidWorldIDProof();
 
-    constructor(address _oracleAddress, address _worldIdAddress, string memory appId, string memory action) {
+    constructor(
+        address _oracleAddress,
+        address _collateralTokenAddress,
+        address _worldIdAddress,
+        string memory appId,
+        string memory action
+    ) {
         require(_oracleAddress != address(0), "Invalid oracle");
-        // World ID constructor args are intentionally ignored in this testing mode.
-        _worldIdAddress;
-        appId;
-        action;
+        require(_collateralTokenAddress != address(0), "Invalid collateral");
+        require(_worldIdAddress != address(0), "Invalid worldId");
         oracle = AletheiaOracle(_oracleAddress);
+        worldId = IWorldID(_worldIdAddress);
+        collateralToken = IERC20(_collateralTokenAddress);
+        worldIdExternalNullifierHash = abi.encodePacked(abi.encodePacked(appId).hashToField(), action).hashToField();
+        // Native World ID router verification is only reliable on canonical World ID chains.
+        strictWorldIdVerification = block.chainid == 1 || block.chainid == 11155111;
     }
 
     modifier onlyOracle() {
@@ -72,6 +95,7 @@ contract AletheiaMarket {
         string calldata question,
         uint256 deadline,
         uint256 root,
+        uint256 signalHash,
         uint256 nullifierHash,
         uint256[8] calldata proof
     )
@@ -88,17 +112,42 @@ contract AletheiaMarket {
             bool clearTimeline,
             bool resolvable,
             bool binary,
-
+            bytes32 validationProofHash
         ) = oracle.getQuestionValidation(keccak256(abi.encode(question, deadline)));
 
         if (!processed || !approved || !legitimate || !clearTimeline || !resolvable || !binary) {
             revert QuestionNotValidated();
         }
+        if (validationProofHash == bytes32(0)) revert InvalidValidationProof();
 
-        // World ID verification disabled for testing.
-        root;
-        nullifierHash;
-        proof;
+        if (usedWorldIdNullifierHashes[nullifierHash]) revert InvalidNullifier();
+
+        if (strictWorldIdVerification) {
+            try worldId.verifyProof(
+                root,
+                1,
+                signalHash,
+                nullifierHash,
+                worldIdExternalNullifierHash,
+                proof
+            ) {}
+            catch {
+                revert InvalidWorldIDProof();
+            }
+        } else {
+            // Tenderly/custom-chain demo fallback: require a non-empty proof payload and non-zero fields.
+            if (root == 0 || signalHash == 0 || nullifierHash == 0) revert InvalidWorldIDProof();
+            bool hasNonZeroProofElement;
+            for (uint256 i = 0; i < 8; i++) {
+                if (proof[i] != 0) {
+                    hasNonZeroProofElement = true;
+                    break;
+                }
+            }
+            if (!hasNonZeroProofElement) revert InvalidWorldIDProof();
+        }
+
+        usedWorldIdNullifierHashes[nullifierHash] = true;
 
         uint256 oracleMarketId = oracle.createMarket(question, deadline);
 
@@ -120,24 +169,26 @@ contract AletheiaMarket {
         emit MarketCreated(marketId, oracleMarketId, question, deadline);
     }
 
-    function placeBet(uint256 marketId, bool onYes) external payable {
-        if (msg.value == 0) revert ZeroAmount();
+    function placeBet(uint256 marketId, bool onYes, uint256 amount) external {
+        if (amount == 0) revert ZeroAmount();
         if (marketId == 0 || marketId > marketCount) revert InvalidMarketId();
 
         Market storage market = markets[marketId];
         if (market.settled) revert AlreadySettled();
         if (block.timestamp >= market.deadline) revert MarketClosed();
 
+        collateralToken.safeTransferFrom(msg.sender, address(this), amount);
+
         Bet storage bet = userBets[marketId][msg.sender];
         if (onYes) {
-            bet.yesAmount += msg.value;
-            market.totalYes += msg.value;
+            bet.yesAmount += amount;
+            market.totalYes += amount;
         } else {
-            bet.noAmount += msg.value;
-            market.totalNo += msg.value;
+            bet.noAmount += amount;
+            market.totalNo += amount;
         }
 
-        emit BetPlaced(marketId, msg.sender, onYes, msg.value);
+        emit BetPlaced(marketId, msg.sender, onYes, amount);
     }
 
     function sellShares(uint256 marketId, bool onYes, uint256 shareAmount) external {
@@ -159,8 +210,7 @@ contract AletheiaMarket {
             market.totalNo -= shareAmount;
         }
 
-        (bool success, ) = msg.sender.call{value: shareAmount}("");
-        require(success, "ETH transfer failed");
+        collateralToken.safeTransfer(msg.sender, shareAmount);
 
         emit SharesSold(marketId, msg.sender, onYes, shareAmount);
     }
@@ -220,8 +270,7 @@ contract AletheiaMarket {
 
         bet.claimed = true;
 
-        (bool success, ) = msg.sender.call{value: payout}("");
-        require(success, "ETH transfer failed");
+        collateralToken.safeTransfer(msg.sender, payout);
 
         emit WinningsClaimed(marketId, msg.sender, payout);
     }

@@ -1,13 +1,32 @@
-import { createPublicClient, createWalletClient, custom, http } from "viem";
-import { sepolia } from "viem/chains";
+import { createPublicClient, createWalletClient, custom, defineChain, http } from "viem";
 import { CONTRACTS } from "./contracts";
 
-export const chain = sepolia;
-const SEPOLIA_RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com";
+const RPC_URL =
+  process.env.NEXT_PUBLIC_RPC_URL ||
+  "https://virtual.mainnet.eu.rpc.tenderly.co/a925c6c9-c7d7-4a9e-aa15-84f53ad13dce";
+const EXPLORER_URL =
+  process.env.NEXT_PUBLIC_BLOCK_EXPLORER_URL ||
+  "https://dashboard.tenderly.co/";
+
+export const chain = defineChain({
+  id: CONTRACTS.CHAIN_ID,
+  name: CONTRACTS.NETWORK_NAME,
+  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: {
+    default: { http: [RPC_URL] },
+    public: { http: [RPC_URL] },
+  },
+  blockExplorers: {
+    default: {
+      name: "Tenderly Explorer",
+      url: EXPLORER_URL,
+    },
+  },
+});
 
 export const publicClient = createPublicClient({
   chain,
-  transport: http(SEPOLIA_RPC_URL),
+  transport: http(RPC_URL),
 });
 
 export function getWalletClient() {
@@ -21,7 +40,7 @@ export function getWalletClient() {
   });
 }
 
-export async function ensureSepoliaNetwork() {
+export async function ensureSupportedNetwork() {
   if (typeof window === "undefined" || !window.ethereum) return;
 
   const chainIdHex = `0x${CONTRACTS.CHAIN_ID.toString(16)}`;
@@ -46,10 +65,10 @@ export async function ensureSepoliaNetwork() {
       params: [
         {
           chainId: chainIdHex,
-          chainName: "Sepolia",
-          rpcUrls: [SEPOLIA_RPC_URL],
-          nativeCurrency: { name: "Sepolia Ether", symbol: "SEP", decimals: 18 },
-          blockExplorerUrls: ["https://sepolia.etherscan.io"],
+          chainName: CONTRACTS.NETWORK_NAME,
+          rpcUrls: [RPC_URL],
+          nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+          blockExplorerUrls: [EXPLORER_URL],
         },
       ],
     });

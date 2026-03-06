@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { formatEther } from "viem";
 import { SimpleHeader } from "@/components/layout/SimpleHeader";
 import { SpotlightCard } from "@/components/ui/spotlight-card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Check, Copy, Loader2, TrendingUp } from "lucide-react";
 import { useWallet } from "@/hooks/useWallet";
 import { useMarkets } from "@/hooks/useMarkets";
-import { claimWinnings, getUserBet, getUserClaimablePayout, type UIMarket } from "@/lib/web3-viem";
+import { CONTRACTS } from "@/lib/contracts";
+import {
+  claimWinnings,
+  formatCollateral,
+  getUserBet,
+  getUserClaimablePayout,
+  type UIMarket,
+} from "@/lib/web3-viem";
 import { CRE_SIM_CMD, getPendingCreResolutionCount } from "@/lib/cre-gate";
 
 type Position = {
@@ -237,7 +243,7 @@ export default function DashboardPage() {
                                 </p>
                               </div>
                               <p className="text-xs text-muted-foreground">
-                                Payout: {Number(formatEther(position.claimable)).toFixed(4)} ETH
+                                Payout: {formatCollateral(position.claimable)} {CONTRACTS.COLLATERAL_SYMBOL}
                               </p>
                             </div>
                             {position.canClaim ? (
@@ -297,18 +303,9 @@ export default function DashboardPage() {
                                   <p className="text-[11px] inline-flex items-center rounded-full border border-gray-300 bg-white/70 px-2 py-0.5 text-gray-600 w-fit">
                                     Active
                                   </p>
-                                  <p
-                                    className={`text-[11px] inline-flex items-center rounded-full px-2 py-0.5 w-fit font-medium ${
-                                      primarySide === "YES"
-                                        ? "border border-green-300 bg-green-50 text-green-700"
-                                        : "border border-red-300 bg-red-50 text-red-700"
-                                    }`}
-                                  >
-                                    {primarySide}
-                                  </p>
                                 </div>
                                 <p className="text-sm font-semibold text-gray-800">
-                                  Position: {Number(formatEther(primaryAmount)).toFixed(4)} ETH
+                                  Position: {formatCollateral(primaryAmount)} {CONTRACTS.COLLATERAL_SYMBOL}
                                 </p>
                               </div>
                               <div className="absolute left-0 top-0 h-full w-3 flex items-center justify-center">

@@ -5,6 +5,7 @@ import "forge-std/Script.sol";
 import "forge-std/console.sol";
 import "../AletheiaOracle.sol";
 import "../AletheiaMarket.sol";
+import "../MockUSDC.sol";
 
 contract DeployAllScript is Script {
     function run() external {
@@ -16,7 +17,22 @@ contract DeployAllScript is Script {
         require(forwarderAddress != address(0), "FORWARDER_ADDRESS not set");
         require(worldIdAddress != address(0), "WORLD_ID_ROUTER_ADDRESS not set");
 
+        bool hasCollateralToken = vm.envExists("COLLATERAL_TOKEN_ADDRESS");
+        address collateralTokenAddress = hasCollateralToken
+            ? vm.envAddress("COLLATERAL_TOKEN_ADDRESS")
+            : address(0);
+
         vm.startBroadcast(deployerPrivateKey);
+
+        if (!hasCollateralToken || collateralTokenAddress == address(0)) {
+            console.log("Deploying MockUSDC collateral token...");
+            MockUSDC collateral = new MockUSDC(vm.addr(deployerPrivateKey));
+            collateralTokenAddress = address(collateral);
+            collateral.mint(vm.addr(deployerPrivateKey), 1_000_000 ether);
+            console.log("MockUSDC deployed at:", collateralTokenAddress);
+        } else {
+            console.log("Using existing collateral token:", collateralTokenAddress);
+        }
 
         // Deploy Oracle
         console.log("Deploying AletheiaOracle...");
@@ -26,7 +42,8 @@ contract DeployAllScript is Script {
 
         // Deploy Market
         console.log("Deploying AletheiaMarket...");
-        AletheiaMarket market = new AletheiaMarket(address(oracle), worldIdAddress, worldIdAppId, worldIdAction);
+        AletheiaMarket market =
+            new AletheiaMarket(address(oracle), collateralTokenAddress, worldIdAddress, worldIdAppId, worldIdAction);
         console.log("AletheiaMarket deployed at:", address(market));
 
         // Wire oracle -> market callback for CRE-driven auto-settlement
@@ -38,6 +55,7 @@ contract DeployAllScript is Script {
         console.log("\n=== DEPLOYMENT COMPLETE ===");
         console.log("Oracle:", address(oracle));
         console.log("Market:", address(market));
+        console.log("Collateral Token:", collateralTokenAddress);
         console.log("Deployer:", vm.addr(deployerPrivateKey));
         console.log("Forwarder:", forwarderAddress);
         console.log("WorldID Router:", worldIdAddress);
