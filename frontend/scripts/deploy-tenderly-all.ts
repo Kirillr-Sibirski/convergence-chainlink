@@ -199,7 +199,16 @@ async function main() {
       args: [true],
     });
     await publicClient.waitForTransactionReceipt({ hash: disableCooldownHash });
-    console.log("Safety checks enabled (24h limit + World ID nullifier uniqueness).");
+
+    console.log("Disabling World ID nullifier uniqueness (24h World ID cooldown remains enabled)...");
+    disableNullifierUniquenessHash = await walletClient.writeContract({
+      address: marketAddress,
+      abi: marketArtifact.abi as any,
+      functionName: "setWorldIdNullifierUniquenessEnabled",
+      args: [false],
+    });
+    await publicClient.waitForTransactionReceipt({ hash: disableNullifierUniquenessHash });
+    console.log("Safety config enabled: 24h World ID cooldown ON, World ID nullifier uniqueness OFF.");
   }
 
   console.log("Wiring oracle.setPredictionMarket...");

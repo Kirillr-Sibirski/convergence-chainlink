@@ -141,18 +141,56 @@ cre workflow simulate . --non-interactive --trigger-index 0 --broadcast -T stagi
 - Public RPC:
   - `https://virtual.mainnet.eu.rpc.tenderly.co/7ab2ac7f-6262-4a2d-9271-11cb2f95b651`
 - Explorer root:
-  - [Tenderly VNet Explorer](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651)
+  - [Tenderly VNet Explorer](https://dashboard.tenderly.co/sibirski/project/testnet/b4b82bf6-0d85-47e3-9dab-e796d0524525)
 
 ### Deployed contracts (clickable explorer links)
 
-- Oracle: [`0x73ce74faebbb1926398f8360373490e6dd1b04dc`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/address/0x73ce74faebbb1926398f8360373490e6dd1b04dc)
-- Market: [`0x637e1497cecc9869fef92201fa46a7d6ca77d16e`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/address/0x637e1497cecc9869fef92201fa46a7d6ca77d16e)
-- Chainlink Forwarder (CRE sender): [`0xA3D1AD4Ac559a6575a114998AffB2fB2Ec97a7D9`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/address/0xA3D1AD4Ac559a6575a114998AffB2fB2Ec97a7D9)
+- Oracle: [`0x2b98834f00052759a65c0a113bf494c767d2bceb`](https://dashboard.tenderly.co/sibirski/project/testnet/b4b82bf6-0d85-47e3-9dab-e796d0524525/contract/virtual/0x2b98834f00052759a65c0a113bf494c767d2bceb)
+- Market: [`0x330dce67febd8c7ee88fd5e203ef15d414f742f8`](https://dashboard.tenderly.co/sibirski/project/testnet/b4b82bf6-0d85-47e3-9dab-e796d0524525/contract/virtual/0x330dce67febd8c7ee88fd5e203ef15d414f742f8)
+- Chainlink Forwarder (CRE sender): [`0xA3D1AD4Ac559a6575a114998AffB2fB2Ec97a7D9`](https://dashboard.tenderly.co/sibirski/project/testnet/b4b82bf6-0d85-47e3-9dab-e796d0524525/contract/virtual/0xA3D1AD4Ac559a6575a114998AffB2fB2Ec97a7D9)
 
 ### External configured dependency (not deployed in this VNet)
 
 - World ID Router (Ethereum Mainnet, for mainnet-fork VNets): [`0x163b09b4fe21177c455d850bd815b6d583732432`](https://etherscan.io/address/0x163b09b4fe21177c455d850bd815b6d583732432)
+## CRE Workflow Execution (Demo)
 
+From [`cre-workflow`](./cre-workflow):
+
+```bash
+bun install
+```
+
+Question validation (HTTP trigger):
+
+```bash
+cre workflow simulate . --non-interactive --trigger-index 1 \
+  --http-payload '{"question":"Will ETH close above $5000?","deadline":1773273600}' \
+  --broadcast -T staging
+```
+
+Market resolution (CRON trigger):
+
+```bash
+cre workflow simulate . --non-interactive --trigger-index 0 --broadcast -T staging
+```
+
+## Verify Contracts On Tenderly (Foundry)
+
+```bash
+cd contracts
+
+TENDERLY_VIRTUAL_TESTNET_RPC_URL="https://virtual.mainnet.eu.rpc.tenderly.co/7ab2ac7f-6262-4a2d-9271-11cb2f95b651"
+
+forge verify-contract 0x330dce67febd8c7ee88fd5e203ef15d414f742f8 AletheiaMarket.sol:AletheiaMarket \
+  --verifier custom \
+  --verifier-url "$TENDERLY_VIRTUAL_TESTNET_RPC_URL/verify" \
+  --watch
+
+forge verify-contract 0x2b98834f00052759a65c0a113bf494c767d2bceb AletheiaOracle.sol:AletheiaOracle \
+  --verifier custom \
+  --verifier-url "$TENDERLY_VIRTUAL_TESTNET_RPC_URL/verify" \
+  --watch
+```
 ## Repo Structure
 
 - [`frontend`](./frontend): Next.js + viem UI and wallet tx flow

@@ -4,20 +4,20 @@
   "rpcUrl": "https://virtual.mainnet.eu.rpc.tenderly.co/7ab2ac7f-6262-4a2d-9271-11cb2f95b651",
   "deployer": "0xF6D413920c3dfE8c4195bDC7fDa9cE3bb316e948",
   "forwarderAddress": "0xA3D1AD4Ac559a6575a114998AffB2fB2Ec97a7D9",
-  "worldIdRouterAddress": "0x469449f251692E0779667583026b5A1E99512157",
+  "worldIdRouterAddress": "0x163b09b4fE21177c455D850BD815B6D583732432",
   "worldIdAppId": "app_4b80b5d7b6aa0e9a6f62dbbc8fae0daf",
   "worldIdAction": "create-new-market",
-  "oracleAddress": "0x73ce74faebbb1926398f8360373490e6dd1b04dc",
-  "predictionMarketAddress": "0x637e1497cecc9869fef92201fa46a7d6ca77d16e",
+  "oracleAddress": "0x2b98834f00052759a65c0a113bf494c767d2bceb",
+  "predictionMarketAddress": "0x330dce67febd8c7ee88fd5e203ef15d414f742f8",
   "collateralTokenAddress": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
   "txs": {
     "mockUsdcDeploy": null,
     "mockUsdcMint": null,
-    "oracleDeploy": "0x2799e629057727b02d871bb60629180f4a08f4062648c600f69393ddc771a353",
-    "marketDeploy": "0x8ce29f48a4447fbe4324c4a91d85b11a63ef6e3da6611eea760f1f8038431989",
-    "disableCooldown": null,
-    "disableWorldIdNullifierUniqueness": null,
-    "wirePredictionMarket": "0xc84acd03d86c5acae89280acb48dffee11faf521fc2b8d1b980b2616e1e4fd40"
+    "oracleDeploy": "0xfaaad20c43c079de362adf72f1e2ea7b60462c6db385c8fb46467090ac7845f2",
+    "marketDeploy": "0xd1271f78f74b910792c5611875c68a5b882041bb3f2aadb7a4a79f2d61b8665c",
+    "disableCooldown": "0x3f080313c28a5d365cceb52c3c3c4365869c4e4a266590f4a846f45c3513daa7",
+    "disableWorldIdNullifierUniqueness": "0xd268722e53a43af4cf5811c93ad3a1daf8d47fa8d1044212e251910232df9a42",
+    "wirePredictionMarket": "0xa3a5458576d341c26e952efe3f27d1b656f1b18582b03af005fc0b82c26ddf07"
   },
-  "deployedAt": "2026-03-07T20:28:58.440Z"
+  "deployedAt": "2026-03-07T21:12:09.013Z"
 }

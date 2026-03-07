@@ -21,11 +21,11 @@ contract AletheiaMarket {
     address public owner;
     uint256 public worldIdExternalNullifierHash;
     bool public strictWorldIdVerification;
-    bool public dailyMarketCreationLimitEnabled;
+    bool public dailyMarketCreationLimitEnabled = true;
     bool public worldIdNullifierUniquenessEnabled = true;
     mapping(uint256 => uint256) public oracleToMarketId;
     mapping(uint256 => bool) public usedWorldIdNullifierHashes;
-    mapping(address => uint256) public lastMarketCreationAt;
+    mapping(uint256 => uint256) public lastMarketCreationAtByWorldIdNullifier;
     mapping(address => bool) public marketCreationLimitExempt;
 
     struct Market {
@@ -161,8 +161,9 @@ contract AletheiaMarket {
         if (validationProofHash == bytes32(0)) revert InvalidValidationProof();
 
         if (dailyMarketCreationLimitEnabled && !marketCreationLimitExempt[msg.sender]) {
-            uint256 nextAllowedAt = lastMarketCreationAt[msg.sender] + 1 days;
-            if (lastMarketCreationAt[msg.sender] != 0 && block.timestamp < nextAllowedAt) {
+            uint256 lastCreationAt = lastMarketCreationAtByWorldIdNullifier[nullifierHash];
+            uint256 nextAllowedAt = lastCreationAt + 1 days;
+            if (lastCreationAt != 0 && block.timestamp < nextAllowedAt) {
                 revert MarketCreationCooldown(nextAllowedAt);
             }
         }
@@ -199,7 +200,7 @@ contract AletheiaMarket {
         if (worldIdNullifierUniquenessEnabled) {
             usedWorldIdNullifierHashes[nullifierHash] = true;
         }
-        lastMarketCreationAt[msg.sender] = block.timestamp;
+        lastMarketCreationAtByWorldIdNullifier[nullifierHash] = block.timestamp;
 
         uint256 oracleMarketId = oracle.createMarket(question, deadline);
 

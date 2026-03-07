@@ -18,7 +18,6 @@ import { CONTRACTS } from "@/lib/contracts";
 import {
   createMarketVerified,
   getOraclePendingResolutionCount,
-  getLatestMarketCreationTimestampByCreator,
   getLatestQuestionValidationTimestamp,
   getQuestionValidationStatus,
   waitForQuestionValidation,
@@ -60,6 +59,9 @@ function titleForCreateMarketError(description: string): string {
     return "Market already created";
   }
   if (normalized.includes("already created a market in the last 24 hours")) {
+    return "One market per day";
+  }
+  if (normalized.includes("world id can create only one market every 24 hours")) {
     return "One market per day";
   }
   if (normalized.includes("world id")) {
@@ -278,23 +280,6 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
   const handleValidateMarket = async (question: string, deadline: number, requireFreshAfter: number) => {
     if (!ensureWallet()) throw new Error("Please connect your wallet first");
 
-    const latestCreationByUser = await getLatestMarketCreationTimestampByCreator(account as `0x${string}`);
-    if (latestCreationByUser) {
-      const now = Math.floor(Date.now() / 1000);
-      const secondsSince = now - latestCreationByUser;
-      if (secondsSince < 24 * 60 * 60) {
-        const unlockAt = new Date((latestCreationByUser + 24 * 60 * 60) * 1000).toLocaleString("en-US", {
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-          timeZone: "UTC",
-        });
-        throw new Error(`Only one market per wallet every 24h. Try again at ${unlockAt} UTC.`);
-      }
-    }
-
     const existing = await getQuestionValidationStatus(question, deadline);
     if (existing.processed) {
       if (!existing.approved) throw new Error(formatValidationFailureMessage(existing));
@@ -354,7 +339,7 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
         title: titleForCreateMarketError(description),
         description,
       });
-      throw new Error(description);
+      return;
     }
   };
 

@@ -301,7 +301,7 @@ export function CreateMarketModal({ onClose, onValidate, onValidated }: CreateMa
               disabled={isBusy}
             />
             <p className="text-[11px] text-muted-foreground">
-              Orb verification is required. One market per wallet every 24 hours (currently warning-only in testing).
+              Orb verification is required. One market per World ID every 24 hours.
             </p>
           </div>
 

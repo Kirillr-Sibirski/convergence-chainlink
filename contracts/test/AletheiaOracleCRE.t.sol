@@ -25,6 +25,20 @@ contract MockWorldID is IWorldID {
     ) external pure {}
 }
 
+contract MarketCreatorProxy {
+    function create(
+        AletheiaMarket market,
+        string memory question,
+        uint256 deadline,
+        uint256 root,
+        uint256 signalHash,
+        uint256 nullifierHash,
+        uint256[8] memory proof
+    ) external returns (uint256) {
+        return market.createMarketVerified(question, deadline, root, signalHash, nullifierHash, proof);
+    }
+}
+
 contract AletheiaOracleCRETest is Test {
     MockForwarder internal forwarder;
     MockWorldID internal worldId;
@@ -45,6 +59,12 @@ contract AletheiaOracleCRETest is Test {
             "create-market"
         );
         oracle.setPredictionMarket(address(market));
+    }
+
+    function _pushValidQuestionReport(string memory question, uint256 deadline, bytes32 proofHash) internal {
+        bytes32 digest = keccak256(abi.encode(question, deadline));
+        bytes memory validationReport = abi.encode(uint8(3), digest, true, uint8(95), true, true, true, true, proofHash);
+        forwarder.push(address(oracle), "", validationReport);
     }
 
     function test_onReport_onlyForwarder() public {
@@ -95,6 +115,7 @@ contract AletheiaOracleCRETest is Test {
 
     function test_disableNullifierUniqueness_allowsReuseInTestingMode() public {
         market.setWorldIdNullifierUniquenessEnabled(false);
+        market.setDailyMarketCreationLimitEnabled(false);
 
         uint256[8] memory proof;
         proof[0] = 1;
@@ -136,6 +157,65 @@ contract AletheiaOracleCRETest is Test {
         uint256 secondMarketId = market.createMarketVerified(questionB, deadlineB, 1, signalHash, reusedNullifier, proof);
 
         assertEq(firstMarketId, 1);
+        assertEq(secondMarketId, 2);
+    }
+
+    function test_marketCreationCooldown_blocksSecondMarketWithin24Hours() public {
+        market.setWorldIdNullifierUniquenessEnabled(false);
+        market.setDailyMarketCreationLimitEnabled(true);
+
+        MarketCreatorProxy creatorA = new MarketCreatorProxy();
+        MarketCreatorProxy creatorB = new MarketCreatorProxy();
+        uint256[8] memory proof;
+        proof[0] = 1;
+        uint256 nullifier = 42;
+        uint256 signalHash = 1;
+
+        uint256 deadlineA = block.timestamp + 2 days;
+        string memory questionA = "Will ETH close above $5k?";
+        _pushValidQuestionReport(questionA, deadlineA, keccak256("validation-a"));
+        creatorA.create(market, questionA, deadlineA, 1, signalHash, nullifier, proof);
+
+        uint256 deadlineB = block.timestamp + 3 days;
+        string memory questionB = "Will BTC close above $100k?";
+        _pushValidQuestionReport(questionB, deadlineB, keccak256("validation-b"));
+
+        (bool ok, bytes memory revertData) = address(creatorB).call(
+            abi.encodeWithSelector(
+                MarketCreatorProxy.create.selector, market, questionB, deadlineB, 1, signalHash, nullifier, proof
+            )
+        );
+        assertFalse(ok);
+        bytes4 selector;
+        assembly {
+            selector := mload(add(revertData, 32))
+        }
+        assertEq(selector, AletheiaMarket.MarketCreationCooldown.selector);
+    }
+
+    function test_marketCreationCooldown_allowsSecondMarketAfter24Hours() public {
+        market.setWorldIdNullifierUniquenessEnabled(false);
+        market.setDailyMarketCreationLimitEnabled(true);
+
+        MarketCreatorProxy creatorA = new MarketCreatorProxy();
+        MarketCreatorProxy creatorB = new MarketCreatorProxy();
+        uint256[8] memory proof;
+        proof[0] = 1;
+        uint256 nullifier = 777;
+        uint256 signalHash = 1;
+
+        uint256 deadlineA = block.timestamp + 2 days;
+        string memory questionA = "Will SOL close above $300?";
+        _pushValidQuestionReport(questionA, deadlineA, keccak256("validation-c"));
+        uint256 firstMarketId = creatorA.create(market, questionA, deadlineA, 1, signalHash, nullifier, proof);
+        assertEq(firstMarketId, 1);
+
+        vm.warp(block.timestamp + 1 days + 1);
+
+        uint256 deadlineB = block.timestamp + 2 days;
+        string memory questionB = "Will DOGE close above $1?";
+        _pushValidQuestionReport(questionB, deadlineB, keccak256("validation-d"));
+        uint256 secondMarketId = creatorB.create(market, questionB, deadlineB, 1, signalHash, nullifier, proof);
         assertEq(secondMarketId, 2);
     }
 }
