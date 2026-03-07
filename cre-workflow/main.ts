@@ -1,14 +1,10 @@
 import {
 	bytesToHex,
-	consensusIdenticalAggregation,
 	type CronPayload,
 	cre,
 	encodeCallMsg,
 	getNetwork,
 	hexToBase64,
-	type HTTPSendRequester,
-	LAST_FINALIZED_BLOCK_NUMBER,
-	ok,
 	Runner,
 	type Runtime,
 	TxStatus,
@@ -61,6 +57,7 @@ const REPORT_TYPE_VALIDATION = 2
 const REPORT_TYPE_QUESTION_VALIDATION = 3
 const CRE_HTTP_CALL_BUDGET_PER_RUN = 5
 const AI_CALLS_PER_EVALUATION = 4
+let runtimeSignerContextLogged = false
 
 interface HttpQuestionValidationPayload {
 	type?: 'questionValidation'
@@ -68,14 +65,29 @@ interface HttpQuestionValidationPayload {
 	deadline?: string | number
 }
 
-interface HttpWorldIdVerifyPayload {
-	type: 'worldIdVerify'
-	rpId?: string
-	action?: string
-	idkitResponse?: Record<string, unknown>
-}
+const logRuntimeSignerContext = (runtime: Runtime<Config>) => {
+	if (runtimeSignerContextLogged) return
+	runtimeSignerContextLogged = true
 
-type HttpTriggerPayload = HttpQuestionValidationPayload | HttpWorldIdVerifyPayload
+	runtime.log(
+		`[Config] chain=${runtime.config.chainSelectorName} testnet=${runtime.config.isTestnet} oracle=${runtime.config.oracleAddress}`,
+	)
+
+	try {
+		const signerSecret = runtime.getSecret({ id: 'CRE_ETH_PRIVATE_KEY' }).result()
+		const signerPk = signerSecret?.value as string | undefined
+		if (!signerPk) {
+			runtime.log('[Config] CRE_ETH_PRIVATE_KEY is missing/empty')
+			return
+		}
+		const masked = signerPk.length > 12 ? `${signerPk.slice(0, 6)}...${signerPk.slice(-4)}` : signerPk
+		runtime.log(
+			`[Config] CRE_ETH_PRIVATE_KEY loaded (masked=${masked}). Derive signer locally with: cast wallet address --private-key \"$CRE_ETH_PRIVATE_KEY\"`,
+		)
+	} catch (error) {
+		runtime.log(`[Config] Unable to read CRE_ETH_PRIVATE_KEY: ${error}`)
+	}
+}
 
 /**
  * Fetch pending markets from the oracle contract
@@ -110,7 +122,6 @@ const fetchPendingMarkets = (runtime: Runtime<Config>): Market[] => {
 				to: runtime.config.oracleAddress as Address,
 				data: callData,
 			}),
-			blockNumber: LAST_FINALIZED_BLOCK_NUMBER,
 		})
 		.result()
 
@@ -155,7 +166,6 @@ const fetchPendingValidationRequests = (runtime: Runtime<Config>): ValidationReq
 				to: runtime.config.oracleAddress as Address,
 				data: callData,
 			}),
-			blockNumber: LAST_FINALIZED_BLOCK_NUMBER,
 		})
 		.result()
 
@@ -501,93 +511,8 @@ const writeQuestionValidationResult = (
 	return bytesToHex(resp.txHash || new Uint8Array(32))
 }
 
-function extractErrorMessage(payload: Record<string, unknown>): string {
-	if (typeof payload.detail === 'string' && payload.detail.trim()) return payload.detail
-	if (typeof payload.error === 'string' && payload.error.trim()) return payload.error
-	if (typeof payload.message === 'string' && payload.message.trim()) return payload.message
-	return ''
-}
-
-function verifyWorldIdViaCRE(
-	runtime: Runtime<Config>,
-	rpId: string,
-	idkitResponse: Record<string, unknown>,
-): Record<string, unknown> {
-	const httpClient = new cre.capabilities.HTTPClient()
-	const verifyUrl = `https://developer.world.org/api/v4/verify/${rpId}`
-	const bodyBytes = new TextEncoder().encode(JSON.stringify(idkitResponse))
-	const body = Buffer.from(bodyBytes).toString('base64')
-
-	const req = {
-		url: verifyUrl,
-		method: 'POST' as const,
-		body,
-		headers: {
-			'Content-Type': 'application/json',
-		},
-		cacheSettings: {
-			maxAgeMs: 0,
-		},
-	}
-
-	const sendRequester = httpClient.sendRequest(
-		runtime,
-		(sendReq: HTTPSendRequester, _config: any) => {
-			const resp = sendReq.sendRequest(req).result()
-			const bodyText = new TextDecoder().decode(resp.body)
-			const parsed = bodyText ? (JSON.parse(bodyText) as Record<string, unknown>) : {}
-
-			if (!ok(resp)) {
-				const errMessage = extractErrorMessage(parsed) || bodyText || `HTTP ${resp.statusCode}`
-				throw new Error(`World ID verify API error: ${errMessage}`)
-			}
-
-			return parsed
-		},
-		consensusIdenticalAggregation<Record<string, unknown>>(),
-	)
-
-	return sendRequester(runtime.config).result()
-}
-
-const onHttpWorldIdTrigger = (runtime: Runtime<Config>, parsed: HttpWorldIdVerifyPayload): string => {
-	const rpId = String(parsed.rpId || '').trim()
-	if (!rpId) throw new Error('HTTP payload missing rpId for World ID verification')
-
-	const idkitResponse = parsed.idkitResponse
-	if (!idkitResponse || typeof idkitResponse !== 'object') {
-		throw new Error('HTTP payload missing idkitResponse for World ID verification')
-	}
-
-	const expectedAction = String(parsed.action || '')
-		.trim()
-		.toLowerCase()
-	const receivedAction = String((idkitResponse.action as string | undefined) || '')
-		.trim()
-		.toLowerCase()
-	if (expectedAction && receivedAction && expectedAction !== receivedAction) {
-		runtime.log(`World ID action mismatch: expected=${expectedAction} received=${receivedAction}`)
-		return JSON.stringify({
-			type: 'worldIdVerify',
-			verified: false,
-			error: `Action mismatch. Expected "${expectedAction}" but received "${receivedAction}".`,
-		})
-	}
-
-	const worldVerifyResult = verifyWorldIdViaCRE(runtime, rpId, idkitResponse)
-	const verified =
-		worldVerifyResult.success === true ||
-		worldVerifyResult.verified === true
-
-	runtime.log(`World ID verification completed via CRE: verified=${verified}`)
-	return JSON.stringify({
-		type: 'worldIdVerify',
-		verified,
-		detail: worldVerifyResult,
-	})
-}
-
 const onHttpQuestionValidationTrigger = (runtime: Runtime<Config>, parsed: HttpQuestionValidationPayload): string => {
+	logRuntimeSignerContext(runtime)
 	const question = parsed.question?.trim() || ''
 	if (!question) throw new Error('HTTP payload missing question')
 
@@ -623,12 +548,7 @@ const onHttpQuestionValidationTrigger = (runtime: Runtime<Config>, parsed: HttpQ
 
 const onHttpTrigger = (runtime: Runtime<Config>, payload: { input: Uint8Array }): string => {
 	const raw = new TextDecoder().decode(payload.input)
-	const parsed = JSON.parse(raw) as HttpTriggerPayload
-
-	if ((parsed as HttpWorldIdVerifyPayload).type === 'worldIdVerify') {
-		return onHttpWorldIdTrigger(runtime, parsed as HttpWorldIdVerifyPayload)
-	}
-
+	const parsed = JSON.parse(raw) as HttpQuestionValidationPayload
 	return onHttpQuestionValidationTrigger(runtime, parsed as HttpQuestionValidationPayload)
 }
 
@@ -637,6 +557,7 @@ const onHttpTrigger = (runtime: Runtime<Config>, payload: { input: Uint8Array })
  * Checks for pending markets and resolves them autonomously
  */
 const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): string => {
+	logRuntimeSignerContext(runtime)
 	if (!payload.scheduledExecutionTime) {
 		throw new Error('Scheduled execution time is required')
 	}
@@ -744,7 +665,7 @@ const onCronTrigger = (runtime: Runtime<Config>, payload: CronPayload): string =
 		} catch (error) {
 			runtime.log(`❌ Failed to resolve market ${market.id}: ${error}`)
 		} finally {
-			remainingHttpCalls = Math.max(0, remainingHttpCalls - AI_CALLS_PER_EVALUATION)
+			remainingHttpCalls = Math.max(0, remainingHttpCalls - callsForThisMarket)
 		}
 	}
 

@@ -33,7 +33,7 @@ export function SimpleHeader() {
       try {
         const balance = await getCollateralBalance(account as `0x${string}`);
         if (!cancelled) {
-          setBalanceCollateral(formatCollateral(balance, 4));
+          setBalanceCollateral(formatCollateral(balance, 2));
         }
       } catch {
         if (!cancelled) setBalanceCollateral(null);

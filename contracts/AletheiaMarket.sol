@@ -18,10 +18,14 @@ contract AletheiaMarket {
     AletheiaOracle public oracle;
     IWorldID public worldId;
     IERC20 public collateralToken;
+    address public owner;
     uint256 public worldIdExternalNullifierHash;
     bool public strictWorldIdVerification;
+    bool public dailyMarketCreationLimitEnabled;
     mapping(uint256 => uint256) public oracleToMarketId;
     mapping(uint256 => bool) public usedWorldIdNullifierHashes;
+    mapping(address => uint256) public lastMarketCreationAt;
+    mapping(address => bool) public marketCreationLimitExempt;
 
     struct Market {
         uint256 oracleMarketId;
@@ -51,6 +55,9 @@ contract AletheiaMarket {
     event SharesSold(uint256 indexed marketId, address indexed user, bool onYes, uint256 amount);
     event MarketSettled(uint256 indexed marketId, bool outcome, uint8 confidence);
     event WinningsClaimed(uint256 indexed marketId, address indexed user, uint256 payout);
+    event DailyMarketCreationLimitUpdated(bool enabled);
+    event MarketCreationLimitExemptUpdated(address indexed account, bool exempt);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     error InvalidMarketId();
     error MarketClosed();
@@ -67,6 +74,8 @@ contract AletheiaMarket {
     error InsufficientShares();
     error InvalidNullifier();
     error InvalidWorldIDProof();
+    error OnlyOwner();
+    error MarketCreationCooldown(uint256 nextAllowedAt);
 
     constructor(
         address _oracleAddress,
@@ -78,6 +87,7 @@ contract AletheiaMarket {
         require(_oracleAddress != address(0), "Invalid oracle");
         require(_collateralTokenAddress != address(0), "Invalid collateral");
         require(_worldIdAddress != address(0), "Invalid worldId");
+        owner = msg.sender;
         oracle = AletheiaOracle(_oracleAddress);
         worldId = IWorldID(_worldIdAddress);
         collateralToken = IERC20(_collateralTokenAddress);
@@ -89,6 +99,29 @@ contract AletheiaMarket {
     modifier onlyOracle() {
         if (msg.sender != address(oracle)) revert OnlyOracle();
         _;
+    }
+
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert OnlyOwner();
+        _;
+    }
+
+    function transferOwnership(address newOwner) external onlyOwner {
+        require(newOwner != address(0), "Invalid owner");
+        address previousOwner = owner;
+        owner = newOwner;
+        emit OwnershipTransferred(previousOwner, newOwner);
+    }
+
+    function setDailyMarketCreationLimitEnabled(bool enabled) external onlyOwner {
+        dailyMarketCreationLimitEnabled = enabled;
+        emit DailyMarketCreationLimitUpdated(enabled);
+    }
+
+    function setMarketCreationLimitExempt(address account, bool exempt) external onlyOwner {
+        require(account != address(0), "Invalid account");
+        marketCreationLimitExempt[account] = exempt;
+        emit MarketCreationLimitExemptUpdated(account, exempt);
     }
 
     function createMarketVerified(
@@ -120,6 +153,13 @@ contract AletheiaMarket {
         }
         if (validationProofHash == bytes32(0)) revert InvalidValidationProof();
 
+        if (dailyMarketCreationLimitEnabled && !marketCreationLimitExempt[msg.sender]) {
+            uint256 nextAllowedAt = lastMarketCreationAt[msg.sender] + 1 days;
+            if (lastMarketCreationAt[msg.sender] != 0 && block.timestamp < nextAllowedAt) {
+                revert MarketCreationCooldown(nextAllowedAt);
+            }
+        }
+
         if (usedWorldIdNullifierHashes[nullifierHash]) revert InvalidNullifier();
 
         if (strictWorldIdVerification) {
@@ -148,6 +188,7 @@ contract AletheiaMarket {
         }
 
         usedWorldIdNullifierHashes[nullifierHash] = true;
+        lastMarketCreationAt[msg.sender] = block.timestamp;
 
         uint256 oracleMarketId = oracle.createMarket(question, deadline);
 

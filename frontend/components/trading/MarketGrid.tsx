@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Clock3, Plus, Search, TrendingUp } from "lucide-react";
+import { AlertCircle, Check, Clock3, Copy, Plus, Search, TrendingUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,12 +17,13 @@ import type { Market } from "@/hooks/useMarkets";
 import { CONTRACTS } from "@/lib/contracts";
 import {
   createMarketVerified,
+  getOraclePendingResolutionCount,
   getLatestMarketCreationTimestampByCreator,
   getLatestQuestionValidationTimestamp,
   getQuestionValidationStatus,
   waitForQuestionValidation,
 } from "@/lib/web3-viem";
-import { CRE_SIM_CMD, getPendingCreResolutionCount, triggerCreQuestionValidation } from "@/lib/cre-gate";
+import { CRE_SIM_CMD, triggerCreQuestionValidation } from "@/lib/cre-gate";
 
 const SORT_OPTIONS = [
   { label: "Most Volume", value: "volume" },
@@ -36,8 +37,7 @@ const ZERO_HASH = "0x00000000000000000000000000000000000000000000000000000000000
 
 function formatVolumeEth(value: bigint) {
   const n = Number(value) / 10 ** CONTRACTS.COLLATERAL_DECIMALS;
-  if (n >= 1000) return `${n.toFixed(1)} ${CONTRACTS.COLLATERAL_SYMBOL}`;
-  return `${n.toFixed(3)} ${CONTRACTS.COLLATERAL_SYMBOL}`;
+  return `${n.toFixed(2)} ${CONTRACTS.COLLATERAL_SYMBOL}`;
 }
 
 function formatValidationFailureMessage(validation: {
@@ -52,7 +52,7 @@ function formatValidationFailureMessage(validation: {
   return `Question rejected by CRE (${checksPart}, score ${validation.score}).`;
 }
 
-function MarketTile({ market, creBlocked }: { market: Market; creBlocked: boolean }) {
+function MarketTile({ market }: { market: Market }) {
   const now = Math.floor(Date.now() / 1000);
   const secondsLeft = market.deadline - now;
   const totalHoursLeft = Math.max(0, Math.ceil(secondsLeft / 3600));
@@ -108,7 +108,7 @@ function MarketTile({ market, creBlocked }: { market: Market; creBlocked: boolea
       </div>
 
       <Link href={`/markets/${market.id}`}>
-        <Button size="sm" variant="outline" className="w-full bg-white/90" disabled={creBlocked}>
+        <Button size="sm" variant="outline" className="w-full bg-white/90">
           Place Bet
         </Button>
       </Link>
@@ -165,10 +165,12 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
   const [showWalletDialog, setShowWalletDialog] = useState(false);
   const [pendingWorldFlow, setPendingWorldFlow] = useState<WorldIdPendingFlow | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [copiedCreCmd, setCopiedCreCmd] = useState(false);
+  const [oraclePendingCreResolution, setOraclePendingCreResolution] = useState<number | null>(null);
   const worldFlowPromiseRef = useRef<{ resolve: (proof: WorldIdOnchainProof) => void; reject: (error: Error) => void } | null>(
     null
   );
-  const creationCooldownWarningRef = useRef<string | null>(null);
+  const creationPolicyNoticeShownRef = useRef(false);
   const { account } = useWallet();
 
   const pushNotification = (item: Omit<NotificationItem, "id">) => {
@@ -191,8 +193,25 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
       });
   }, [markets, search, sort]);
 
-  const pendingCreResolution = useMemo(() => getPendingCreResolutionCount(markets), [markets]);
+  const pendingCreResolution = useMemo(() => {
+    if (oraclePendingCreResolution === null) return 0;
+    return oraclePendingCreResolution;
+  }, [oraclePendingCreResolution]);
   const creBlocked = pendingCreResolution > 0;
+
+  useEffect(() => {
+    let active = true;
+    const loadOraclePending = async () => {
+      const count = await getOraclePendingResolutionCount();
+      if (!active) return;
+      setOraclePendingCreResolution(count);
+    };
+
+    void loadOraclePending();
+    return () => {
+      active = false;
+    };
+  }, [markets]);
 
   const ensureWallet = () => {
     if (account) return true;
@@ -232,42 +251,35 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
       const now = Math.floor(Date.now() / 1000);
       const secondsSince = now - latestCreationByUser;
       if (secondsSince < 24 * 60 * 60) {
-        const unlockAt = new Date((latestCreationByUser + 24 * 60 * 60) * 1000).toLocaleString("en-US", {
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-          timeZone: "UTC",
-        });
-        const warningKey = `${(account ?? "").toLowerCase()}:${latestCreationByUser}`;
-        if (creationCooldownWarningRef.current !== warningKey) {
-          creationCooldownWarningRef.current = warningKey;
+        if (!creationPolicyNoticeShownRef.current) {
+          creationPolicyNoticeShownRef.current = true;
+          const unlockAt = new Date((latestCreationByUser + 24 * 60 * 60) * 1000).toLocaleString("en-US", {
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+            timeZone: "UTC",
+          });
           pushNotification({
-            variant: "error",
-            title: "One-market-per-day check (warning only)",
-            description: `This wallet created a market in the last 24h. Next eligible time: ${unlockAt} UTC. Enforcement is not on yet.`,
+            variant: "info",
+            title: "24h creation policy",
+            description: `One market per wallet every 24h is currently warning-only in testing. Suggested next time: ${unlockAt} UTC.`,
           });
         }
       }
-    } else {
-      creationCooldownWarningRef.current = null;
     }
 
-    const triggerUrlConfigured = Boolean(process.env.NEXT_PUBLIC_CRE_HTTP_TRIGGER_URL);
     const existing = await getQuestionValidationStatus(question, deadline);
     if (existing.processed) {
       if (!existing.approved) throw new Error(formatValidationFailureMessage(existing));
       if (existing.proofHash === ZERO_HASH) {
         throw new Error("CRE validation proof hash is missing onchain. Re-run CRE validation.");
       }
-      if (!triggerUrlConfigured) {
-        const latestValidationAt = await getLatestQuestionValidationTimestamp(question, deadline);
-        if (!latestValidationAt || latestValidationAt < requireFreshAfter) {
-          throw new Error(MANUAL_CRE_PENDING_ERROR);
-        }
+      const latestValidationAt = await getLatestQuestionValidationTimestamp(question, deadline);
+      if (latestValidationAt && latestValidationAt >= requireFreshAfter) {
+        return;
       }
-      return;
     }
 
     const trigger = await triggerCreQuestionValidation(question, deadline);
@@ -277,6 +289,13 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
 
     const validation = await waitForQuestionValidation(question, deadline);
     if (!validation.approved) throw new Error(formatValidationFailureMessage(validation));
+    if (validation.proofHash === ZERO_HASH) {
+      throw new Error("CRE validation proof hash is missing onchain. Re-run CRE validation.");
+    }
+    const latestValidationAt = await getLatestQuestionValidationTimestamp(question, deadline);
+    if (!latestValidationAt || latestValidationAt < requireFreshAfter) {
+      throw new Error("Validation report not found onchain yet. CRE verification is still pending.");
+    }
 
   };
 
@@ -314,6 +333,20 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
     }
   };
 
+  const handleCopyCreSimCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(CRE_SIM_CMD);
+      setCopiedCreCmd(true);
+      setTimeout(() => setCopiedCreCmd(false), 1800);
+    } catch {
+      pushNotification({
+        variant: "error",
+        title: "Clipboard copy failed",
+        description: "Copy the command manually.",
+      });
+    }
+  };
+
   return (
     <div className="space-y-5">
       <div className="rounded-xl border border-gray-200/80 bg-white/65 backdrop-blur-xl p-3 shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
@@ -330,12 +363,14 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
           <Button
             variant="outline"
             className="gap-1.5 shrink-0 w-full sm:w-auto bg-gray-100 hover:bg-gray-200 border-gray-300"
-            disabled={creBlocked}
             onClick={() => {
               if (!account) setShowWalletDialog(true);
-              else setShowCreateModal(true);
-            }}
-          >
+              else {
+                creationPolicyNoticeShownRef.current = false;
+                setShowCreateModal(true);
+              }
+    }}
+  >
             <Plus className="w-4 h-4" />
             Create Market
           </Button>
@@ -361,11 +396,30 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
         <div className="text-sm rounded-md p-3 border border-amber-300 bg-amber-50 text-amber-800 space-y-1">
           <p>
             {pendingCreResolution} market{pendingCreResolution !== 1 ? "s are" : " is"} waiting for result processing.
-            New market creation and betting are blocked until simulation is run.
+            You can keep using the app, but outcomes may remain unresolved until CRE simulation runs.
           </p>
           <p className="text-xs">
             Run <code>{CRE_SIM_CMD}</code>, then refresh this page.
           </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-1 bg-white hover:bg-amber-100 border-amber-200 text-amber-900"
+            onClick={() => void handleCopyCreSimCommand()}
+          >
+            {copiedCreCmd ? (
+              <>
+                <Check className="h-3.5 w-3.5 mr-1" />
+                Copied
+              </>
+            ) : (
+              <>
+                <Copy className="h-3.5 w-3.5 mr-1" />
+                Copy CRE simulate command
+              </>
+            )}
+          </Button>
         </div>
       )}
 
@@ -398,7 +452,7 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((market) => (
-            <MarketTile key={market.id} market={market} creBlocked={creBlocked} />
+            <MarketTile key={market.id} market={market} />
           ))}
         </div>
       )}

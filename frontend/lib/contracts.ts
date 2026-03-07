@@ -16,25 +16,44 @@ function envNumber(name: string, fallback: number): number {
 }
 
 export const CONTRACTS = {
-  ORACLE_ADDRESS: envAddress("NEXT_PUBLIC_ORACLE_ADDRESS", "0x623f9f72342a3c2518c880d8372de90eaef200cd"),
+  ORACLE_ADDRESS: envAddress("NEXT_PUBLIC_ORACLE_ADDRESS", "0x261dc51bac926f77df587ca582f7ca739033f061"),
   PREDICTION_MARKET_ADDRESS: envAddress(
     "NEXT_PUBLIC_PREDICTION_MARKET_ADDRESS",
-    "0xb38f8a149f95850cb5eff5fce5621d36b8f8bbd0"
+    "0x26c49b5a46980e0489bce262bb03d442b02baa38"
   ),
   COLLATERAL_TOKEN_ADDRESS: envAddress(
     "NEXT_PUBLIC_COLLATERAL_TOKEN_ADDRESS",
-    "0x7df5e8cc9e847afa8ec91d896c1fbad0fcb86c07"
+    "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
   ),
   COLLATERAL_SYMBOL: process.env.NEXT_PUBLIC_COLLATERAL_SYMBOL?.trim() || "USDC",
-  COLLATERAL_DECIMALS: envNumber("NEXT_PUBLIC_COLLATERAL_DECIMALS", 18),
+  COLLATERAL_DECIMALS: envNumber("NEXT_PUBLIC_COLLATERAL_DECIMALS", 6),
   NETWORK_NAME: process.env.NEXT_PUBLIC_NETWORK_NAME?.trim() || "Tenderly Virtual TestNet",
   FACTORY_ADDRESS: ZERO_ADDRESS,
   AEEIA_TOKEN_ADDRESS: ZERO_ADDRESS,
   STAKING_ADDRESS: ZERO_ADDRESS,
-  CHAIN_ID: envNumber("NEXT_PUBLIC_CHAIN_ID", 9991),
+  CHAIN_ID: envNumber("NEXT_PUBLIC_CHAIN_ID", 9992),
 } as const;
 
 export const ORACLE_ABI = [
+  {
+    inputs: [],
+    name: "getPendingMarkets",
+    outputs: [
+      {
+        components: [
+          { internalType: "uint256", name: "id", type: "uint256" },
+          { internalType: "string", name: "question", type: "string" },
+          { internalType: "uint256", name: "deadline", type: "uint256" },
+          { internalType: "bool", name: "resolved", type: "bool" },
+        ],
+        internalType: "struct AletheiaOracle.Market[]",
+        name: "",
+        type: "tuple[]",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
   {
     inputs: [{ internalType: "bytes32", name: "questionDigest", type: "bytes32" }],
     name: "getQuestionValidation",

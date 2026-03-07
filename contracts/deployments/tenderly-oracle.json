@@ -1,5 +1,5 @@
 {
-  "oracle": "0x623f9f72342a3c2518c880d8372de90eaef200cd",
+  "oracle": "0x261dc51bac926f77df587ca582f7ca739033f061",
   "forwarder": "0xA3D1AD4Ac559a6575a114998AffB2fB2Ec97a7D9",
-  "network": "tenderly-virtual-mainnet"
+  "network": "tenderly-virtual-mainnet-9992"
 }

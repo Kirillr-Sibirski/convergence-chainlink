@@ -151,9 +151,34 @@ Rules:
 - legitimate: normal, non-malicious market question.
 - clearTimeline: TRUE when either (a) the question itself has a clear date/time OR (b) a separate Market Resolution Time field is provided by the system.
 - IMPORTANT: the deadline is provided separately by the system. Do NOT fail timeline clarity only because the question text itself does not include a date.
+- IMPORTANT: if a separate deadline is provided, do NOT include "missing date/timeline" in issues/suggestions.
 - resolvable: public sources/APIs can verify outcome.
 - binary: objective yes/no outcome.
 - reject vague, subjective, non-verifiable, or future-only speculation without measurable criteria.`
+
+function isTimelineIssue(text: string): boolean {
+	const normalized = text.toLowerCase()
+	const hasDateLike = normalized.includes('date') || normalized.includes('time') || normalized.includes('timeline') || normalized.includes('deadline')
+	const hasMissingQualifier =
+		normalized.includes('missing') ||
+		normalized.includes('no ') ||
+		normalized.includes('not specify') ||
+		normalized.includes('not specified') ||
+		normalized.includes('unclear') ||
+		normalized.includes('vague') ||
+		normalized.includes('specific') ||
+		normalized.includes('particular')
+	return (
+		normalized.includes('specific date') ||
+		normalized.includes('particular date') ||
+		normalized.includes('no date') ||
+		normalized.includes('missing date') ||
+		normalized.includes('timeline') ||
+		normalized.includes('deadline') ||
+		normalized.includes('time not specified') ||
+		(hasDateLike && hasMissingQualifier)
+	)
+}
 
 /**
  * Query AI model via OpenRouter
@@ -416,6 +441,7 @@ function askAIValidation(
 ): ValidationAIResponse {
 	const apiKey = runtime.getSecret({ id: 'OPENROUTER_API_KEY' }).result()
 	const httpClient = new cre.capabilities.HTTPClient()
+	const deadlineIso = deadline > 0 ? new Date(deadline * 1000).toISOString() : 'not provided'
 
 	const requestData = {
 		model: modelName,
@@ -424,11 +450,11 @@ function askAIValidation(
 				role: 'system',
 				content: VALIDATION_PROMPT,
 			},
-			{
-				role: 'user',
-				content: `Validate this prediction market question:\n${question}\n\nMarket Resolution Time (authoritative deadline, UTC unix): ${deadline}\n\nScoring note: this deadline is provided by a separate field, so treat timeline clarity as satisfied by this value even if the question text omits a date.`,
-			},
-		],
+				{
+					role: 'user',
+					content: `Validate this prediction market question:\n${question}\n\nMarket Resolution Time (authoritative, UTC unix): ${deadline}\nMarket Resolution Time (authoritative, UTC ISO): ${deadlineIso}\n\nScoring note: this deadline is provided by a separate field, so timeline clarity is already satisfied. Do not add issues about missing/unclear date or time from question text.`,
+				},
+			],
 		temperature: 0,
 		max_tokens: 500,
 	}
@@ -468,26 +494,34 @@ function askAIValidation(
 			const parsed = parseModelJsonContent(text)
 			const checks = parsed.checks || {}
 
-			const result: ValidationAIResponse = {
-				valid: Boolean(parsed.valid),
-				score: Number(parsed.score || 0),
-				issues: Array.isArray(parsed.issues) ? parsed.issues.map(String) : [],
-				suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.map(String) : [],
+				const result: ValidationAIResponse = {
+					valid: Boolean(parsed.valid),
+					score: Number(parsed.score || 0),
+					issues: Array.isArray(parsed.issues) ? parsed.issues.map(String) : [],
+					suggestions: Array.isArray(parsed.suggestions) ? parsed.suggestions.map(String) : [],
 				checks: {
 					legitimate: Boolean(checks.legitimate),
 					clearTimeline: Boolean(checks.clearTimeline),
 					resolvable: Boolean(checks.resolvable),
 					binary: Boolean(checks.binary),
 				},
-				model: displayName,
-			}
+					model: displayName,
+				}
 
-			if (!result.checks.legitimate || !result.checks.clearTimeline || !result.checks.resolvable || !result.checks.binary) {
-				result.valid = false
-			}
+				if (deadline > 0) {
+					result.checks.clearTimeline = true
+					result.issues = result.issues.filter((issue) => !isTimelineIssue(issue))
+					result.suggestions = result.suggestions.filter((suggestion) => !isTimelineIssue(suggestion))
+				}
+				result.valid =
+					result.score >= 70 &&
+					result.checks.legitimate &&
+					result.checks.clearTimeline &&
+					result.checks.resolvable &&
+					result.checks.binary
 
-			return result
-		},
+				return result
+			},
 		consensusIdenticalAggregation<ValidationAIResponse>(),
 	)
 

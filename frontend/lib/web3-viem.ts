@@ -144,7 +144,7 @@ export async function getCollateralBalance(address: `0x${string}`): Promise<bigi
   })) as bigint;
 }
 
-export function formatCollateral(value: bigint, fractionDigits = 4): string {
+export function formatCollateral(value: bigint, fractionDigits = 2): string {
   return Number(formatUnits(value, CONTRACTS.COLLATERAL_DECIMALS)).toFixed(fractionDigits);
 }
 
@@ -202,6 +202,20 @@ export async function fetchMarkets(): Promise<UIMarket[]> {
   );
 
   return markets;
+}
+
+export async function getOraclePendingResolutionCount(): Promise<number> {
+  try {
+    const pending = (await publicClient.readContract({
+      address: CONTRACTS.ORACLE_ADDRESS,
+      abi: ORACLE_ABI,
+      functionName: "getPendingMarkets",
+    })) as readonly unknown[];
+
+    return pending.length;
+  } catch {
+    return 0;
+  }
 }
 
 export async function getQuestionValidationStatus(
@@ -525,7 +539,7 @@ export async function getUserClaimablePayout(marketId: number, user: `0x${string
 }
 
 export function formatCollateralShort(value: bigint): string {
-  return Number(formatUnits(value, CONTRACTS.COLLATERAL_DECIMALS)).toFixed(4);
+  return Number(formatUnits(value, CONTRACTS.COLLATERAL_DECIMALS)).toFixed(2);
 }
 
 async function getLogsChunked<TEvent extends { type: "event"; name: string; inputs: readonly any[] }>(params: {

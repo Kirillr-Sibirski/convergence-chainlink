@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { formatUnits, parseUnits } from "viem";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Check, Copy } from "lucide-react";
 import { SimpleHeader } from "@/components/layout/SimpleHeader";
 import { BackgroundBeams } from "@/components/ui/background-beams";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +21,7 @@ import {
   fetchMarkets,
   fetchMarketPriceHistory,
   fetchMarketTradeHistory,
+  getOraclePendingResolutionCount,
   getCollateralBalance,
   getUserBet,
   getUserClaimablePayout,
@@ -30,7 +31,7 @@ import {
   sellShares,
   type UIMarket,
 } from "@/lib/web3-viem";
-import { CRE_SIM_CMD, getPendingCreResolutionCount } from "@/lib/cre-gate";
+import { CRE_SIM_CMD } from "@/lib/cre-gate";
 
 type Side = "YES" | "NO";
 type Mode = "buy" | "sell";
@@ -99,6 +100,7 @@ export default function MarketBetPage() {
   const [error, setError] = useState<string | null>(null);
   const [errorVariant, setErrorVariant] = useState<"error" | "info">("error");
   const [pendingCreResolution, setPendingCreResolution] = useState(0);
+  const [copiedCreCommand, setCopiedCreCommand] = useState(false);
 
   const load = useCallback(async () => {
     if (!Number.isFinite(marketId) || marketId <= 0) {
@@ -111,7 +113,8 @@ export default function MarketBetPage() {
       setLoading(true);
       setError(null);
       const markets = await fetchMarkets();
-      setPendingCreResolution(getPendingCreResolutionCount(markets));
+      const oraclePendingCount = await getOraclePendingResolutionCount();
+      setPendingCreResolution(oraclePendingCount);
       const current = markets.find((m) => m.id === marketId) ?? null;
       setMarket(current);
       if (current) {
@@ -165,7 +168,7 @@ export default function MarketBetPage() {
   const now = Math.floor(Date.now() / 1000);
   const expired = useMemo(() => !!market && market.deadline <= now, [market, now]);
   const creBlocked = pendingCreResolution > 0;
-  const canBet = !!market && !market.settled && !expired && !creBlocked;
+  const canBet = !!market && !market.settled && !expired;
   const selectedBalance = side === "YES" ? yesBet : noBet;
   const maxBuyWei = walletBalance;
   const maxSellWei = selectedBalance;
@@ -206,6 +209,17 @@ export default function MarketBetPage() {
     },
     [load]
   );
+
+  const handleCopyCreCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(CRE_SIM_CMD);
+      setCopiedCreCommand(true);
+      setTimeout(() => setCopiedCreCommand(false), 1800);
+    } catch {
+      setErrorVariant("error");
+      setError("Failed to copy command. Copy it manually from the warning text.");
+    }
+  };
 
   return (
     <div className="min-h-screen relative">
@@ -290,12 +304,31 @@ export default function MarketBetPage() {
                 <Card className={CARD_SHELL}>
                   <CardContent className="pt-6 text-sm rounded-md border border-amber-300 bg-amber-50 text-amber-800 space-y-1">
                     <p>
-                      CRE simulation required. {pendingCreResolution} expired unresolved market
-                      {pendingCreResolution !== 1 ? "s are" : " is"} blocking further actions.
+                      CRE simulation required. {pendingCreResolution} market
+                      {pendingCreResolution !== 1 ? "s are" : " is"} waiting for result processing.
                     </p>
                     <p className="text-xs">
-                      Run <code>{CRE_SIM_CMD}</code>, then refresh.
+                      Run <code>{CRE_SIM_CMD}</code> and refresh to resolve overdue markets.
                     </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-1 bg-white/90 hover:bg-amber-100 border-amber-300 text-amber-900"
+                      onClick={() => void handleCopyCreCommand()}
+                    >
+                      {copiedCreCommand ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 mr-1" />
+                          Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5 mr-1" />
+                          Copy command
+                        </>
+                      )}
+                    </Button>
                   </CardContent>
                 </Card>
               )}
@@ -362,7 +395,6 @@ export default function MarketBetPage() {
                           <div className="grid grid-cols-2 rounded-lg bg-gray-100 p-1">
                             <button
                               type="button"
-                              disabled={creBlocked}
                               onClick={() => setMode("buy")}
                               className={`h-9 rounded-md text-sm font-medium transition ${
                                 mode === "buy"
@@ -374,7 +406,6 @@ export default function MarketBetPage() {
                             </button>
                             <button
                               type="button"
-                              disabled={creBlocked}
                               onClick={() => setMode("sell")}
                               className={`h-9 rounded-md text-sm font-medium transition ${
                                 mode === "sell"
@@ -398,7 +429,6 @@ export default function MarketBetPage() {
                               />
                               <button
                                 type="button"
-                                disabled={creBlocked}
                                 onClick={() => setSide("YES")}
                                 className={`relative z-10 h-9 w-full rounded-md text-sm font-medium transition ${
                                   side === "YES"
@@ -417,7 +447,6 @@ export default function MarketBetPage() {
                               />
                               <button
                                 type="button"
-                                disabled={creBlocked}
                                 onClick={() => setSide("NO")}
                                 className={`relative z-10 h-9 w-full rounded-md text-sm font-medium transition ${
                                   side === "NO" ? "bg-red-600 text-white shadow-sm" : "text-red-700 hover:bg-red-50"
@@ -437,7 +466,6 @@ export default function MarketBetPage() {
                               min="0"
                               step="0.0001"
                               value={amount}
-                              disabled={creBlocked}
                               onChange={(e) => setAmount(e.target.value)}
                               placeholder="0.0100"
                               className="pr-28 bg-white"
@@ -449,7 +477,7 @@ export default function MarketBetPage() {
                             <button
                               type="button"
                               onClick={() => setAmount(formatCollateralInput(activeMaxWei))}
-                              disabled={activeMaxWei === BigInt(0) || creBlocked}
+                              disabled={activeMaxWei === BigInt(0)}
                               className="absolute right-16 top-1/2 -translate-y-1/2 text-[10px] font-semibold px-1.5 py-0.5 rounded border border-gray-300 bg-gray-50 text-gray-600 hover:bg-gray-100 disabled:opacity-50"
                             >
                               MAX
@@ -491,7 +519,7 @@ export default function MarketBetPage() {
                         <Button
                           variant="outline"
                           className="w-full"
-                          disabled={busy || creBlocked}
+                          disabled={busy}
                           onClick={() =>
                             void runAction(async () => {
                               await claimWinnings(market.id);

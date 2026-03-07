@@ -14,11 +14,12 @@ import { CONTRACTS } from "@/lib/contracts";
 import {
   claimWinnings,
   formatCollateral,
+  getOraclePendingResolutionCount,
   getUserBet,
   getUserClaimablePayout,
   type UIMarket,
 } from "@/lib/web3-viem";
-import { CRE_SIM_CMD, getPendingCreResolutionCount } from "@/lib/cre-gate";
+import { CRE_SIM_CMD } from "@/lib/cre-gate";
 
 type Position = {
   market: UIMarket;
@@ -31,11 +32,13 @@ type Position = {
 export default function DashboardPage() {
   const { account, connect, isConnecting } = useWallet();
   const { markets, isLoading, error, refresh } = useMarkets();
+  const [nowTs, setNowTs] = useState(() => Math.floor(Date.now() / 1000));
   const [positions, setPositions] = useState<Position[]>([]);
   const [positionsLoading, setPositionsLoading] = useState(false);
   const [claimingId, setClaimingId] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [copiedCreCommand, setCopiedCreCommand] = useState(false);
+  const [oraclePendingCreResolution, setOraclePendingCreResolution] = useState<number | null>(null);
 
   useEffect(() => {
     if (!account || markets.length === 0) {
@@ -78,7 +81,10 @@ export default function DashboardPage() {
   }, [account, markets]);
 
   const contentLoading = isLoading || positionsLoading;
-  const pendingCreResolution = useMemo(() => getPendingCreResolutionCount(markets), [markets]);
+  const pendingCreResolution = useMemo(() => {
+    if (oraclePendingCreResolution === null) return 0;
+    return oraclePendingCreResolution;
+  }, [oraclePendingCreResolution]);
   const creBlocked = pendingCreResolution > 0;
   const openPositions = useMemo(
     () => [...positions].filter((p) => !p.market.settled),
@@ -89,8 +95,26 @@ export default function DashboardPage() {
     [positions]
   );
 
+  useEffect(() => {
+    const id = window.setInterval(() => setNowTs(Math.floor(Date.now() / 1000)), 60_000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadOraclePending = async () => {
+      const count = await getOraclePendingResolutionCount();
+      if (!cancelled) setOraclePendingCreResolution(count);
+    };
+
+    void loadOraclePending();
+    return () => {
+      cancelled = true;
+    };
+  }, [markets]);
+
   const handleClaim = async (marketId: number) => {
-    if (!account || creBlocked) return;
+    if (!account) return;
     try {
       setActionError(null);
       setClaimingId(marketId);
@@ -171,9 +195,9 @@ export default function DashboardPage() {
               {creBlocked && (
                 <SpotlightCard className="p-5 border-amber-300 bg-amber-50/85">
                   <div className="space-y-1 text-amber-800">
-                    <p className="text-sm font-medium">Action required before continuing.</p>
+                    <p className="text-sm font-medium">Action recommended.</p>
                     <p className="text-xs">
-                      {pendingCreResolution} expired unresolved market{pendingCreResolution !== 1 ? "s are" : " is"} blocking claims.
+                      {pendingCreResolution} expired unresolved market{pendingCreResolution !== 1 ? "s are" : " is"} waiting for result processing.
                     </p>
                     <p className="text-xs">Run <code>{CRE_SIM_CMD}</code>, then refresh.</p>
                     <Button
@@ -251,7 +275,7 @@ export default function DashboardPage() {
                                 size="sm"
                                 variant="outline"
                                 className="w-full sm:w-auto"
-                                disabled={claimingId === position.market.id || creBlocked}
+                                disabled={claimingId === position.market.id}
                                 onClick={() => void handleClaim(position.market.id)}
                               >
                                   {claimingId === position.market.id ? (
@@ -292,6 +316,15 @@ export default function DashboardPage() {
                           const primaryAmount = primarySide === "YES" ? position.yesAmount : position.noAmount;
                           const stripe = primarySide === "YES" ? "bg-green-500/75" : "bg-red-500/75";
                           const glow = primarySide === "YES" ? "bg-green-400/45" : "bg-red-400/45";
+                          const secondsLeft = Math.max(0, position.market.deadline - nowTs);
+                          const days = Math.floor(secondsLeft / 86400);
+                          const hours = Math.floor((secondsLeft % 86400) / 3600);
+                          const minutes = Math.floor((secondsLeft % 3600) / 60);
+                          const countdownLabel = days > 0
+                            ? `${days}d ${hours}h ${minutes}m`
+                            : hours > 0
+                            ? `${hours}h ${minutes}m`
+                            : `${minutes}m`;
 
                           return (
                             <>
@@ -306,6 +339,12 @@ export default function DashboardPage() {
                                 </div>
                                 <p className="text-sm font-semibold text-gray-800">
                                   Position: {formatCollateral(primaryAmount)} {CONTRACTS.COLLATERAL_SYMBOL}
+                                </p>
+                                <p className="text-xs text-gray-600">
+                                  Resolution time: {new Date(position.market.deadline * 1000).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })} UTC
+                                </p>
+                                <p className="text-xs text-gray-600">
+                                  Resolves in {countdownLabel}
                                 </p>
                               </div>
                               <div className="absolute left-0 top-0 h-full w-3 flex items-center justify-center">
