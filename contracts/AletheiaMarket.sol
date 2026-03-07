@@ -22,6 +22,7 @@ contract AletheiaMarket {
     uint256 public worldIdExternalNullifierHash;
     bool public strictWorldIdVerification;
     bool public dailyMarketCreationLimitEnabled;
+    bool public worldIdNullifierUniquenessEnabled = true;
     mapping(uint256 => uint256) public oracleToMarketId;
     mapping(uint256 => bool) public usedWorldIdNullifierHashes;
     mapping(address => uint256) public lastMarketCreationAt;
@@ -56,6 +57,7 @@ contract AletheiaMarket {
     event MarketSettled(uint256 indexed marketId, bool outcome, uint8 confidence);
     event WinningsClaimed(uint256 indexed marketId, address indexed user, uint256 payout);
     event DailyMarketCreationLimitUpdated(bool enabled);
+    event WorldIdNullifierUniquenessUpdated(bool enabled);
     event MarketCreationLimitExemptUpdated(address indexed account, bool exempt);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
@@ -124,6 +126,11 @@ contract AletheiaMarket {
         emit MarketCreationLimitExemptUpdated(account, exempt);
     }
 
+    function setWorldIdNullifierUniquenessEnabled(bool enabled) external onlyOwner {
+        worldIdNullifierUniquenessEnabled = enabled;
+        emit WorldIdNullifierUniquenessUpdated(enabled);
+    }
+
     function createMarketVerified(
         string calldata question,
         uint256 deadline,
@@ -160,7 +167,9 @@ contract AletheiaMarket {
             }
         }
 
-        if (usedWorldIdNullifierHashes[nullifierHash]) revert InvalidNullifier();
+        if (worldIdNullifierUniquenessEnabled && usedWorldIdNullifierHashes[nullifierHash]) {
+            revert InvalidNullifier();
+        }
 
         if (strictWorldIdVerification) {
             try worldId.verifyProof(
@@ -187,7 +196,9 @@ contract AletheiaMarket {
             if (!hasNonZeroProofElement) revert InvalidWorldIDProof();
         }
 
-        usedWorldIdNullifierHashes[nullifierHash] = true;
+        if (worldIdNullifierUniquenessEnabled) {
+            usedWorldIdNullifierHashes[nullifierHash] = true;
+        }
         lastMarketCreationAt[msg.sender] = block.timestamp;
 
         uint256 oracleMarketId = oracle.createMarket(question, deadline);

@@ -416,10 +416,15 @@ export async function createMarketVerified(
     }
     if (
       msg.includes("InvalidNullifier") ||
-      msg.includes("0x84ba9c7f") ||
+      msg.includes("0x5d904cb2") ||
       msg.toLowerCase().includes("invalid nullifier")
     ) {
-      throw new Error("This World ID proof was already used. Please generate a fresh verification proof.");
+      throw new Error(
+        "World ID nullifier was already used for this action. In testing, disable nullifier uniqueness in the market contract or redeploy with testing mode."
+      );
+    }
+    if (msg.includes("0xb0a980ae") || msg.toLowerCase().includes("marketcreationcooldown")) {
+      throw new Error("24h market-creation cooldown is enabled onchain for this wallet.");
     }
     if (msg.includes("0xddae3b71") || msg.toLowerCase().includes("nonexistentroot")) {
       throw new Error("World ID proof root is not recognized for this environment. Re-run World ID verification.");

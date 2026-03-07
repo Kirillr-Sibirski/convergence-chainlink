@@ -513,6 +513,7 @@ const writeQuestionValidationResult = (
 
 const onHttpQuestionValidationTrigger = (runtime: Runtime<Config>, parsed: HttpQuestionValidationPayload): string => {
 	logRuntimeSignerContext(runtime)
+	runtime.log('HTTP trigger mode: question validation only. Market resolution requires CRON trigger (trigger-index 0).')
 	const question = parsed.question?.trim() || ''
 	if (!question) throw new Error('HTTP payload missing question')
 

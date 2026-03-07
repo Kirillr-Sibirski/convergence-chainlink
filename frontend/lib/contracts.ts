@@ -86,6 +86,16 @@ export const ORACLE_ABI = [
 
 export const ALETHEIA_MARKET_ABI = [
   {
+    inputs: [],
+    name: "InvalidNullifier",
+    type: "error",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "nextAllowedAt", type: "uint256" }],
+    name: "MarketCreationCooldown",
+    type: "error",
+  },
+  {
     inputs: [
       { internalType: "string", name: "question", type: "string" },
       { internalType: "uint256", name: "deadline", type: "uint256" },

@@ -45,6 +45,10 @@ contract DeployAllScript is Script {
         AletheiaMarket market =
             new AletheiaMarket(address(oracle), collateralTokenAddress, worldIdAddress, worldIdAppId, worldIdAction);
         console.log("AletheiaMarket deployed at:", address(market));
+        market.setDailyMarketCreationLimitEnabled(false);
+        market.setWorldIdNullifierUniquenessEnabled(false);
+        console.log("Market creation 24h limit disabled (testing mode)");
+        console.log("World ID nullifier uniqueness disabled (testing mode)");
 
         // Wire oracle -> market callback for CRE-driven auto-settlement
         oracle.setPredictionMarket(address(market));
