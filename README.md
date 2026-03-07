@@ -53,27 +53,17 @@ Permissionless binary prediction markets with Chainlink CRE orchestration, World
 ## Tenderly Virtual TestNet Deployment
 
 - Chain ID: `9993`
-- Public RPC (for frontend, docs, demos):
+- Public RPC:
   - `https://virtual.mainnet.eu.rpc.tenderly.co/7ab2ac7f-6262-4a2d-9271-11cb2f95b651`
-- Admin RPC is intentionally not documented in-repo; keep it local in `.env` for deploy/config operations.
 - Explorer root:
   - [Tenderly VNet Explorer](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651)
 
 ### Deployed contracts (clickable explorer links)
 
-- Oracle: [`0xd9fb2c2514bee54d58aba07d07e09978c87fe881`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/address/0xd9fb2c2514bee54d58aba07d07e09978c87fe881)
-- Market: [`0x6367b12cee6105fce90b4532c513605fc061bf4d`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/address/0x6367b12cee6105fce90b4532c513605fc061bf4d)
-- Collateral (USDC on mainnet fork): [`0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/address/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48)
-- Chainlink Forwarder (CRE sender): [`0xA3D1AD4Ac559a6575a114998AffB2fB2Ec97a7D9`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/address/0xA3D1AD4Ac559a6575a114998AffB2fB2Ec97a7D9)
-- World ID Router (configured verifier): [`0x469449f251692E0779667583026b5A1E99512157`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/address/0x469449f251692E0779667583026b5A1E99512157)
-
-### Deployment / wiring transactions
-
-- Oracle deploy: [`0xf3c70ae9a068063096428d8bcbebc3456327110f17d8f1303eb4a4fe4286796f`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/tx/0xf3c70ae9a068063096428d8bcbebc3456327110f17d8f1303eb4a4fe4286796f)
-- Market deploy: [`0x01b5dcafe2a027649656eb2e4aae40e9705861716d54ea8b5bb05ed23030202e`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/tx/0x01b5dcafe2a027649656eb2e4aae40e9705861716d54ea8b5bb05ed23030202e)
-- Disable 24h limit (testing mode): [`0x644962d004f2685474459e3e90e419d8baf1e677ffad2080ee83185dac4b00bd`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/tx/0x644962d004f2685474459e3e90e419d8baf1e677ffad2080ee83185dac4b00bd)
-- Disable nullifier uniqueness (testing mode): [`0x2538c556af2c958f1d026ce06648c0e6c2ca94112a781f24085f7a890a095b78`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/tx/0x2538c556af2c958f1d026ce06648c0e6c2ca94112a781f24085f7a890a095b78)
-- Oracle -> Market wiring: [`0x6619d85f33e2412e519488078933f78255f4125553d90ca6bb4afbc303478d06`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/tx/0x6619d85f33e2412e519488078933f78255f4125553d90ca6bb4afbc303478d06)
+- Oracle: [`0xd9fb2c2514bee54d58aba07d07e09978c87fe881`](https://dashboard.tenderly.co/sibirski/project/testnet/b4b82bf6-0d85-47e3-9dab-e796d0524525/contract/virtual/0xd9fb2c2514bee54d58aba07d07e09978c87fe881)
+- Market: [`0x6367b12cee6105fce90b4532c513605fc061bf4d`](https://dashboard.tenderly.co/sibirski/project/testnet/b4b82bf6-0d85-47e3-9dab-e796d0524525/contract/virtual/0x6367b12cee6105fce90b4532c513605fc061bf4d)
+- Chainlink Forwarder (CRE sender): [`0xA3D1AD4Ac559a6575a114998AffB2fB2Ec97a7D9`](https://dashboard.tenderly.co/sibirski/project/testnet/b4b82bf6-0d85-47e3-9dab-e796d0524525/contract/virtual/0xA3D1AD4Ac559a6575a114998AffB2fB2Ec97a7D9)
+- World ID Router (configured verifier): [`0x469449f251692E0779667583026b5A1E99512157`](https://dashboard.tenderly.co/sibirski/project/testnet/b4b82bf6-0d85-47e3-9dab-e796d0524525/contract/virtual/0x469449f251692E0779667583026b5A1E99512157)
 
 ## CRE Workflow Execution (Demo)
 
