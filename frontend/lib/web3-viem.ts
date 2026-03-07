@@ -435,11 +435,11 @@ export async function createMarketVerified(
       msg.toLowerCase().includes("invalid nullifier")
     ) {
       throw new Error(
-        "World ID nullifier was already used for this action. In testing, disable nullifier uniqueness in the market contract or redeploy with testing mode."
+        "This World ID has already created a market for this action. You cannot create another market with the same World ID proof."
       );
     }
     if (msg.includes("0xb0a980ae") || msg.toLowerCase().includes("marketcreationcooldown")) {
-      throw new Error("24h market-creation cooldown is enabled onchain for this wallet.");
+      throw new Error("You already created a market in the last 24 hours. Please try again later.");
     }
     if (msg.includes("0xddae3b71") || msg.toLowerCase().includes("nonexistentroot")) {
       throw new Error("World ID proof root is not recognized for this environment. Re-run World ID verification.");

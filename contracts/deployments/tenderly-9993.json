@@ -7,17 +7,17 @@
   "worldIdRouterAddress": "0x469449f251692E0779667583026b5A1E99512157",
   "worldIdAppId": "app_4b80b5d7b6aa0e9a6f62dbbc8fae0daf",
   "worldIdAction": "create-new-market",
-  "oracleAddress": "0xd9fb2c2514bee54d58aba07d07e09978c87fe881",
-  "predictionMarketAddress": "0x6367b12cee6105fce90b4532c513605fc061bf4d",
+  "oracleAddress": "0x73ce74faebbb1926398f8360373490e6dd1b04dc",
+  "predictionMarketAddress": "0x637e1497cecc9869fef92201fa46a7d6ca77d16e",
   "collateralTokenAddress": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
   "txs": {
     "mockUsdcDeploy": null,
     "mockUsdcMint": null,
-    "oracleDeploy": "0xf3c70ae9a068063096428d8bcbebc3456327110f17d8f1303eb4a4fe4286796f",
-    "marketDeploy": "0x01b5dcafe2a027649656eb2e4aae40e9705861716d54ea8b5bb05ed23030202e",
-    "disableCooldown": "0x644962d004f2685474459e3e90e419d8baf1e677ffad2080ee83185dac4b00bd",
-    "disableWorldIdNullifierUniqueness": "0x2538c556af2c958f1d026ce06648c0e6c2ca94112a781f24085f7a890a095b78",
-    "wirePredictionMarket": "0x6619d85f33e2412e519488078933f78255f4125553d90ca6bb4afbc303478d06"
+    "oracleDeploy": "0x2799e629057727b02d871bb60629180f4a08f4062648c600f69393ddc771a353",
+    "marketDeploy": "0x8ce29f48a4447fbe4324c4a91d85b11a63ef6e3da6611eea760f1f8038431989",
+    "disableCooldown": null,
+    "disableWorldIdNullifierUniqueness": null,
+    "wirePredictionMarket": "0xc84acd03d86c5acae89280acb48dffee11faf521fc2b8d1b980b2616e1e4fd40"
   },
-  "deployedAt": "2026-03-07T18:27:14.819Z"
+  "deployedAt": "2026-03-07T20:28:58.440Z"
 }

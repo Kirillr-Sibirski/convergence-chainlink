@@ -71,6 +71,7 @@ async function main() {
   const chainId = Number.parseInt(getArg("--chain-id") ?? "9993", 10);
   const networkName = getArg("--network-name") ?? "Tenderly Virtual TestNet";
   const existingCollateralArg = getArg("--collateral-token");
+  const disableSafetyArg = (getArg("--disable-safety-for-testing") ?? "").trim().toLowerCase();
 
   const privateKey = (env.PRIVATE_KEY || process.env.PRIVATE_KEY || "").trim();
   const forwarderAddress = normalizeAddress(
@@ -85,6 +86,10 @@ async function main() {
   const worldIdAction = (env.WORLD_ID_ACTION || process.env.WORLD_ID_ACTION || "create-new-market").trim();
   const existingCollateralEnv = (env.COLLATERAL_TOKEN_ADDRESS || process.env.COLLATERAL_TOKEN_ADDRESS || "").trim();
   const existingCollateralTokenRaw = (existingCollateralArg || existingCollateralEnv || "").trim();
+  const disableSafetyForTesting =
+    disableSafetyArg === "1" ||
+    disableSafetyArg === "true" ||
+    (process.env.DISABLE_SAFETY_FOR_TESTING || "").trim().toLowerCase() === "true";
 
   if (!privateKey || !privateKey.startsWith("0x")) {
     throw new Error("Missing PRIVATE_KEY in contracts/.env");
@@ -165,23 +170,37 @@ async function main() {
   if (!marketAddress) throw new Error("Market deployment missing contractAddress");
   console.log(`Market: ${marketAddress}`);
 
-  console.log("Disabling market creation cooldown for testing...");
-  const disableCooldownHash = await walletClient.writeContract({
-    address: marketAddress,
-    abi: marketArtifact.abi as any,
-    functionName: "setDailyMarketCreationLimitEnabled",
-    args: [false],
-  });
-  await publicClient.waitForTransactionReceipt({ hash: disableCooldownHash });
+  let disableCooldownHash: `0x${string}` | null = null;
+  let disableNullifierUniquenessHash: `0x${string}` | null = null;
+  if (disableSafetyForTesting) {
+    console.log("Disabling market creation cooldown for testing...");
+    disableCooldownHash = await walletClient.writeContract({
+      address: marketAddress,
+      abi: marketArtifact.abi as any,
+      functionName: "setDailyMarketCreationLimitEnabled",
+      args: [false],
+    });
+    await publicClient.waitForTransactionReceipt({ hash: disableCooldownHash });
 
-  console.log("Disabling World ID nullifier uniqueness for testing...");
-  const disableNullifierUniquenessHash = await walletClient.writeContract({
-    address: marketAddress,
-    abi: marketArtifact.abi as any,
-    functionName: "setWorldIdNullifierUniquenessEnabled",
-    args: [false],
-  });
-  await publicClient.waitForTransactionReceipt({ hash: disableNullifierUniquenessHash });
+    console.log("Disabling World ID nullifier uniqueness for testing...");
+    disableNullifierUniquenessHash = await walletClient.writeContract({
+      address: marketAddress,
+      abi: marketArtifact.abi as any,
+      functionName: "setWorldIdNullifierUniquenessEnabled",
+      args: [false],
+    });
+    await publicClient.waitForTransactionReceipt({ hash: disableNullifierUniquenessHash });
+  } else {
+    console.log("Enabling 24h market-creation cooldown...");
+    disableCooldownHash = await walletClient.writeContract({
+      address: marketAddress,
+      abi: marketArtifact.abi as any,
+      functionName: "setDailyMarketCreationLimitEnabled",
+      args: [true],
+    });
+    await publicClient.waitForTransactionReceipt({ hash: disableCooldownHash });
+    console.log("Safety checks enabled (24h limit + World ID nullifier uniqueness).");
+  }
 
   console.log("Wiring oracle.setPredictionMarket...");
   const setMarketHash = await walletClient.writeContract({

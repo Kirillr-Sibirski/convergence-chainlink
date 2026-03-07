@@ -54,6 +54,20 @@ function extractErrorMessage(error: unknown): string {
   return "Unknown error";
 }
 
+function titleForCreateMarketError(description: string): string {
+  const normalized = description.toLowerCase();
+  if (normalized.includes("already created a market for this action")) {
+    return "Market already created";
+  }
+  if (normalized.includes("already created a market in the last 24 hours")) {
+    return "One market per day";
+  }
+  if (normalized.includes("world id")) {
+    return "World ID verification failed";
+  }
+  return "Failed to create market";
+}
+
 function formatVolumeEth(value: bigint) {
   const n = Number(value) / 10 ** CONTRACTS.COLLATERAL_DECIMALS;
   return `${n.toFixed(2)} ${CONTRACTS.COLLATERAL_SYMBOL}`;
@@ -189,7 +203,6 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
   const worldFlowPromiseRef = useRef<{ resolve: (proof: WorldIdOnchainProof) => void; reject: (error: Error) => void } | null>(
     null
   );
-  const creationPolicyNoticeShownRef = useRef(false);
   const { account } = useWallet();
 
   const pushNotification = (item: Omit<NotificationItem, "id">) => {
@@ -270,22 +283,15 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
       const now = Math.floor(Date.now() / 1000);
       const secondsSince = now - latestCreationByUser;
       if (secondsSince < 24 * 60 * 60) {
-        if (!creationPolicyNoticeShownRef.current) {
-          creationPolicyNoticeShownRef.current = true;
-          const unlockAt = new Date((latestCreationByUser + 24 * 60 * 60) * 1000).toLocaleString("en-US", {
-            month: "short",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: false,
-            timeZone: "UTC",
-          });
-          pushNotification({
-            variant: "info",
-            title: "24h creation policy",
-            description: `One market per wallet every 24h is currently warning-only in testing. Suggested next time: ${unlockAt} UTC.`,
-          });
-        }
+        const unlockAt = new Date((latestCreationByUser + 24 * 60 * 60) * 1000).toLocaleString("en-US", {
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+          timeZone: "UTC",
+        });
+        throw new Error(`Only one market per wallet every 24h. Try again at ${unlockAt} UTC.`);
       }
     }
 
@@ -345,7 +351,7 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
       const description = extractErrorMessage(createError);
       pushNotification({
         variant: "error",
-        title: "Failed to create market",
+        title: titleForCreateMarketError(description),
         description,
       });
       throw new Error(description);
@@ -385,7 +391,6 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
             onClick={() => {
               if (!account) setShowWalletDialog(true);
               else {
-                creationPolicyNoticeShownRef.current = false;
                 setShowCreateModal(true);
               }
     }}
