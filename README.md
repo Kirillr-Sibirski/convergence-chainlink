@@ -87,32 +87,8 @@ Market resolution (CRON trigger):
 cre workflow simulate . --non-interactive --trigger-index 0 --broadcast -T staging
 ```
 
-## Verify Contracts On Tenderly (Foundry)
-
-```bash
-cd contracts
-
-TENDERLY_VIRTUAL_TESTNET_RPC_URL="https://virtual.mainnet.eu.rpc.tenderly.co/7ab2ac7f-6262-4a2d-9271-11cb2f95b651"
-
-forge verify-contract 0x6367b12cee6105fce90b4532c513605fc061bf4d AletheiaMarket.sol:AletheiaMarket \
-  --verifier custom \
-  --verifier-url "$TENDERLY_VIRTUAL_TESTNET_RPC_URL/verify" \
-  --watch
-
-forge verify-contract 0xd9fb2c2514bee54d58aba07d07e09978c87fe881 AletheiaOracle.sol:AletheiaOracle \
-  --verifier custom \
-  --verifier-url "$TENDERLY_VIRTUAL_TESTNET_RPC_URL/verify" \
-  --watch
-```
-
 ## Repo Structure
 
 - [`frontend`](./frontend): Next.js + viem UI and wallet tx flow
 - [`contracts`](./contracts): Foundry Solidity contracts + deployment scripts
 - [`cre-workflow`](./cre-workflow): Chainlink CRE workflow (HTTP + CRON)
-
-## Notes for Judges
-
-- This submission specifically integrates **World ID + Chainlink CRE** on a Tenderly Virtual TestNet.
-- CRE simulations are used for workflow testing/execution in this environment.
-- Source code is organized by component (`frontend`, `contracts`, `cre-workflow`) and all sponsor integration points are listed above.
