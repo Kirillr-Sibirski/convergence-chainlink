@@ -67,8 +67,8 @@ async function main() {
   const rpcUrl =
     getArg("--rpc-url") ??
     process.env.RPC_URL ??
-    "https://virtual.mainnet.eu.rpc.tenderly.co/4dedea98-8407-4410-99fe-c06968afe6d1";
-  const chainId = Number.parseInt(getArg("--chain-id") ?? "9992", 10);
+    "https://virtual.mainnet.eu.rpc.tenderly.co/7ab2ac7f-6262-4a2d-9271-11cb2f95b651";
+  const chainId = Number.parseInt(getArg("--chain-id") ?? "9993", 10);
   const networkName = getArg("--network-name") ?? "Tenderly Virtual TestNet";
   const existingCollateralArg = getArg("--collateral-token");
 

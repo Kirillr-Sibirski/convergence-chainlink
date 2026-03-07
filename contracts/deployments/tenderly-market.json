@@ -1,6 +1,6 @@
 {
-  "market": "0x73ce74faebbb1926398f8360373490e6dd1b04dc",
-  "oracle": "0x261dc51bac926f77df587ca582f7ca739033f061",
+  "market": "0x6367b12cee6105fce90b4532c513605fc061bf4d",
+  "oracle": "0xd9fb2c2514bee54d58aba07d07e09978c87fe881",
   "collateralToken": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-  "network": "tenderly-virtual-mainnet-9992"
+  "network": "tenderly-virtual-mainnet-9993"
 }

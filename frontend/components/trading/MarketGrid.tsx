@@ -35,6 +35,25 @@ type SortOption = (typeof SORT_OPTIONS)[number]["value"];
 const MANUAL_CRE_PENDING_ERROR = "CRE_MANUAL_SIMULATION_PENDING";
 const ZERO_HASH = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
+function extractErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  if (error && typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    const candidates = ["shortMessage", "details", "reason", "message"];
+    for (const key of candidates) {
+      const value = record[key];
+      if (typeof value === "string" && value.trim()) return value;
+    }
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return "Unknown error";
+    }
+  }
+  return "Unknown error";
+}
+
 function formatVolumeEth(value: bigint) {
   const n = Number(value) / 10 ** CONTRACTS.COLLATERAL_DECIMALS;
   return `${n.toFixed(2)} ${CONTRACTS.COLLATERAL_SYMBOL}`;
@@ -323,13 +342,13 @@ export function MarketGrid({ markets, isLoading, error, onRefresh }: MarketGridP
         description: question,
       });
     } catch (createError) {
-      const description = createError instanceof Error ? createError.message : "Unknown error";
+      const description = extractErrorMessage(createError);
       pushNotification({
         variant: "error",
         title: "Failed to create market",
         description,
       });
-      throw createError instanceof Error ? createError : new Error(description);
+      throw new Error(description);
     }
   };
 

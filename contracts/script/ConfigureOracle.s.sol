@@ -13,7 +13,7 @@ import "../AletheiaOracle.sol";
  * - PRIVATE_KEY (required)
  * - ORACLE_ADDRESS (optional if deployments JSON is provided)
  * - PREDICTION_MARKET_ADDRESS (optional if deployments JSON is provided)
- * - DEPLOYMENTS_FILE (optional, defaults to deployments/tenderly-9992.json)
+ * - DEPLOYMENTS_FILE (optional, defaults to deployments/tenderly-9993.json)
  * - FORWARDER_ADDRESS (optional)
  * - EXPECTED_AUTHOR (optional)
  * - EXPECTED_WORKFLOW_NAME (optional)
@@ -26,7 +26,7 @@ contract ConfigureOracleScript is Script {
         if (vm.envExists("DEPLOYMENTS_FILE")) {
             return vm.envString("DEPLOYMENTS_FILE");
         }
-        return "deployments/tenderly-9992.json";
+        return "deployments/tenderly-9993.json";
     }
 
     function _loadOracleAddress() internal returns (address) {

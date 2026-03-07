@@ -52,28 +52,28 @@ Permissionless binary prediction markets with Chainlink CRE orchestration, World
 
 ## Tenderly Virtual TestNet Deployment
 
-- Chain ID: `9992`
+- Chain ID: `9993`
 - Public RPC (for frontend, docs, demos):
-  - `https://virtual.mainnet.eu.rpc.tenderly.co/4dedea98-8407-4410-99fe-c06968afe6d1`
+  - `https://virtual.mainnet.eu.rpc.tenderly.co/7ab2ac7f-6262-4a2d-9271-11cb2f95b651`
 - Admin RPC is intentionally not documented in-repo; keep it local in `.env` for deploy/config operations.
 - Explorer root:
-  - [Tenderly VNet Explorer](https://dashboard.tenderly.co/explorer/vnet/4dedea98-8407-4410-99fe-c06968afe6d1)
+  - [Tenderly VNet Explorer](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651)
 
 ### Deployed contracts (clickable explorer links)
 
-- Oracle: [`0x261dc51bac926f77df587ca582f7ca739033f061`](https://dashboard.tenderly.co/explorer/vnet/4dedea98-8407-4410-99fe-c06968afe6d1/address/0x261dc51bac926f77df587ca582f7ca739033f061)
-- Market: [`0x73ce74faebbb1926398f8360373490e6dd1b04dc`](https://dashboard.tenderly.co/explorer/vnet/4dedea98-8407-4410-99fe-c06968afe6d1/address/0x73ce74faebbb1926398f8360373490e6dd1b04dc)
-- Collateral (USDC on mainnet fork): [`0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`](https://dashboard.tenderly.co/explorer/vnet/4dedea98-8407-4410-99fe-c06968afe6d1/address/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48)
-- Chainlink Forwarder (CRE sender): [`0xA3D1AD4Ac559a6575a114998AffB2fB2Ec97a7D9`](https://dashboard.tenderly.co/explorer/vnet/4dedea98-8407-4410-99fe-c06968afe6d1/address/0xA3D1AD4Ac559a6575a114998AffB2fB2Ec97a7D9)
-- World ID Router (configured verifier): [`0x469449f251692E0779667583026b5A1E99512157`](https://dashboard.tenderly.co/explorer/vnet/4dedea98-8407-4410-99fe-c06968afe6d1/address/0x469449f251692E0779667583026b5A1E99512157)
+- Oracle: [`0xd9fb2c2514bee54d58aba07d07e09978c87fe881`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/address/0xd9fb2c2514bee54d58aba07d07e09978c87fe881)
+- Market: [`0x6367b12cee6105fce90b4532c513605fc061bf4d`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/address/0x6367b12cee6105fce90b4532c513605fc061bf4d)
+- Collateral (USDC on mainnet fork): [`0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/address/0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48)
+- Chainlink Forwarder (CRE sender): [`0xA3D1AD4Ac559a6575a114998AffB2fB2Ec97a7D9`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/address/0xA3D1AD4Ac559a6575a114998AffB2fB2Ec97a7D9)
+- World ID Router (configured verifier): [`0x469449f251692E0779667583026b5A1E99512157`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/address/0x469449f251692E0779667583026b5A1E99512157)
 
 ### Deployment / wiring transactions
 
-- Oracle deploy: [`0x8e336dded1cbe27731d845f75a5cad70f1242318e85fc1ce64476251a501a52e`](https://dashboard.tenderly.co/explorer/vnet/4dedea98-8407-4410-99fe-c06968afe6d1/tx/0x8e336dded1cbe27731d845f75a5cad70f1242318e85fc1ce64476251a501a52e)
-- Market deploy: [`0xc32aeeac5b17395294932a4eb40eb320feacbc25659ce8bc02c91e1653556e96`](https://dashboard.tenderly.co/explorer/vnet/4dedea98-8407-4410-99fe-c06968afe6d1/tx/0xc32aeeac5b17395294932a4eb40eb320feacbc25659ce8bc02c91e1653556e96)
-- Disable 24h limit (testing mode): [`0x47d5484d8c04597e2802dfa5101bdab5fd3cc7050b0f9ac0e8f7e810d8fce91b`](https://dashboard.tenderly.co/explorer/vnet/4dedea98-8407-4410-99fe-c06968afe6d1/tx/0x47d5484d8c04597e2802dfa5101bdab5fd3cc7050b0f9ac0e8f7e810d8fce91b)
-- Disable nullifier uniqueness (testing mode): [`0xae326e5a1f833b5b5a1aca4e15da4f530e2168fcc88a70d1d101bce7959a9b66`](https://dashboard.tenderly.co/explorer/vnet/4dedea98-8407-4410-99fe-c06968afe6d1/tx/0xae326e5a1f833b5b5a1aca4e15da4f530e2168fcc88a70d1d101bce7959a9b66)
-- Oracle -> Market wiring: [`0x4f306b3acd78a65479bf6f5ef613a3f877e375beda558428defed9aab3e9db12`](https://dashboard.tenderly.co/explorer/vnet/4dedea98-8407-4410-99fe-c06968afe6d1/tx/0x4f306b3acd78a65479bf6f5ef613a3f877e375beda558428defed9aab3e9db12)
+- Oracle deploy: [`0xf3c70ae9a068063096428d8bcbebc3456327110f17d8f1303eb4a4fe4286796f`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/tx/0xf3c70ae9a068063096428d8bcbebc3456327110f17d8f1303eb4a4fe4286796f)
+- Market deploy: [`0x01b5dcafe2a027649656eb2e4aae40e9705861716d54ea8b5bb05ed23030202e`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/tx/0x01b5dcafe2a027649656eb2e4aae40e9705861716d54ea8b5bb05ed23030202e)
+- Disable 24h limit (testing mode): [`0x644962d004f2685474459e3e90e419d8baf1e677ffad2080ee83185dac4b00bd`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/tx/0x644962d004f2685474459e3e90e419d8baf1e677ffad2080ee83185dac4b00bd)
+- Disable nullifier uniqueness (testing mode): [`0x2538c556af2c958f1d026ce06648c0e6c2ca94112a781f24085f7a890a095b78`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/tx/0x2538c556af2c958f1d026ce06648c0e6c2ca94112a781f24085f7a890a095b78)
+- Oracle -> Market wiring: [`0x6619d85f33e2412e519488078933f78255f4125553d90ca6bb4afbc303478d06`](https://dashboard.tenderly.co/explorer/vnet/7ab2ac7f-6262-4a2d-9271-11cb2f95b651/tx/0x6619d85f33e2412e519488078933f78255f4125553d90ca6bb4afbc303478d06)
 
 ## CRE Workflow Execution (Demo)
 
@@ -95,6 +95,24 @@ Market resolution (CRON trigger):
 
 ```bash
 cre workflow simulate . --non-interactive --trigger-index 0 --broadcast -T staging
+```
+
+## Verify Contracts On Tenderly (Foundry)
+
+```bash
+cd contracts
+
+TENDERLY_VIRTUAL_TESTNET_RPC_URL="https://virtual.mainnet.eu.rpc.tenderly.co/7ab2ac7f-6262-4a2d-9271-11cb2f95b651"
+
+forge verify-contract 0x6367b12cee6105fce90b4532c513605fc061bf4d AletheiaMarket.sol:AletheiaMarket \
+  --verifier custom \
+  --verifier-url "$TENDERLY_VIRTUAL_TESTNET_RPC_URL/verify" \
+  --watch
+
+forge verify-contract 0xd9fb2c2514bee54d58aba07d07e09978c87fe881 AletheiaOracle.sol:AletheiaOracle \
+  --verifier custom \
+  --verifier-url "$TENDERLY_VIRTUAL_TESTNET_RPC_URL/verify" \
+  --watch
 ```
 
 ## Repo Structure

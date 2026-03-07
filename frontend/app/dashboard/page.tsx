@@ -13,11 +13,13 @@ import { useMarkets } from "@/hooks/useMarkets";
 import { CONTRACTS } from "@/lib/contracts";
 import {
   claimWinnings,
+  fetchUserBetEntries,
   formatCollateral,
   getOraclePendingResolutionCount,
   getUserBet,
   getUserClaimablePayout,
   type UIMarket,
+  type UserBetEntry,
 } from "@/lib/web3-viem";
 import { CRE_SIM_CMD } from "@/lib/cre-gate";
 
@@ -29,11 +31,17 @@ type Position = {
   claimable: bigint;
 };
 
+type BetCardEntry = {
+  market: UIMarket;
+  entry: UserBetEntry;
+};
+
 export default function DashboardPage() {
   const { account, connect, isConnecting } = useWallet();
   const { markets, isLoading, error, refresh } = useMarkets();
   const [nowTs, setNowTs] = useState(() => Math.floor(Date.now() / 1000));
   const [positions, setPositions] = useState<Position[]>([]);
+  const [betEntries, setBetEntries] = useState<UserBetEntry[]>([]);
   const [positionsLoading, setPositionsLoading] = useState(false);
   const [claimingId, setClaimingId] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -43,6 +51,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!account || markets.length === 0) {
       setPositions([]);
+      setBetEntries([]);
       return;
     }
 
@@ -50,25 +59,32 @@ export default function DashboardPage() {
     const load = async () => {
       setPositionsLoading(true);
       try {
-        const rows = await Promise.all(
-          markets.map(async (market) => {
-            const bet = await getUserBet(market.id, account as `0x${string}`);
-            const [canClaim, payout] = await getUserClaimablePayout(market.id, account as `0x${string}`);
-            return {
-              market,
-              yesAmount: bet.yesAmount,
-              noAmount: bet.noAmount,
-              canClaim,
-              claimable: payout,
-            } satisfies Position;
-          })
-        );
+        const [rows, entries] = await Promise.all([
+          Promise.all(
+            markets.map(async (market) => {
+              const bet = await getUserBet(market.id, account as `0x${string}`);
+              const [canClaim, payout] = await getUserClaimablePayout(market.id, account as `0x${string}`);
+              return {
+                market,
+                yesAmount: bet.yesAmount,
+                noAmount: bet.noAmount,
+                canClaim,
+                claimable: payout,
+              } satisfies Position;
+            })
+          ),
+          fetchUserBetEntries(account as `0x${string}`),
+        ]);
 
         if (cancelled) return;
         setPositions(rows.filter((r) => r.yesAmount > BigInt(0) || r.noAmount > BigInt(0)));
+        setBetEntries(entries);
       } catch (err) {
         console.error("Failed to load user positions:", err);
-        if (!cancelled) setPositions([]);
+        if (!cancelled) {
+          setPositions([]);
+          setBetEntries([]);
+        }
       } finally {
         if (!cancelled) setPositionsLoading(false);
       }
@@ -86,10 +102,16 @@ export default function DashboardPage() {
     return oraclePendingCreResolution;
   }, [oraclePendingCreResolution]);
   const creBlocked = pendingCreResolution > 0;
-  const openPositions = useMemo(
-    () => [...positions].filter((p) => !p.market.settled),
-    [positions]
-  );
+  const openBetEntries = useMemo(() => {
+    const marketMap = new Map(markets.map((m) => [m.id, m]));
+    const cards: BetCardEntry[] = [];
+    for (const entry of betEntries) {
+      const market = marketMap.get(entry.marketId);
+      if (!market || market.settled) continue;
+      cards.push({ market, entry });
+    }
+    return cards;
+  }, [betEntries, markets]);
   const resolvedPositions = useMemo(
     () => [...positions].filter((p) => p.market.settled && p.canClaim && p.claimable > BigInt(0)),
     [positions]
@@ -296,7 +318,7 @@ export default function DashboardPage() {
                 </div>
               )}
 
-              {openPositions.length === 0 ? (
+              {openBetEntries.length === 0 ? (
                 <SpotlightCard className="p-8">
                   <div className="text-center space-y-4">
                     <h3 className="text-lg font-semibold">No Active Markets</h3>
@@ -308,15 +330,16 @@ export default function DashboardPage() {
               ) : (
                 <div className="space-y-4">
                   <h2 className="text-lg font-semibold text-gray-900">Active Markets</h2>
-                  {openPositions.map((position) => (
-                    <Link key={position.market.id} href={`/markets/${position.market.id}`} className="block">
+                  {openBetEntries.map(({ market, entry }) => (
+                    <Link key={`${market.id}-${entry.txHash}-${entry.logIndex}`} href={`/markets/${market.id}`} className="block">
                       <div className="relative overflow-hidden rounded-xl p-5 pl-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 bg-white/45 backdrop-blur-md border border-black/10">
                         {(() => {
-                          const primarySide = position.yesAmount >= position.noAmount ? "YES" : "NO";
-                          const primaryAmount = primarySide === "YES" ? position.yesAmount : position.noAmount;
+                          const primarySide = entry.onYes ? "YES" : "NO";
+                          const primaryAmount = entry.amount;
                           const stripe = primarySide === "YES" ? "bg-green-500/75" : "bg-red-500/75";
                           const glow = primarySide === "YES" ? "bg-green-400/45" : "bg-red-400/45";
-                          const secondsLeft = Math.max(0, position.market.deadline - nowTs);
+                          const isPendingResolution = market.deadline <= nowTs && !market.settled;
+                          const secondsLeft = Math.max(0, market.deadline - nowTs);
                           const days = Math.floor(secondsLeft / 86400);
                           const hours = Math.floor((secondsLeft % 86400) / 3600);
                           const minutes = Math.floor((secondsLeft % 3600) / 60);
@@ -324,27 +347,40 @@ export default function DashboardPage() {
                             ? `${days}d ${hours}h ${minutes}m`
                             : hours > 0
                             ? `${hours}h ${minutes}m`
-                            : `${minutes}m`;
+                            : minutes > 0
+                            ? `${minutes}m`
+                            : "<1m";
 
                           return (
                             <>
                               <div className={`absolute -left-4 top-1/2 -translate-y-1/2 h-28 w-12 rounded-full blur-2xl ${glow}`} />
                               <div className={`absolute left-0 top-0 h-full w-3 ${stripe}`} />
                               <div className="flex-1 min-w-0 w-full sm:w-auto space-y-1">
-                                <p className="font-medium text-sm leading-snug">{position.market.question}</p>
+                                <p className="font-medium text-sm leading-snug">{market.question}</p>
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <p className="text-[11px] inline-flex items-center rounded-full border border-gray-300 bg-white/70 px-2 py-0.5 text-gray-600 w-fit">
-                                    Active
+                                  <p
+                                    className={`text-[11px] inline-flex items-center rounded-full px-2 py-0.5 w-fit ${
+                                      isPendingResolution
+                                        ? "border border-amber-300 bg-amber-50 text-amber-800"
+                                        : "border border-gray-300 bg-white/70 text-gray-600"
+                                    }`}
+                                  >
+                                    {isPendingResolution ? "Pending" : "Active"}
                                   </p>
                                 </div>
                                 <p className="text-sm font-semibold text-gray-800">
-                                  Position: {formatCollateral(primaryAmount)} {CONTRACTS.COLLATERAL_SYMBOL}
+                                  Bet: {formatCollateral(primaryAmount)} {CONTRACTS.COLLATERAL_SYMBOL}
                                 </p>
                                 <p className="text-xs text-gray-600">
-                                  Resolution time: {new Date(position.market.deadline * 1000).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })} UTC
+                                  Resolution time: {new Date(market.deadline * 1000).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })} UTC
                                 </p>
-                                <p className="text-xs text-gray-600">
-                                  Resolves in {countdownLabel}
+                                {isPendingResolution ? (
+                                  <p className="text-xs text-amber-700">Pending resolution by CRE</p>
+                                ) : (
+                                  <p className="text-xs text-gray-600">Resolves in {countdownLabel}</p>
+                                )}
+                                <p className="text-xs text-gray-500">
+                                  Placed: {new Date(entry.timestamp * 1000).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })} UTC
                                 </p>
                               </div>
                               <div className="absolute left-0 top-0 h-full w-3 flex items-center justify-center">

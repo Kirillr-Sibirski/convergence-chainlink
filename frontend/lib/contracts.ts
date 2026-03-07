@@ -14,10 +14,10 @@ function envNumber(name: string, fallback: number): number {
 }
 
 export const CONTRACTS = {
-  ORACLE_ADDRESS: envAddress("NEXT_PUBLIC_ORACLE_ADDRESS", "0x261dc51bac926f77df587ca582f7ca739033f061"),
+  ORACLE_ADDRESS: envAddress("NEXT_PUBLIC_ORACLE_ADDRESS", "0xd9fb2c2514bee54d58aba07d07e09978c87fe881"),
   PREDICTION_MARKET_ADDRESS: envAddress(
     "NEXT_PUBLIC_PREDICTION_MARKET_ADDRESS",
-    "0x73ce74faebbb1926398f8360373490e6dd1b04dc"
+    "0x6367b12cee6105fce90b4532c513605fc061bf4d"
   ),
   COLLATERAL_TOKEN_ADDRESS: envAddress(
     "NEXT_PUBLIC_COLLATERAL_TOKEN_ADDRESS",
@@ -26,7 +26,7 @@ export const CONTRACTS = {
   COLLATERAL_SYMBOL: process.env.NEXT_PUBLIC_COLLATERAL_SYMBOL?.trim() || "USDC",
   COLLATERAL_DECIMALS: envNumber("NEXT_PUBLIC_COLLATERAL_DECIMALS", 6),
   NETWORK_NAME: process.env.NEXT_PUBLIC_NETWORK_NAME?.trim() || "Tenderly Virtual TestNet",
-  CHAIN_ID: envNumber("NEXT_PUBLIC_CHAIN_ID", 9992),
+  CHAIN_ID: envNumber("NEXT_PUBLIC_CHAIN_ID", 9993),
 } as const;
 
 export const ORACLE_ABI = [

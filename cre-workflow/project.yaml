@@ -3,11 +3,11 @@
 local-simulation:
   rpcs:
     - chain-name: ethereum-mainnet
-      url: https://virtual.mainnet.eu.rpc.tenderly.co/4dedea98-8407-4410-99fe-c06968afe6d1
+      url: https://virtual.mainnet.eu.rpc.tenderly.co/7ab2ac7f-6262-4a2d-9271-11cb2f95b651
 
 staging:
   cre-cli:
     don-family: "zone-a"
   rpcs:
     - chain-name: ethereum-mainnet
-      url: https://virtual.mainnet.eu.rpc.tenderly.co/4dedea98-8407-4410-99fe-c06968afe6d1
+      url: https://virtual.mainnet.eu.rpc.tenderly.co/7ab2ac7f-6262-4a2d-9271-11cb2f95b651

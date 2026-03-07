@@ -1,0 +1,23 @@
+{
+  "network": "Tenderly Virtual TestNet",
+  "chainId": 9993,
+  "rpcUrl": "https://virtual.mainnet.eu.rpc.tenderly.co/7ab2ac7f-6262-4a2d-9271-11cb2f95b651",
+  "deployer": "0xF6D413920c3dfE8c4195bDC7fDa9cE3bb316e948",
+  "forwarderAddress": "0xA3D1AD4Ac559a6575a114998AffB2fB2Ec97a7D9",
+  "worldIdRouterAddress": "0x469449f251692E0779667583026b5A1E99512157",
+  "worldIdAppId": "app_4b80b5d7b6aa0e9a6f62dbbc8fae0daf",
+  "worldIdAction": "create-new-market",
+  "oracleAddress": "0xd9fb2c2514bee54d58aba07d07e09978c87fe881",
+  "predictionMarketAddress": "0x6367b12cee6105fce90b4532c513605fc061bf4d",
+  "collateralTokenAddress": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+  "txs": {
+    "mockUsdcDeploy": null,
+    "mockUsdcMint": null,
+    "oracleDeploy": "0xf3c70ae9a068063096428d8bcbebc3456327110f17d8f1303eb4a4fe4286796f",
+    "marketDeploy": "0x01b5dcafe2a027649656eb2e4aae40e9705861716d54ea8b5bb05ed23030202e",
+    "disableCooldown": "0x644962d004f2685474459e3e90e419d8baf1e677ffad2080ee83185dac4b00bd",
+    "disableWorldIdNullifierUniqueness": "0x2538c556af2c958f1d026ce06648c0e6c2ca94112a781f24085f7a890a095b78",
+    "wirePredictionMarket": "0x6619d85f33e2412e519488078933f78255f4125553d90ca6bb4afbc303478d06"
+  },
+  "deployedAt": "2026-03-07T18:27:14.819Z"
+}

@@ -3,7 +3,7 @@ import { CONTRACTS } from "./contracts";
 
 const RPC_URL =
   process.env.NEXT_PUBLIC_RPC_URL ||
-  "https://virtual.mainnet.eu.rpc.tenderly.co/4dedea98-8407-4410-99fe-c06968afe6d1";
+  "https://virtual.mainnet.eu.rpc.tenderly.co/7ab2ac7f-6262-4a2d-9271-11cb2f95b651";
 const EXPLORER_URL =
   process.env.NEXT_PUBLIC_BLOCK_EXPLORER_URL ||
   "https://dashboard.tenderly.co/";

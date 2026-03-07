@@ -70,6 +70,16 @@ export interface MarketTradeEntry {
   amount: bigint;
 }
 
+export interface UserBetEntry {
+  marketId: number;
+  txHash: `0x${string}`;
+  blockNumber: bigint;
+  logIndex: number;
+  timestamp: number;
+  onYes: boolean;
+  amount: bigint;
+}
+
 export async function connectWallet(): Promise<`0x${string}`> {
   await ensureSupportedNetwork();
   const walletClient = getWalletClient();
@@ -414,6 +424,11 @@ export async function createMarketVerified(
     if (msg.includes("0x5cbfd590")) {
       throw new Error("Question is not validated by CRE for this exact question and deadline yet.");
     }
+    if (msg.includes("0x5ebfface") || msg.toLowerCase().includes("invalidvalidationproof")) {
+      throw new Error(
+        "CRE validation proof hash is missing or invalid onchain for this exact question/deadline. Re-run CRE validation first."
+      );
+    }
     if (
       msg.includes("InvalidNullifier") ||
       msg.includes("0x5d904cb2") ||
@@ -435,7 +450,7 @@ export async function createMarketVerified(
       );
     }
 
-    throw error;
+    throw new Error(msg || "Unknown error while creating market.");
   }
 }
 
@@ -780,5 +795,56 @@ export async function fetchMarketTradeHistory(marketId: number, limit = 80): Pro
     type: entry.type,
     onYes: Boolean(entry.log.args.onYes),
     amount: entry.log.args.amount as bigint,
+  }));
+}
+
+export async function fetchUserBetEntries(user: `0x${string}`, limit = 200): Promise<UserBetEntry[]> {
+  const latest = await publicClient.getBlockNumber();
+  const fallbackFrom = latest > BigInt(250000) ? latest - BigInt(250000) : BigInt(0);
+
+  const betPlacedEvent = {
+    type: "event" as const,
+    name: "BetPlaced" as const,
+    inputs: [
+      { indexed: true, name: "marketId", type: "uint256" as const },
+      { indexed: true, name: "user", type: "address" as const },
+      { indexed: false, name: "onYes", type: "bool" as const },
+      { indexed: false, name: "amount", type: "uint256" as const },
+    ],
+  };
+
+  const logs = await getLogsChunked({
+    address: CONTRACTS.PREDICTION_MARKET_ADDRESS,
+    event: betPlacedEvent,
+    args: { user },
+    fromBlock: fallbackFrom,
+    toBlock: latest,
+  });
+
+  if (logs.length === 0) return [];
+
+  const ordered = [...logs]
+    .sort((a, b) => {
+      if (a.blockNumber === b.blockNumber) {
+        return Number((b.logIndex ?? 0) - (a.logIndex ?? 0));
+      }
+      return Number(b.blockNumber - a.blockNumber);
+    })
+    .slice(0, Math.max(1, limit));
+
+  const blockSet = new Set<bigint>(ordered.map((e) => e.blockNumber));
+  const blockEntries = await Promise.all(
+    Array.from(blockSet).map(async (bn) => [bn, await publicClient.getBlock({ blockNumber: bn })] as const)
+  );
+  const blockTs = new Map<bigint, number>(blockEntries.map(([bn, b]) => [bn, Number(b.timestamp)]));
+
+  return ordered.map((entry) => ({
+    marketId: Number(entry.args.marketId),
+    txHash: entry.transactionHash,
+    blockNumber: entry.blockNumber,
+    logIndex: entry.logIndex ?? 0,
+    timestamp: blockTs.get(entry.blockNumber) ?? Math.floor(Date.now() / 1000),
+    onYes: Boolean(entry.args.onYes),
+    amount: entry.args.amount as bigint,
   }));
 }

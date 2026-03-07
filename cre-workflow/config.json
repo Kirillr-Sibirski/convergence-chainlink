@@ -1,6 +1,6 @@
 {
   "cronSchedule": "*/10 * * * *",
-  "oracleAddress": "0x261dc51bac926f77df587ca582f7ca739033f061",
+  "oracleAddress": "0xd9fb2c2514bee54d58aba07d07e09978c87fe881",
   "chainSelectorName": "ethereum-mainnet",
   "isTestnet": false,
   "gasLimit": "500000"
