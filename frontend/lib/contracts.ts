@@ -1,5 +1,3 @@
-export const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as const;
-
 function envAddress(name: string, fallback: `0x${string}`): `0x${string}` {
   const value = process.env[name]?.trim();
   if (value && /^0x[a-fA-F0-9]{40}$/.test(value)) {
@@ -19,7 +17,7 @@ export const CONTRACTS = {
   ORACLE_ADDRESS: envAddress("NEXT_PUBLIC_ORACLE_ADDRESS", "0x261dc51bac926f77df587ca582f7ca739033f061"),
   PREDICTION_MARKET_ADDRESS: envAddress(
     "NEXT_PUBLIC_PREDICTION_MARKET_ADDRESS",
-    "0x26c49b5a46980e0489bce262bb03d442b02baa38"
+    "0x73ce74faebbb1926398f8360373490e6dd1b04dc"
   ),
   COLLATERAL_TOKEN_ADDRESS: envAddress(
     "NEXT_PUBLIC_COLLATERAL_TOKEN_ADDRESS",
@@ -28,9 +26,6 @@ export const CONTRACTS = {
   COLLATERAL_SYMBOL: process.env.NEXT_PUBLIC_COLLATERAL_SYMBOL?.trim() || "USDC",
   COLLATERAL_DECIMALS: envNumber("NEXT_PUBLIC_COLLATERAL_DECIMALS", 6),
   NETWORK_NAME: process.env.NEXT_PUBLIC_NETWORK_NAME?.trim() || "Tenderly Virtual TestNet",
-  FACTORY_ADDRESS: ZERO_ADDRESS,
-  AEEIA_TOKEN_ADDRESS: ZERO_ADDRESS,
-  STAKING_ADDRESS: ZERO_ADDRESS,
   CHAIN_ID: envNumber("NEXT_PUBLIC_CHAIN_ID", 9992),
 } as const;
 

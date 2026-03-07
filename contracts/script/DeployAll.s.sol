@@ -14,6 +14,15 @@ contract DeployAllScript is Script {
         address worldIdAddress = vm.envAddress("WORLD_ID_ROUTER_ADDRESS");
         string memory worldIdAppId = vm.envString("WORLD_ID_APP_ID");
         string memory worldIdAction = vm.envString("WORLD_ID_ACTION");
+        bool disableSafetyForTesting = false;
+        if (vm.envExists("DISABLE_SAFETY_FOR_TESTING")) {
+            string memory raw = vm.envString("DISABLE_SAFETY_FOR_TESTING");
+            bytes32 hashed = keccak256(bytes(raw));
+            disableSafetyForTesting =
+                hashed == keccak256(bytes("1")) ||
+                hashed == keccak256(bytes("true")) ||
+                hashed == keccak256(bytes("TRUE"));
+        }
         require(forwarderAddress != address(0), "FORWARDER_ADDRESS not set");
         require(worldIdAddress != address(0), "WORLD_ID_ROUTER_ADDRESS not set");
 
@@ -45,10 +54,14 @@ contract DeployAllScript is Script {
         AletheiaMarket market =
             new AletheiaMarket(address(oracle), collateralTokenAddress, worldIdAddress, worldIdAppId, worldIdAction);
         console.log("AletheiaMarket deployed at:", address(market));
-        market.setDailyMarketCreationLimitEnabled(false);
-        market.setWorldIdNullifierUniquenessEnabled(false);
-        console.log("Market creation 24h limit disabled (testing mode)");
-        console.log("World ID nullifier uniqueness disabled (testing mode)");
+        if (disableSafetyForTesting) {
+            market.setDailyMarketCreationLimitEnabled(false);
+            market.setWorldIdNullifierUniquenessEnabled(false);
+            console.log("Market creation 24h limit disabled (testing mode)");
+            console.log("World ID nullifier uniqueness disabled (testing mode)");
+        } else {
+            console.log("Safety flags left at contract defaults");
+        }
 
         // Wire oracle -> market callback for CRE-driven auto-settlement
         oracle.setPredictionMarket(address(market));

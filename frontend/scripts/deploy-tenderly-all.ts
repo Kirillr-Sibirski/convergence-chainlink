@@ -165,6 +165,24 @@ async function main() {
   if (!marketAddress) throw new Error("Market deployment missing contractAddress");
   console.log(`Market: ${marketAddress}`);
 
+  console.log("Disabling market creation cooldown for testing...");
+  const disableCooldownHash = await walletClient.writeContract({
+    address: marketAddress,
+    abi: marketArtifact.abi as any,
+    functionName: "setDailyMarketCreationLimitEnabled",
+    args: [false],
+  });
+  await publicClient.waitForTransactionReceipt({ hash: disableCooldownHash });
+
+  console.log("Disabling World ID nullifier uniqueness for testing...");
+  const disableNullifierUniquenessHash = await walletClient.writeContract({
+    address: marketAddress,
+    abi: marketArtifact.abi as any,
+    functionName: "setWorldIdNullifierUniquenessEnabled",
+    args: [false],
+  });
+  await publicClient.waitForTransactionReceipt({ hash: disableNullifierUniquenessHash });
+
   console.log("Wiring oracle.setPredictionMarket...");
   const setMarketHash = await walletClient.writeContract({
     address: oracleAddress,
@@ -191,6 +209,8 @@ async function main() {
       mockUsdcMint: mintHash,
       oracleDeploy: oracleHash,
       marketDeploy: marketHash,
+      disableCooldown: disableCooldownHash,
+      disableWorldIdNullifierUniqueness: disableNullifierUniquenessHash,
       wirePredictionMarket: setMarketHash,
     },
     deployedAt: new Date().toISOString(),

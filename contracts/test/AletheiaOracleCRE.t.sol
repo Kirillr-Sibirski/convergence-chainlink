@@ -49,9 +49,15 @@ contract AletheiaOracleCRETest is Test {
 
     function test_onReport_onlyForwarder() public {
         bytes memory report = abi.encode(uint8(1), uint256(1), true, uint8(90), keccak256("proof"));
-
-        vm.expectRevert(ReceiverTemplate.InvalidSender.selector);
-        oracle.onReport("", report);
+        (bool ok, bytes memory revertData) = address(oracle).call(
+            abi.encodeWithSelector(IReceiver.onReport.selector, "", report)
+        );
+        assertFalse(ok);
+        bytes4 selector;
+        assembly {
+            selector := mload(add(revertData, 32))
+        }
+        assertEq(selector, ReceiverTemplate.InvalidSender.selector);
     }
 
     function test_creReport_autoSettlesMarket() public {
@@ -73,7 +79,8 @@ contract AletheiaOracleCRETest is Test {
         forwarder.push(address(oracle), "", validationReport);
 
         uint256[8] memory proof;
-        uint256 marketId = market.createMarketVerified(question, deadline, 1, 0, 123, proof);
+        proof[0] = 1;
+        uint256 marketId = market.createMarketVerified(question, deadline, 1, 1, 123, proof);
 
         vm.warp(deadline + 1);
 
@@ -84,5 +91,51 @@ contract AletheiaOracleCRETest is Test {
         (,,,,, bool settled, bool outcome,) = market.markets(marketId);
         assertTrue(settled);
         assertTrue(outcome);
+    }
+
+    function test_disableNullifierUniqueness_allowsReuseInTestingMode() public {
+        market.setWorldIdNullifierUniquenessEnabled(false);
+
+        uint256[8] memory proof;
+        proof[0] = 1;
+        uint256 reusedNullifier = 777;
+        uint256 signalHash = 1;
+
+        uint256 deadlineA = block.timestamp + 1 days;
+        string memory questionA = "Will ETH close above $6k?";
+        bytes32 digestA = keccak256(abi.encode(questionA, deadlineA));
+        bytes memory validationReportA = abi.encode(
+            uint8(3),
+            digestA,
+            true,
+            uint8(95),
+            true,
+            true,
+            true,
+            true,
+            keccak256("validation-proof-a")
+        );
+        forwarder.push(address(oracle), "", validationReportA);
+        uint256 firstMarketId = market.createMarketVerified(questionA, deadlineA, 1, signalHash, reusedNullifier, proof);
+
+        uint256 deadlineB = block.timestamp + 2 days;
+        string memory questionB = "Will BTC close below $100k?";
+        bytes32 digestB = keccak256(abi.encode(questionB, deadlineB));
+        bytes memory validationReportB = abi.encode(
+            uint8(3),
+            digestB,
+            true,
+            uint8(93),
+            true,
+            true,
+            true,
+            true,
+            keccak256("validation-proof-b")
+        );
+        forwarder.push(address(oracle), "", validationReportB);
+        uint256 secondMarketId = market.createMarketVerified(questionB, deadlineB, 1, signalHash, reusedNullifier, proof);
+
+        assertEq(firstMarketId, 1);
+        assertEq(secondMarketId, 2);
     }
 }

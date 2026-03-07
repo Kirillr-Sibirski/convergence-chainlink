@@ -11,8 +11,9 @@ import "../AletheiaOracle.sol";
  *
  * Env vars:
  * - PRIVATE_KEY (required)
- * - ORACLE_ADDRESS (optional if deployments/sepolia-oracle.json exists)
- * - PREDICTION_MARKET_ADDRESS (optional if deployments/sepolia-market.json exists)
+ * - ORACLE_ADDRESS (optional if deployments JSON is provided)
+ * - PREDICTION_MARKET_ADDRESS (optional if deployments JSON is provided)
+ * - DEPLOYMENTS_FILE (optional, defaults to deployments/tenderly-9992.json)
  * - FORWARDER_ADDRESS (optional)
  * - EXPECTED_AUTHOR (optional)
  * - EXPECTED_WORKFLOW_NAME (optional)
@@ -21,13 +22,20 @@ import "../AletheiaOracle.sol";
 contract ConfigureOracleScript is Script {
     using stdJson for string;
 
+    function _deploymentFile() internal returns (string memory) {
+        if (vm.envExists("DEPLOYMENTS_FILE")) {
+            return vm.envString("DEPLOYMENTS_FILE");
+        }
+        return "deployments/tenderly-9992.json";
+    }
+
     function _loadOracleAddress() internal returns (address) {
         if (vm.envExists("ORACLE_ADDRESS")) {
             return vm.envAddress("ORACLE_ADDRESS");
         }
 
-        string memory oracleJson = vm.readFile("deployments/sepolia-oracle.json");
-        return oracleJson.readAddress(".oracle");
+        string memory deploymentJson = vm.readFile(_deploymentFile());
+        return deploymentJson.readAddress(".oracleAddress");
     }
 
     function _loadMarketAddress() internal returns (address) {
@@ -35,8 +43,8 @@ contract ConfigureOracleScript is Script {
             return vm.envAddress("PREDICTION_MARKET_ADDRESS");
         }
 
-        string memory marketJson = vm.readFile("deployments/sepolia-market.json");
-        return marketJson.readAddress(".market");
+        string memory deploymentJson = vm.readFile(_deploymentFile());
+        return deploymentJson.readAddress(".predictionMarketAddress");
     }
 
     function run() external {
